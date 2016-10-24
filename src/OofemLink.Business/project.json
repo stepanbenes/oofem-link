@@ -3,8 +3,8 @@
 
     "dependencies": {
         "NETStandard.Library": "1.6.0",
-        "OofemLink.Common": "1.0.0-*",
-        "OofemLink.Data": "1.0.0-*"
+        "OofemLink.Common": "0.1.0-*",
+        "OofemLink.Data": "0.1.0-*"
     },
 
   "frameworks": {

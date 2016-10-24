@@ -15,8 +15,8 @@
             "type": "platform",
             "version": "1.0.1"
         },
-        "OofemLink.Business": "1.0.0-*",
-        "OofemLink.Common": "1.0.0-*"
+        "OofemLink.Business": "0.1.0-*",
+        "OofemLink.Common": "0.1.0-*"
     },
 
     "frameworks": {
