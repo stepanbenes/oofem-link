@@ -1,21 +1,27 @@
 ﻿{
-  "version": "1.0.0-*",
-  "buildOptions": {
-    "emitEntryPoint": true
-  },
-
-  "dependencies": {
-    "Microsoft.NETCore.App": {
-        "type": "platform",
-        "version": "1.0.1"
+    "title": "OOFEM-link",
+    "copyright": "Copyright (c) 2016-2017 OOFEM team",
+    "description": "Public interface for OOFEM solver. File conversion engine, execution control, model and results database administration.",
+    "version": "0.1.0-*",
+    "authors": [ "OOFEM team" ],
+    
+    "buildOptions": {
+        "emitEntryPoint": true
     },
-    "OofemLink.Business": "1.0.0-*",
-    "OofemLink.Common": "1.0.0-*"
-  },
 
-  "frameworks": {
-    "netcoreapp1.0": {
-      "imports": "dnxcore50"
+    "dependencies": {
+        "CommandLineParser.Unofficial": "2.0.275",
+        "Microsoft.NETCore.App": {
+            "type": "platform",
+            "version": "1.0.1"
+        },
+        "OofemLink.Business": "1.0.0-*",
+        "OofemLink.Common": "1.0.0-*"
+    },
+
+    "frameworks": {
+        "netcoreapp1.0": {
+            "imports": "dnxcore50"
+        }
     }
-  }
 }
