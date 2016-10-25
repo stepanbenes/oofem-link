@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.Extensions.DependencyInjection;
 using OofemLink.Data.MeshEntities;
 using OofemLink.Data.ModelEntities;
 
@@ -11,12 +12,36 @@ namespace OofemLink.Data
 {
     public class DataContext : DbContext
     {
+		public static DbContextOptions<DataContext> CreateNewInMemoryContextOptions()
+		{
+			// Create a fresh service provider, and therefore a fresh 
+			// InMemory database instance.
+			var serviceProvider = new ServiceCollection()
+				.AddEntityFrameworkInMemoryDatabase()
+				.BuildServiceProvider();
+
+			// Create a new options instance telling the context to use an
+			// InMemory database and the new service provider.
+			var builder = new DbContextOptionsBuilder<DataContext>();
+			builder.UseInMemoryDatabase()
+				   .UseInternalServiceProvider(serviceProvider);
+
+			return builder.Options;
+		}
+
+		public DataContext()
+		{ }
+
+		public DataContext(DbContextOptions<DataContext> options)
+            : base(options)
+        { }
+
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
 			if (!optionsBuilder.IsConfigured)
 			{
 				//optionsBuilder.UseInMemoryDatabase();
-				//optionsBuilder.UseSqlite("Filename=./oofem.db");
+				//optionsBuilder.UseSqlite("Filename=./oofem.db", b => b.MigrationsAssembly("OofemLink.WebApi"));
 				optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=oofem_db;Trusted_Connection=True;", b => b.MigrationsAssembly("OofemLink.WebApi"));
 			}
 		}

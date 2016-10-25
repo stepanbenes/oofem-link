@@ -26,6 +26,27 @@ namespace OofemLink.Console
 				WriteLine("Location: " + location);
 				WriteLine("Format: " + options.Format);
 			}
+
+			//var dataContextOptions = Data.DataContext.CreateNewInMemoryContextOptions();
+
+			//using (var db = new Data.DataContext())
+			//{
+			//	for (int i = 0; i < 1000; i++)
+			//	{
+			//		db.Projects.Add(new Data.Project { Name = "Test " + i });
+			//	}
+			//	db.SaveChanges();
+			//}
+
+			using (var db = new Data.DataContext())
+			{
+				WriteLine("Projects:");
+				foreach (var project in db.Projects)
+				{
+					WriteLine(project.Name);
+				}
+			}
+
 			return 0;
 		}
 	}
