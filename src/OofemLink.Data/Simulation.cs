@@ -13,6 +13,8 @@ namespace OofemLink.Data
 		public virtual int ProjectId { get; set; }
 		public virtual Project Project { get; set; }
 
+		//public string TaskName { get; set; }
+
 		public SimulationState State { get; set; }
 	}
 }
