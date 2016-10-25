@@ -7,7 +7,7 @@ namespace OofemLink.Data.MeshEntities
 {
     public class Beam : Element
     {
-		public int Node1Id { get; set; }
-		public int Node2Id { get; set; }
+		public int StartNodeId { get; set; }
+		public int EndNodeId { get; set; }
 	}
 }

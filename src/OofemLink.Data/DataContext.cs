@@ -10,8 +10,8 @@ using OofemLink.Data.ModelEntities;
 
 namespace OofemLink.Data
 {
-    public class DataContext : DbContext
-    {
+	public class DataContext : DbContext
+	{
 		public static DbContextOptions<DataContext> CreateNewInMemoryContextOptions()
 		{
 			// Create a fresh service provider, and therefore a fresh 
@@ -33,17 +33,14 @@ namespace OofemLink.Data
 		{ }
 
 		public DataContext(DbContextOptions<DataContext> options)
-            : base(options)
-        { }
+			: base(options)
+		{ }
 
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
-			if (!optionsBuilder.IsConfigured)
-			{
-				//optionsBuilder.UseInMemoryDatabase();
-				//optionsBuilder.UseSqlite("Filename=./oofem.db", b => b.MigrationsAssembly("OofemLink.WebApi"));
-				optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=oofem_db;Trusted_Connection=True;", b => b.MigrationsAssembly("OofemLink.WebApi"));
-			}
+			//optionsBuilder.UseInMemoryDatabase();
+			//optionsBuilder.UseSqlite("Filename=./oofem.db", b => b.MigrationsAssembly("OofemLink.WebApi"));
+			optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=oofem_db;Trusted_Connection=True;", b => b.MigrationsAssembly("OofemLink.WebApi"));
 		}
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
