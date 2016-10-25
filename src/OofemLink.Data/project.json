@@ -2,13 +2,17 @@
     "version": "0.1.0-*",
 
     "dependencies": {
+        "Microsoft.EntityFrameworkCore": "1.0.1",
+        "Microsoft.EntityFrameworkCore.InMemory": "1.0.1",
+        "Microsoft.EntityFrameworkCore.Sqlite": "1.0.1",
+        "Microsoft.EntityFrameworkCore.SqlServer": "1.0.1",
         "NETStandard.Library": "1.6.0",
         "OofemLink.Common": "0.1.0-*"
     },
 
-  "frameworks": {
-    "netstandard1.6": {
-      "imports": "dnxcore50"
+    "frameworks": {
+        "netstandard1.6": {
+            "imports": "dnxcore50"
+        }
     }
-  }
 }

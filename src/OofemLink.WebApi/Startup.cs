@@ -29,6 +29,8 @@ namespace OofemLink.WebApi
         {
             // Add framework services.
             services.AddMvc();
+
+			services.AddDbContext<Data.DataContext>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
