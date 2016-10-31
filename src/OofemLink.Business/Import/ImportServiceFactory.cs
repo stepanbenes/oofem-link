@@ -12,8 +12,8 @@ namespace OofemLink.Business.Import
 		{
 			switch (source)
 			{
-				case ImportSource.SEN:
-					return new SciaEngineerImportService(location);
+				case ImportSource.ESA:
+					return new EsaImportService(location);
 				default:
 					throw new NotSupportedException();
 			}

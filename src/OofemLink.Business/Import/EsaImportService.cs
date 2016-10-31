@@ -3,16 +3,17 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using OofemLink.Data;
 using OofemLink.Data.MeshEntities;
 using OofemLink.Data.ModelEntities;
 
 namespace OofemLink.Business.Import
 {
-	class SciaEngineerImportService : IImportService
+	class EsaImportService : IImportService
 	{
 		readonly string location;
 
-		public SciaEngineerImportService(string location)
+		public EsaImportService(string location)
 		{
 			this.location = location;
 		}
@@ -98,5 +99,14 @@ namespace OofemLink.Business.Import
 
 			return mesh;
 		}
+
+		public Simulation ImportSimulation()
+		{
+			return new Simulation();
+		}
+
+		#region Private methods
+
+		#endregion
 	}
 }

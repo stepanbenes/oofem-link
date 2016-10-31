@@ -5,42 +5,26 @@ using System.Linq;
 using System.Threading.Tasks;
 using OofemLink.Business.Import;
 using OofemLink.Data;
+using OofemLink.Data.ModelEntities;
 
 namespace OofemLink.Business
 {
     public class ModelBuilder
     {
-		int? modelId;
+		readonly Model model;
 
-		public ModelBuilder(/*ILogger logger*/)
+		private ModelBuilder(Model model)
 		{
-
+			Debug.Assert(model != null);
+			this.model = model;
 		}
 
-		public void ImportModel(IModelImportService importService)
-		{
-			Debug.Assert(!modelId.HasValue);
-			var model = importService.ImportModel();
-			using (var context = new DataContext())
-			{
-				context.Models.Add(model);
-				context.SaveChanges();
-				this.modelId = model.Id;
-			}
-		}
+		public ModelBuilder()
+			: this(new Model())
+		{ }
 
-		public void ImportMesh(IMeshImportService importService)
-		{
-			Debug.Assert(modelId.HasValue);
-			var mesh = importService.ImportMesh();
-			mesh.ModelId = this.modelId.Value;
-			using (var context = new DataContext())
-			{
-				context.Meshes.Add(mesh);
-				context.SaveChanges();
-			}
-		}
+		public static ModelBuilder CreateFromExistingModel(Model model) => new ModelBuilder(model);
 
-		//public void AddMacro(Macro newMacro) { }
+		//public ModelBuilder AddMacro(Macro newMacro) { }
 	}
 }

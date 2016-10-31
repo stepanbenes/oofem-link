@@ -7,7 +7,7 @@ namespace OofemLink.Data.ModelEntities
 {
     public class Surface : ModelEntity
     {
-		public virtual int MacroId { get; set; }
+		public int MacroId { get; set; }
 		public virtual Macro Macro { get; set; }
 	}
 }

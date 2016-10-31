@@ -7,7 +7,7 @@ namespace OofemLink.Data.ModelEntities.Attributes
 {
     public abstract class Attribute : ModelEntity
     {
-		public virtual int MacroId { get; set; }
+		public int MacroId { get; set; }
 		public virtual Macro Macro { get; set; }
 	}
 }

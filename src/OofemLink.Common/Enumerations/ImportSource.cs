@@ -7,7 +7,7 @@ namespace OofemLink.Common.Enumerations
 {
 	public enum ImportSource
 	{
-		SEN = 0, // Scia ENgineer
-		Default = SEN,
+		ESA = 0, // Scia Engineer
+		Default = ESA,
 	}
 }

@@ -13,30 +13,44 @@ namespace OofemLink.Console
 		public bool Verbose { get; set; }
 	}
 
-	[Verb("import", HelpText = "Import model and mesh data to OOFEM database")]
-	class ImportOptions : CommandLineOptions
+	[Verb("create", HelpText = "Create new project in OOFEM database")]
+	class CreateOptions : CommandLineOptions
 	{
-		[Option('s', "source", Required = false, HelpText = "Source of model data to import, options: \"SEN\" for Scia-Engineer (default)")]
+		[Value(index: 0, Required = true, MetaName = "Project name", HelpText = "Nema of project to create")]
+		public string ProjectName { get; set; }
+	}
+
+	abstract class ProjectOptions : CommandLineOptions
+	{
+		[Option('p', "project", Required = true, HelpText = "Project id or name")]
+		public string ProjectNameOrId { get; set; }
+	}
+
+	[Verb("import", HelpText = "Import simulation data to OOFEM database")]
+	class ImportOptions : ProjectOptions
+	{
+		[Option('s', "source", Required = false, HelpText = "Source of model data to import, options: \"ESA\" for Scia-Engineer (default)")]
 		public ImportSource Source { get; set; }
 
 		[Option('l', "location", Required = false, HelpText = "Location of input data (current directory is used if none provided)")]
 		public string Location { get; set; }
 	}
 
-	[Verb("build", HelpText = "Build OOFEM input file from model in database")]
-	class BuildOptions : CommandLineOptions
+	abstract class SimulationOptions : CommandLineOptions
 	{
-		[Value(index: 0, Required = true, MetaName = "Model Id", HelpText = "Id of model entity to construct input from")]
-		public int ModelId { get; set; }
+		[Option('s', "simulation", Required = true, HelpText = "Id of simulation")]
+		public int SimulationId { get; set; }
+	}
 
+	[Verb("build", HelpText = "Build OOFEM input file from model in database")]
+	class BuildOptions : SimulationOptions
+	{
 		[Option('f', "file", Required = false, HelpText = "Input file full path or just name (\"<project-name>.in\" if not provided)")]
 		public string InputFileName { get; set; }
 	}
 
 	[Verb("run", HelpText = "Run simulation in OOFEM")]
-	class RunOptions : CommandLineOptions
+	class RunOptions : SimulationOptions
 	{
-		[Value(index: 0, Required = true, MetaName = "Simulation Id", HelpText = "Id of simulation to run")]
-		public int SimulationId { get; set; }
 	}
 }

@@ -10,7 +10,7 @@ namespace OofemLink.Data.MeshEntities
     {
 		public int Id { get; set; }
 
-		public virtual int ModelId { get; set; }
+		public int ModelId { get; set; }
 		public virtual Model Model { get; set; }
 
 		public virtual ICollection<Node> Nodes { get; set; } = new List<Node>();

@@ -8,7 +8,7 @@ namespace OofemLink.Data.ModelEntities
     public abstract class ModelEntity
     {
 		public int Id { get; set; }
-		public virtual int ModelId { get; set; }
+		public int ModelId { get; set; }
 		public virtual Model Model { get; set; }
 	}
 }
