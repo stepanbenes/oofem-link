@@ -14,6 +14,6 @@ namespace OofemLink.Data.MeshEntities
 		public virtual Model Model { get; set; }
 
 		public virtual ICollection<Node> Nodes { get; set; } = new List<Node>();
-		public virtual ICollection<Beam> Beams { get; set; } = new List<Beam>();
+		public virtual ICollection<Element> Elements { get; set; } = new List<Element>();
 	}
 }

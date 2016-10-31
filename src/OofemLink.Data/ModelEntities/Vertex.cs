@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OofemLink.Data.MeshEntities;
 
 namespace OofemLink.Data.ModelEntities
 {
@@ -13,5 +14,7 @@ namespace OofemLink.Data.ModelEntities
 		public double X { get; set; }
 		public double Y { get; set; }
 		public double Z { get; set; }
+
+		public virtual ICollection<VertexNodeMap> VertexNodeMap { get; set; } = new List<VertexNodeMap>();
 	}
 }

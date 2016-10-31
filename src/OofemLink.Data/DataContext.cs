@@ -64,6 +64,42 @@ namespace OofemLink.Data
 				.HasForeignKey(m => m.Id)
 				.IsRequired();
 
+			// Vertex-Node Map
+			modelBuilder.Entity<VertexNodeMap>()
+				.HasOne(m => m.Vertex)
+				.WithMany(v => v.VertexNodeMap)
+				.HasForeignKey(m => new { m.ModelId, m.VertexId });
+			modelBuilder.Entity<VertexNodeMap>()
+				.HasOne(m => m.Node)
+				.WithMany(n => n.VertexNodeMap)
+				.HasForeignKey(m => new { m.MeshId, m.NodeId });
+			modelBuilder.Entity<VertexNodeMap>()
+				.HasKey(m => new { m.ModelId, m.VertexId, m.MeshId, m.NodeId });
+
+			// Curve-Element Map
+			modelBuilder.Entity<CurveElementMap>()
+				.HasOne(m => m.Curve)
+				.WithMany(c => c.CurveElementMap)
+				.HasForeignKey(m => new { m.ModelId, m.CurveId });
+			modelBuilder.Entity<CurveElementMap>()
+				.HasOne(m => m.Element)
+				.WithMany(e => e.CurveElementMap)
+				.HasForeignKey(m => new { m.MeshId, m.ElementId });
+			modelBuilder.Entity<CurveElementMap>()
+				.HasKey(m => new { m.ModelId, m.CurveId, m.MeshId, m.ElementId });
+
+			// Surface-Element Map
+			modelBuilder.Entity<SurfaceElementMap>()
+				.HasOne(m => m.Surface)
+				.WithMany(s => s.SurfaceElementMap)
+				.HasForeignKey(m => new { m.ModelId, m.SurfaceId });
+			modelBuilder.Entity<SurfaceElementMap>()
+				.HasOne(m => m.Element)
+				.WithMany(e => e.SurfaceElementMap)
+				.HasForeignKey(m => new { m.MeshId, m.ElementId });
+			modelBuilder.Entity<SurfaceElementMap>()
+				.HasKey(m => new { m.ModelId, m.SurfaceId, m.MeshId, m.ElementId });
+
 			// MESH
 			modelBuilder.Entity<Vertex>().HasKey(v => new { v.Id, v.ModelId });
 
@@ -77,7 +113,36 @@ namespace OofemLink.Data
 			modelBuilder.Entity<Macro>().HasMany(m => m.Surfaces).WithOne(v => v.Macro).HasForeignKey(s => new { s.MacroId, s.ModelId }).OnDelete(DeleteBehavior.Restrict);
 
 			modelBuilder.Entity<Node>().HasKey(b => new { b.Id, b.MeshId });
-			modelBuilder.Entity<Beam>().HasKey(b => new { b.Id, b.MeshId });
+			modelBuilder.Entity<Element>().HasKey(b => new { b.Id, b.MeshId });
+
+			// ElementNodes
+			modelBuilder.Entity<ElementNode>()
+				.HasOne(en => en.Element)
+				.WithMany(e => e.ElementNodes)
+				.HasForeignKey(en => new { en.MeshId, en.ElementId });
+			modelBuilder.Entity<ElementNode>()
+				.HasOne(en => en.Node)
+				.WithMany(n => n.ElementNodes)
+				.HasForeignKey(en => new { en.MeshId, en.NodeId });
+			modelBuilder.Entity<ElementNode>()
+				.HasKey(m => new { m.MeshId, m.ElementId, m.NodeId });
+			modelBuilder.Entity<ElementNode>()
+				.ToTable("ElementNodes");
+
+			modelBuilder.Entity<Node>()
+				.HasOne(n => n.Mesh)
+				.WithMany(m => m.Nodes)
+				.OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<Element>()
+				.HasOne(e => e.Mesh)
+				.WithMany(m => m.Elements)
+				.OnDelete(DeleteBehavior.Restrict);
+
+			// Mesh-Model relationship
+			modelBuilder.Entity<Mesh>()
+				.HasOne(m => m.Model)
+				.WithMany(m => m.Meshes)
+				.OnDelete(DeleteBehavior.Restrict);
 		}
 
 		public DbSet<Project> Projects { get; set; }
@@ -92,6 +157,6 @@ namespace OofemLink.Data
 
 		public DbSet<Mesh> Meshes { get; set; }
 		public DbSet<Node> Nodes { get; set; }
-		public DbSet<Beam> Beams { get; set; }
+		public DbSet<Element> Elements { get; set; }
 	}
 }

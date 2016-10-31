@@ -9,5 +9,7 @@ namespace OofemLink.Data.ModelEntities
     {
 		public virtual int MacroId { get; set; }
 		public virtual Macro Macro { get; set; }
+
+		public virtual ICollection<CurveElementMap> CurveElementMap { get; set; } = new List<CurveElementMap>();
 	}
 }
