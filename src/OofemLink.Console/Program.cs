@@ -19,13 +19,20 @@ namespace OofemLink.Console
 				drawHelloImage();
 			}
 
+#if DEBUG
+			using (var db = new Data.DataContext())
+			{
+				db.Database.EnsureCreated();
+			}
+#endif
+
 			return Parser.Default.ParseArguments<CreateOptions, ImportOptions, BuildOptions, RunOptions>(args)
-					.MapResult(
-						(CreateOptions options) => runCreateCommand(options),
-						(ImportOptions options) => runImportCommand(options),
-						(BuildOptions options) => runBuildCommand(options),
-						(RunOptions options) => runRunCommand(options),
-						errors => 1);
+				.MapResult(
+					(CreateOptions options) => runCreateCommand(options),
+					(ImportOptions options) => runImportCommand(options),
+					(BuildOptions options) => runBuildCommand(options),
+					(RunOptions options) => runRunCommand(options),
+					errors => 1);
 		}
 
 		private static int runCreateCommand(CreateOptions options)
