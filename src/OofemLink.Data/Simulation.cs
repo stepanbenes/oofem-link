@@ -11,14 +11,16 @@ namespace OofemLink.Data
 	{
 		public int Id { get; set; }
 
-		public string TaskName { get; set; }
-
 		public int ProjectId { get; set; }
 		public virtual Project Project { get; set; }
 
-		public int? ModelId { get; set; }
-		public virtual Model Model { get; set; }
-
 		public SimulationState State { get; set; }
+
+		public virtual ICollection<Model> Models { get; set; } = new List<Model>(); // should be only one or zero
+
+
+		public string TaskName { get; set; }
+		public ModelDimensions Dimensions { get; set; }
+		public bool ZAxisUp { get; set; }
 	}
 }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace OofemLink.Common.Enumerations
 {
-    public enum SimulationState
+    public enum SimulationState : byte
     {
 		New = 0,
     }

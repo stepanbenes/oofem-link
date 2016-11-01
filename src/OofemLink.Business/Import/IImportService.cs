@@ -8,17 +8,17 @@ using OofemLink.Data.ModelEntities;
 
 namespace OofemLink.Business.Import
 {
-	public interface IModelImportService
-	{
-		Model ImportModel();
-	}
+	//public interface IModelImportService
+	//{
+	//	Model ImportModel();
+	//}
 
-	public interface IMeshImportService
-    {
-		Mesh ImportMesh();
-    }
+	//public interface IMeshImportService
+ //   {
+	//	Mesh ImportMesh();
+ //   }
 
-	public interface IImportService : IModelImportService, IMeshImportService
+	public interface IImportService
 	{
 		Simulation ImportSimulation();
 	}

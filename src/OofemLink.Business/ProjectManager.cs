@@ -37,18 +37,8 @@ namespace OofemLink.Business
 			using (var context = new DataContext())
 			{
 				var simulation = importService.ImportSimulation();
-				var model = importService.ImportModel();
-				var mesh = importService.ImportMesh();
-
 				simulation.ProjectId = projectId;
 				context.Simulations.Add(simulation);
-				context.SaveChanges(); // simulation id is retrieved
-				
-				simulation.Model = model;
-				model.Simulation = simulation;
-				
-				model.Meshes.Add(mesh);
-
 				context.SaveChanges();
 			}
 		}

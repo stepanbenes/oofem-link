@@ -9,6 +9,7 @@ namespace OofemLink.Data
     public class ElementNode
     {
 		public int MeshId { get; set; }
+
 		public int ElementId { get; set; }
 		public int NodeId { get; set; }
 
