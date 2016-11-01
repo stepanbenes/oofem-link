@@ -10,22 +10,24 @@ using OofemLink.Data.MeshEntities;
 
 namespace OofemLink.Business
 {
-    public class InputFileWriter
+    public class InputWriter
     {
+		// TODO: see DynamicInputRecord in OOFEM source
+
 		readonly StreamWriter writer;
 
-		public InputFileWriter(StreamWriter writer)
+		public InputWriter(StreamWriter writer)
 		{
 			this.writer = writer;
 		}
 
-		public InputFileWriter WriteNodeCount(int nodeCount)
+		public InputWriter WriteNodeCount(int nodeCount)
 		{
 			writer.WriteLine("nodes " + nodeCount);
 			return this;
 		}
 
-		public InputFileWriter WriteNode(Node node)
+		public InputWriter WriteNode(Node node)
 		{
 			writer.WriteLine($"{node.Id} { node.X} { node.Y} { node.Z}");
 			return this;

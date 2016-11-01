@@ -24,7 +24,7 @@ namespace OofemLink.Business
 			using (var stream = new FileStream(fileFullPath, FileMode.Create, FileAccess.Write, FileShare.None))
 			using (var streamWriter = new StreamWriter(stream))
 			{
-				var inputFile = new InputFileWriter(streamWriter);
+				var inputFile = new InputWriter(streamWriter);
 
 				using (var db = new DataContext())
 				{
