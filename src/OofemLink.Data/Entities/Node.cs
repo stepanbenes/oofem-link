@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OofemLink.Data.ModelEntities;
 
-namespace OofemLink.Data.MeshEntities
+namespace OofemLink.Data.Entities
 {
     public class Node : MeshEntity
     {

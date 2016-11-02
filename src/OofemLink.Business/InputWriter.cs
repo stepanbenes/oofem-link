@@ -6,7 +6,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 using OofemLink.Data;
-using OofemLink.Data.MeshEntities;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Business
 {

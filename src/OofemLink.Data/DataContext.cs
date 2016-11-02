@@ -5,8 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
-using OofemLink.Data.MeshEntities;
-using OofemLink.Data.ModelEntities;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Data
 {

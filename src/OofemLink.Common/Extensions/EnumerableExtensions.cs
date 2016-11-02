@@ -17,9 +17,9 @@ namespace OofemLink.Common.Extensions
 				string acc = "";
 				while (iterator.MoveNext())
 				{
-					string currentTrimmed = iterator.Current.Trim();
-					acc += currentTrimmed;
-					if (!currentTrimmed.EndsWith(continuationToken))
+					string current = iterator.Current;
+					acc += current;
+					if (!current.EndsWith(continuationToken))
 					{
 						yield return acc;
 						acc = "";

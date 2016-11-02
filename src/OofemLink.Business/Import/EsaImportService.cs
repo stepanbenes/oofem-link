@@ -7,8 +7,7 @@ using System.Threading.Tasks;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.Extensions;
 using OofemLink.Data;
-using OofemLink.Data.MeshEntities;
-using OofemLink.Data.ModelEntities;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Business.Import
 {
@@ -33,7 +32,7 @@ namespace OofemLink.Business.Import
 			var simulation = parseProFile();
 
 			var model = importModel();
-			var mesh = importMesh(simulation.TaskName, simulation.Dimensions);
+			var mesh = importMesh(simulation.TaskName, simulation.DimensionFlags);
 			model.Meshes.Add(mesh);
 			// TODO: link model and mesh entities togeteher (using e.g. file MTO)
 			simulation.Models.Add(model);
@@ -59,19 +58,28 @@ namespace OofemLink.Business.Import
 
 			Mesh mesh = new Mesh();
 			// NODES
-			foreach (var node in parseXyzFile(xyzFileFullPath, dimensions))
+			if (File.Exists(xyzFileFullPath))
 			{
-				mesh.Nodes.Add(node);
+				foreach (var node in parseXyzFile(xyzFileFullPath, dimensions))
+				{
+					mesh.Nodes.Add(node);
+				}
 			}
 			// 1D ELEMENTS
-			foreach (var element in parseE1DFile(e1dFileFullPath))
+			if (File.Exists(e1dFileFullPath))
 			{
-				mesh.Elements.Add(element);
+				foreach (var element in parseE1DFile(e1dFileFullPath))
+				{
+					mesh.Elements.Add(element);
+				}
 			}
 			// 2D ELEMENTS
-			foreach (var element in parseE2DFile(e2dFileFullPath))
+			if (File.Exists(e2dFileFullPath))
 			{
-				mesh.Elements.Add(element);
+				foreach (var element in parseE2DFile(e2dFileFullPath))
+				{
+					mesh.Elements.Add(element);
+				}
 			}
 			return mesh;
 		}
@@ -335,7 +343,7 @@ namespace OofemLink.Business.Import
 			}
 
 			var simulation = new Simulation();
-			foreach (var line in File.ReadLines(fileFullPath).MergeIfEndsWith(","))
+			foreach (var line in File.ReadLines(fileFullPath).Select(l => l.TrimStart().TrimEnd(' ', '!')).MergeIfEndsWith(","))
 			{
 				string[] tokens = line.Split('=');
 				if (tokens.Length != 2)
@@ -364,17 +372,17 @@ namespace OofemLink.Business.Import
 							case "Grid_XY":
 							case "Plane_XY":
 							case "Wall_XY":
-								simulation.Dimensions = ModelDimensions.XY;
+								simulation.DimensionFlags = ModelDimensions.XY;
 								break;
 							case "Truss_XZ":
 							case "Frame_XZ":
 							case "Wall_XZ":
-								simulation.Dimensions = ModelDimensions.XZ;
+								simulation.DimensionFlags = ModelDimensions.XZ;
 								break;
 							case "Truss_XYZ":
 							case "Frame_XYZ":
 							case "General_XYZ":
-								simulation.Dimensions = ModelDimensions.XYZ;
+								simulation.DimensionFlags = ModelDimensions.XYZ;
 								break;
 							default:
 								throw new NotSupportedException();

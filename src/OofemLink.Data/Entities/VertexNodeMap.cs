@@ -2,8 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OofemLink.Data.MeshEntities;
-using OofemLink.Data.ModelEntities;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Data
 {

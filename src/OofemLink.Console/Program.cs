@@ -3,9 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
 using CommandLine;
-using OofemLink.Business;
+using OofemLink.Business.Dto;
 using OofemLink.Business.Import;
+using OofemLink.Business.Services;
+using OofemLink.Data;
 using static System.Console;
 
 namespace OofemLink.Console
@@ -19,43 +22,40 @@ namespace OofemLink.Console
 				drawHelloImage();
 			}
 
-#if DEBUG
-			using (var db = new Data.DataContext())
-			{
-				db.Database.EnsureCreated();
-			}
-#endif
+			Mapper.Initialize(config => config.AddProfile<DtoMappingProfile>());
 
-			return Parser.Default.ParseArguments<CreateOptions, ImportOptions, BuildOptions, RunOptions>(args)
-				.MapResult(
-					(CreateOptions options) => runCreateCommand(options),
-					(ImportOptions options) => runImportCommand(options),
-					(BuildOptions options) => runBuildCommand(options),
-					(RunOptions options) => runRunCommand(options),
-					errors => 1);
+			using (var context = new DataContext())
+			{
+#if DEBUG
+				context.Database.EnsureCreated();
+#endif
+				return Parser.Default.ParseArguments<CreateOptions, ImportOptions, BuildOptions, RunOptions>(args)
+					.MapResult(
+						(CreateOptions options) => runCreateCommand(options, context),
+						(ImportOptions options) => runImportCommand(options, context),
+						(BuildOptions options) => runBuildCommand(options, context),
+						(RunOptions options) => runRunCommand(options, context),
+						errors => 1);
+			}
 		}
 
-		private static int runCreateCommand(CreateOptions options)
+		private static int runCreateCommand(CreateOptions options, DataContext context)
 		{
-			var projectManager = ProjectManager.GetOrCreateNew(options.ProjectName);
+			var projectService = new ProjectService(context);
+			projectService.Create(new Business.Dto.ProjectDto { Name = options.ProjectName });
 			return 0;
 		}
 
-		private static int runImportCommand(ImportOptions options)
+		private static int runImportCommand(ImportOptions options, DataContext context)
 		{
 			var location = options.Location ?? Directory.GetCurrentDirectory();
-			ProjectManager projectManager;
-			int projectId;
-			if (int.TryParse(options.ProjectNameOrId, out projectId))
-				projectManager = new ProjectManager(projectId);
-			else
-				projectManager = ProjectManager.GetOrCreateNew(options.ProjectNameOrId);
+			var projectService = new ProjectService(context);
 			var importService = ImportServiceFactory.Create(options.Source, location);
-			projectManager.ImportSimulation(importService);
+			projectService.ImportSimulation(options.ProjectNameOrId, importService);
 			return 0;
 		}
 
-		private static int runBuildCommand(BuildOptions options)
+		private static int runBuildCommand(BuildOptions options, DataContext context)
 		{
 			string inputFileFullPath = null;
 			if (!string.IsNullOrEmpty(options.InputFileName))
@@ -63,15 +63,15 @@ namespace OofemLink.Console
 				// make absolute path
 				inputFileFullPath = Path.IsPathRooted(options.InputFileName) ? options.InputFileName : Path.Combine(Directory.GetCurrentDirectory(), options.InputFileName);
 			}
-			var simulationManager = new SimulationManager(options.SimulationId);
-			simulationManager.BuildInputFile(inputFileFullPath);
+			var simulationService = new SimulationService(context);
+			simulationService.BuildInputFile(options.SimulationId, inputFileFullPath);
 			return 0;
 		}
 
-		private static int runRunCommand(RunOptions options)
+		private static int runRunCommand(RunOptions options, DataContext context)
 		{
-			var simulationManager = new SimulationManager(options.SimulationId);
-			simulationManager.Run();
+			var simulationService = new SimulationService(context);
+			simulationService.Run();
 			return 0;
 		}
 

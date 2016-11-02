@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using OofemLink.Data;
-using OofemLink.Data.MeshEntities;
-using OofemLink.Data.ModelEntities;
 
 namespace OofemLink.Business.Import
 {

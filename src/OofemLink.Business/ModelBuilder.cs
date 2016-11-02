@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using OofemLink.Business.Import;
 using OofemLink.Data;
-using OofemLink.Data.ModelEntities;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Business
 {
