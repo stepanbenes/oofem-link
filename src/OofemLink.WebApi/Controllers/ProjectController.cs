@@ -20,37 +20,22 @@ namespace OofemLink.WebApi.Controllers
 
 		// GET api/project
 		[HttpGet]
-		public IEnumerable<ProjectDto> Get()
-		{
-			return service.GetAll();
-		}
+		public async Task<IEnumerable<ProjectDto>> Get() => await service.GetAllAsync();
 
 		// GET api/project/4
 		[HttpGet("{id}")]
-		public ProjectDto Get(int id)
-		{
-			return service.Get(id);
-		}
+		public Task<ProjectDto> Get(int id) => service.GetOneAsync(id);
 
 		// POST api/project
 		[HttpPost]
-		public void Post([FromBody]ProjectDto project)
-		{
-			service.Create(project);
-		}
+		public Task Post([FromBody]ProjectDto project) => service.CreateAsync(project);
 
 		// PUT api/project/4
 		[HttpPut("{id}")]
-		public void Put(int id, [FromBody]ProjectDto project)
-		{
-			service.Update(id, project);
-		}
+		public Task Put(int id, [FromBody]ProjectDto project) => service.UpdateAsync(id, project);
 
 		// DELETE api/project/4
 		[HttpDelete("{id}")]
-		public void Delete(int id)
-		{
-			service.Delete(id);
-		}
+		public Task Delete(int id) => service.DeleteAsync(id);
 	}
 }

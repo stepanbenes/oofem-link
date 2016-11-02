@@ -31,31 +31,31 @@ namespace OofemLink.Console
 #endif
 				return Parser.Default.ParseArguments<CreateOptions, ImportOptions, BuildOptions, RunOptions>(args)
 					.MapResult(
-						(CreateOptions options) => runCreateCommand(options, context),
-						(ImportOptions options) => runImportCommand(options, context),
-						(BuildOptions options) => runBuildCommand(options, context),
-						(RunOptions options) => runRunCommand(options, context),
-						errors => 1);
+						(CreateOptions options) => runCreateCommandAsync(options, context),
+						(ImportOptions options) => runImportCommandAsync(options, context),
+						(BuildOptions options) => runBuildCommandAsync(options, context),
+						(RunOptions options) => runRunCommandAsync(options, context),
+						errors => Task.FromResult(1)).Result; // blocking wait
 			}
 		}
 
-		private static int runCreateCommand(CreateOptions options, DataContext context)
+		private static async Task<int> runCreateCommandAsync(CreateOptions options, DataContext context)
 		{
 			var projectService = new ProjectService(context);
-			projectService.Create(new Business.Dto.ProjectDto { Name = options.ProjectName });
+			await projectService.CreateAsync(new ProjectDto { Name = options.ProjectName });
 			return 0;
 		}
 
-		private static int runImportCommand(ImportOptions options, DataContext context)
+		private static Task<int> runImportCommandAsync(ImportOptions options, DataContext context)
 		{
 			var location = options.Location ?? Directory.GetCurrentDirectory();
 			var projectService = new ProjectService(context);
 			var importService = ImportServiceFactory.Create(options.Source, location);
 			projectService.ImportSimulation(options.ProjectNameOrId, importService);
-			return 0;
+			return Task.FromResult(0);
 		}
 
-		private static int runBuildCommand(BuildOptions options, DataContext context)
+		private static Task<int> runBuildCommandAsync(BuildOptions options, DataContext context)
 		{
 			string inputFileFullPath = null;
 			if (!string.IsNullOrEmpty(options.InputFileName))
@@ -65,14 +65,14 @@ namespace OofemLink.Console
 			}
 			var simulationService = new SimulationService(context);
 			simulationService.BuildInputFile(options.SimulationId, inputFileFullPath);
-			return 0;
+			return Task.FromResult(0);
 		}
 
-		private static int runRunCommand(RunOptions options, DataContext context)
+		private static Task<int> runRunCommandAsync(RunOptions options, DataContext context)
 		{
 			var simulationService = new SimulationService(context);
 			simulationService.Run();
-			return 0;
+			return Task.FromResult(0);
 		}
 
 		private static void drawHelloImage()

@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using AutoMapper;
+using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using OofemLink.Business.Dto;
 using OofemLink.Data;
 
 namespace OofemLink.Business.Services
 {
-	public class SimulationService : DataService<Simulation>, IService<ViewSimulationDto, int>
+	public class SimulationService : DataService<Simulation>, IService<ViewSimulationDto, EditSimulationDto, int>
 	{
 		public SimulationService(DataContext context)
 			: base(context)
@@ -38,29 +40,35 @@ namespace OofemLink.Business.Services
 			throw new NotImplementedException();
 		}
 
-		public void Create(ViewSimulationDto dto)
+		public async Task<IReadOnlyList<ViewSimulationDto>> GetAllAsync(Func<IQueryable<ViewSimulationDto>, IQueryable<ViewSimulationDto>> filter = null)
 		{
-			throw new NotImplementedException();
+			return await GetQuery(filter).ToListAsync();
 		}
 
-		public void Delete(int primaryKey)
+		public async Task<ViewSimulationDto> GetOneAsync(int primaryKey)
 		{
-			throw new NotImplementedException();
+			return await Entities.Where(p => p.Id == primaryKey).ProjectTo<ViewSimulationDto>().SingleOrDefaultAsync();
 		}
 
-		public ViewSimulationDto Get(int primaryKey)
+		public async Task CreateAsync(EditSimulationDto dto)
 		{
-			throw new NotImplementedException();
+			Entities.Add(Mapper.Map<Simulation>(dto));
+			await Context.SaveChangesAsync();
 		}
 
-		public IReadOnlyList<ViewSimulationDto> GetAll(Func<IQueryable<ViewSimulationDto>, IQueryable<ViewSimulationDto>> filter = null)
+		public async Task UpdateAsync(int primaryKey, EditSimulationDto dto)
 		{
-			throw new NotImplementedException();
+			var entityToUpdate = Mapper.Map<Simulation>(dto);
+			entityToUpdate.Id = primaryKey;
+			Entities.Update(entityToUpdate);
+			await Context.SaveChangesAsync();
 		}
 
-		public void Update(int primaryKey, ViewSimulationDto dto)
+		public async Task DeleteAsync(int primaryKey)
 		{
-			throw new NotImplementedException();
+			var entityToDelete = new Simulation { Id = primaryKey };
+			Entities.Remove(entityToDelete);
+			await Context.SaveChangesAsync();
 		}
 	}
 }

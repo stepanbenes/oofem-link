@@ -43,35 +43,35 @@ namespace OofemLink.Business.Services
 			Context.SaveChanges();
 		}
 
-		public ProjectDto Get(int primaryKey)
+		public async Task<IReadOnlyList<ProjectDto>> GetAllAsync(Func<IQueryable<ProjectDto>, IQueryable<ProjectDto>> filter = null)
 		{
-			return Entities.Where(p => p.Id == primaryKey).ProjectTo<ProjectDto>().SingleOrDefault();
+			return await GetQuery(filter).ToListAsync();
 		}
 
-		public IReadOnlyList<ProjectDto> GetAll(Func<IQueryable<ProjectDto>, IQueryable<ProjectDto>> filter = null)
+		public async Task<ProjectDto> GetOneAsync(int primaryKey)
 		{
-			return GetQuery(filter).ToList();
+			return await Entities.Where(p => p.Id == primaryKey).ProjectTo<ProjectDto>().SingleOrDefaultAsync();
 		}
 
-		public void Create(ProjectDto dto)
+		public async Task CreateAsync(ProjectDto dto)
 		{
 			Entities.Add(Mapper.Map<Project>(dto));
-			Context.SaveChanges();
+			await Context.SaveChangesAsync();
 		}
 
-		public void Update(int primaryKey, ProjectDto dto)
+		public async Task UpdateAsync(int primaryKey, ProjectDto dto)
 		{
 			var entityToUpdate = Mapper.Map<Project>(dto);
 			entityToUpdate.Id = primaryKey;
 			Entities.Update(entityToUpdate);
-			Context.SaveChanges();
+			await Context.SaveChangesAsync();
 		}
 
-		public void Delete(int primaryKey)
+		public async Task DeleteAsync(int primaryKey)
 		{
 			var entityToDelete = new Project { Id = primaryKey };
 			Entities.Remove(entityToDelete);
-			Context.SaveChanges();
+			await Context.SaveChangesAsync();
 		}
 	}
 }

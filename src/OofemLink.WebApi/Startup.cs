@@ -32,14 +32,18 @@ namespace OofemLink.WebApi
 		public void ConfigureServices(IServiceCollection services)
 		{
 			services.AddMvc(options =>
-			{
-				options.Filters.Add(typeof(NullResultIs404ActionFilter));
-				options.Filters.Add(typeof(GlobalExceptionFilter));
-			});
+				{
+					options.Filters.Add(typeof(NullResultIs404ActionFilter));
+					options.Filters.Add(typeof(GlobalExceptionFilter));
+				}).AddJsonOptions(options =>
+				{
+					options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
+				});
 
 			services.AddDbContext<Data.DataContext>();
 
 			services.AddScoped<IService<ProjectDto, int>, ProjectService>();
+			services.AddScoped<IService<ViewSimulationDto, EditSimulationDto, int>, SimulationService>();
 
 			services.AddSwaggerGen();
 
@@ -51,7 +55,7 @@ namespace OofemLink.WebApi
 		{
 			loggerFactory.AddConsole(Configuration.GetSection("Logging"));
 			loggerFactory.AddDebug();
-			
+
 			app.UseMvc();
 
 			app.UseSwagger();

@@ -7,12 +7,12 @@ namespace OofemLink.Business.Services
 {
 	public interface IService<TViewDto, TEditDto, TPrimaryKey>
 	{
-		TViewDto Get(TPrimaryKey primaryKey);
-		IReadOnlyList<TViewDto> GetAll(Func<IQueryable<TViewDto>, IQueryable<TViewDto>> filter = null);
+		Task<IReadOnlyList<TViewDto>> GetAllAsync(Func<IQueryable<TViewDto>, IQueryable<TViewDto>> filter = null);
+		Task<TViewDto> GetOneAsync(TPrimaryKey primaryKey);
 
-		void Create(TEditDto dto);
-		void Update(TPrimaryKey primaryKey, TEditDto dto);
-		void Delete(TPrimaryKey primaryKey);
+		Task CreateAsync(TEditDto dto);
+		Task UpdateAsync(TPrimaryKey primaryKey, TEditDto dto);
+		Task DeleteAsync(TPrimaryKey primaryKey);
 	}
 
 	public interface IService<TDto, TPrimaryKey> : IService<TDto, TDto, TPrimaryKey>
