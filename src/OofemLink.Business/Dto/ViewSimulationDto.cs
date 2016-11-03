@@ -15,5 +15,7 @@ namespace OofemLink.Business.Dto
 		public string TaskName { get; set; }
 		public ModelDimensions DimensionFlags { get; set; }
 		public bool ZAxisUp { get; set; }
+
+		public int? ModelId { get; set; }
 	}
 }

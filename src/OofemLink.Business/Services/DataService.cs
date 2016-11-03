@@ -8,18 +8,16 @@ using Microsoft.EntityFrameworkCore;
 
 namespace OofemLink.Business.Services
 {
-    public abstract class DataService<TEntity> where TEntity : class
+    public abstract class DataService
 	{
 		protected DataContext Context { get; }
-
-		protected DbSet<TEntity> Entities => Context.Set<TEntity>();
 
 		protected DataService(DataContext context)
 		{
 			Context = context;
 		}
 
-		protected IQueryable<TDto> GetQuery<TDto>(Func<IQueryable<TDto>, IQueryable<TDto>> queryExtensionFunc)
+		protected IQueryable<TDto> GetQuery<TEntity, TDto>(Func<IQueryable<TDto>, IQueryable<TDto>> queryExtensionFunc) where TEntity : class
 		{
 			var query = Context.Set<TEntity>().AsNoTracking().ProjectTo<TDto>();
 			if (queryExtensionFunc == null)

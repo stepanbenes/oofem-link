@@ -42,8 +42,9 @@ namespace OofemLink.WebApi
 
 			services.AddDbContext<Data.DataContext>();
 
-			services.AddScoped<IService<ProjectDto, int>, ProjectService>();
-			services.AddScoped<IService<ViewSimulationDto, EditSimulationDto, int>, SimulationService>();
+			services.AddScoped<IProjectService, ProjectService>();
+			services.AddScoped<ISimulationService, SimulationService>();
+			services.AddScoped<IModelService, ModelService>();
 
 			services.AddSwaggerGen();
 

@@ -11,7 +11,7 @@ using OofemLink.Data;
 
 namespace OofemLink.Business.Services
 {
-	public class ProjectService : DataService<Project>, IService<ProjectDto, int>
+	public class ProjectService : DataService, IProjectService
 	{
 		public ProjectService(DataContext context)
 			: base(context)
@@ -27,11 +27,11 @@ namespace OofemLink.Business.Services
 			}
 			else
 			{
-				Project project = Entities.Where(p => p.Name == projectNameOrId).SingleOrDefault();
+				Project project = Context.Projects.Where(p => p.Name == projectNameOrId).SingleOrDefault();
 				if (project == null)
 				{
 					project = new Project { Name = projectNameOrId };
-					Entities.Add(project);
+					Context.Projects.Add(project);
 					simulation.Project = project;
 				}
 				else
@@ -45,17 +45,17 @@ namespace OofemLink.Business.Services
 
 		public async Task<IReadOnlyList<ProjectDto>> GetAllAsync(Func<IQueryable<ProjectDto>, IQueryable<ProjectDto>> filter = null)
 		{
-			return await GetQuery(filter).ToListAsync();
+			return await GetQuery<Project, ProjectDto>(filter).ToListAsync();
 		}
 
 		public async Task<ProjectDto> GetOneAsync(int primaryKey)
 		{
-			return await Entities.Where(p => p.Id == primaryKey).ProjectTo<ProjectDto>().SingleOrDefaultAsync();
+			return await Context.Projects.Where(p => p.Id == primaryKey).ProjectTo<ProjectDto>().SingleOrDefaultAsync();
 		}
 
 		public async Task CreateAsync(ProjectDto dto)
 		{
-			Entities.Add(Mapper.Map<Project>(dto));
+			Context.Projects.Add(Mapper.Map<Project>(dto));
 			await Context.SaveChangesAsync();
 		}
 
@@ -63,14 +63,14 @@ namespace OofemLink.Business.Services
 		{
 			var entityToUpdate = Mapper.Map<Project>(dto);
 			entityToUpdate.Id = primaryKey;
-			Entities.Update(entityToUpdate);
+			Context.Projects.Update(entityToUpdate);
 			await Context.SaveChangesAsync();
 		}
 
 		public async Task DeleteAsync(int primaryKey)
 		{
 			var entityToDelete = new Project { Id = primaryKey };
-			Entities.Remove(entityToDelete);
+			Context.Projects.Remove(entityToDelete);
 			await Context.SaveChangesAsync();
 		}
 	}

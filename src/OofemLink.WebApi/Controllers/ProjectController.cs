@@ -11,16 +11,16 @@ namespace OofemLink.WebApi.Controllers
 	[Route("api/[controller]")]
 	public class ProjectController : Controller
 	{
-		readonly IService<ProjectDto, int> service;
+		readonly IProjectService service;
 
-		public ProjectController(IService<ProjectDto, int> service)
+		public ProjectController(IProjectService service)
 		{
 			this.service = service;
 		}
 
 		// GET api/project
 		[HttpGet]
-		public async Task<IEnumerable<ProjectDto>> Get() => await service.GetAllAsync();
+		public Task<IReadOnlyList<ProjectDto>> Get() => service.GetAllAsync();
 
 		// GET api/project/4
 		[HttpGet("{id}")]

@@ -11,7 +11,7 @@ using OofemLink.Data;
 
 namespace OofemLink.Business.Services
 {
-	public class SimulationService : DataService<Simulation>, IService<ViewSimulationDto, EditSimulationDto, int>
+	public class SimulationService : DataService, ISimulationService
 	{
 		public SimulationService(DataContext context)
 			: base(context)
@@ -42,17 +42,17 @@ namespace OofemLink.Business.Services
 
 		public async Task<IReadOnlyList<ViewSimulationDto>> GetAllAsync(Func<IQueryable<ViewSimulationDto>, IQueryable<ViewSimulationDto>> filter = null)
 		{
-			return await GetQuery(filter).ToListAsync();
+			return await GetQuery<Simulation, ViewSimulationDto>(filter).ToListAsync();
 		}
 
 		public async Task<ViewSimulationDto> GetOneAsync(int primaryKey)
 		{
-			return await Entities.Where(p => p.Id == primaryKey).ProjectTo<ViewSimulationDto>().SingleOrDefaultAsync();
+			return await Context.Simulations.Where(p => p.Id == primaryKey).ProjectTo<ViewSimulationDto>().SingleOrDefaultAsync();
 		}
 
 		public async Task CreateAsync(EditSimulationDto dto)
 		{
-			Entities.Add(Mapper.Map<Simulation>(dto));
+			Context.Simulations.Add(Mapper.Map<Simulation>(dto));
 			await Context.SaveChangesAsync();
 		}
 
@@ -60,14 +60,14 @@ namespace OofemLink.Business.Services
 		{
 			var entityToUpdate = Mapper.Map<Simulation>(dto);
 			entityToUpdate.Id = primaryKey;
-			Entities.Update(entityToUpdate);
+			Context.Simulations.Update(entityToUpdate);
 			await Context.SaveChangesAsync();
 		}
 
 		public async Task DeleteAsync(int primaryKey)
 		{
 			var entityToDelete = new Simulation { Id = primaryKey };
-			Entities.Remove(entityToDelete);
+			Context.Simulations.Remove(entityToDelete);
 			await Context.SaveChangesAsync();
 		}
 	}

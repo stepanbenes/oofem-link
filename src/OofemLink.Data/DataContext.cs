@@ -61,64 +61,64 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VertexNodeMap>()
 				.HasOne(m => m.Vertex)
 				.WithMany(v => v.VertexNodeMap)
-				.HasForeignKey(m => new { m.VertexId, m.ModelId });
+				.HasForeignKey(m => new { m.ModelId, m.VertexId });
 			modelBuilder.Entity<VertexNodeMap>()
 				.HasOne(m => m.Node)
 				.WithMany(n => n.VertexNodeMap)
-				.HasForeignKey(m => new { m.NodeId, m.MeshId });
+				.HasForeignKey(m => new { m.MeshId, m.NodeId });
 			modelBuilder.Entity<VertexNodeMap>()
-				.HasKey(m => new { m.VertexId, m.ModelId, m.NodeId, m.MeshId });
+				.HasKey(m => new { m.ModelId, m.VertexId, m.MeshId, m.NodeId });
 
 			// Curve-Element Map
 			modelBuilder.Entity<CurveElementMap>()
 				.HasOne(m => m.Curve)
 				.WithMany(c => c.CurveElementMap)
-				.HasForeignKey(m => new { m.CurveId, m.ModelId });
+				.HasForeignKey(m => new { m.ModelId, m.CurveId });
 			modelBuilder.Entity<CurveElementMap>()
 				.HasOne(m => m.Element)
 				.WithMany(e => e.CurveElementMap)
-				.HasForeignKey(m => new { m.ElementId, m.MeshId });
+				.HasForeignKey(m => new { m.MeshId, m.ElementId });
 			modelBuilder.Entity<CurveElementMap>()
-				.HasKey(m => new { m.CurveId, m.ModelId, m.ElementId, m.MeshId });
+				.HasKey(m => new { m.ModelId, m.CurveId, m.MeshId, m.ElementId });
 
 			// Surface-Element Map
 			modelBuilder.Entity<SurfaceElementMap>()
 				.HasOne(m => m.Surface)
 				.WithMany(s => s.SurfaceElementMap)
-				.HasForeignKey(m => new { m.SurfaceId, m.ModelId });
+				.HasForeignKey(m => new { m.ModelId, m.SurfaceId });
 			modelBuilder.Entity<SurfaceElementMap>()
 				.HasOne(m => m.Element)
 				.WithMany(e => e.SurfaceElementMap)
-				.HasForeignKey(m => new { m.ElementId, m.MeshId });
+				.HasForeignKey(m => new { m.MeshId, m.ElementId });
 			modelBuilder.Entity<SurfaceElementMap>()
-				.HasKey(m => new { m.SurfaceId, m.ModelId, m.ElementId, m.MeshId });
+				.HasKey(m => new { m.ModelId, m.SurfaceId, m.MeshId, m.ElementId });
 
 			// MESH
-			modelBuilder.Entity<Vertex>().HasKey(v => new { v.Id, v.ModelId });
+			modelBuilder.Entity<Vertex>().HasKey(v => new { v.ModelId, v.Id });
 
-			modelBuilder.Entity<Curve>().HasKey(c => new { c.Id, c.ModelId });
-			modelBuilder.Entity<Surface>().HasKey(s => new { s.Id, s.ModelId });
+			modelBuilder.Entity<Curve>().HasKey(c => new { c.ModelId, c.Id });
+			modelBuilder.Entity<Surface>().HasKey(s => new { s.ModelId, s.Id });
 
-			modelBuilder.Entity<Macro>().HasKey(m => new { m.Id, m.ModelId });
+			modelBuilder.Entity<Macro>().HasKey(m => new { m.ModelId, m.Id });
 
-			modelBuilder.Entity<Macro>().HasMany(m => m.Vertices).WithOne(v => v.Macro).HasForeignKey(v => new { v.MacroId, v.ModelId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<Macro>().HasMany(m => m.Curves).WithOne(v => v.Macro).HasForeignKey(c => new { c.MacroId, c.ModelId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<Macro>().HasMany(m => m.Surfaces).WithOne(v => v.Macro).HasForeignKey(s => new { s.MacroId, s.ModelId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<Macro>().HasMany(m => m.Vertices).WithOne(v => v.Macro).HasForeignKey(v => new { v.ModelId, v.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<Macro>().HasMany(m => m.Curves).WithOne(v => v.Macro).HasForeignKey(c => new { c.ModelId, c.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<Macro>().HasMany(m => m.Surfaces).WithOne(v => v.Macro).HasForeignKey(s => new { s.ModelId, s.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 
-			modelBuilder.Entity<Node>().HasKey(b => new { b.Id, b.MeshId });
-			modelBuilder.Entity<Element>().HasKey(b => new { b.Id, b.MeshId });
+			modelBuilder.Entity<Node>().HasKey(b => new { b.MeshId, b.Id });
+			modelBuilder.Entity<Element>().HasKey(b => new { b.MeshId, b.Id });
 
 			// ElementNodes
 			modelBuilder.Entity<ElementNode>()
 				.HasOne(en => en.Element)
 				.WithMany(e => e.ElementNodes)
-				.HasForeignKey(en => new { en.ElementId, en.MeshId });
+				.HasForeignKey(en => new { en.MeshId, en.ElementId });
 			modelBuilder.Entity<ElementNode>()
 				.HasOne(en => en.Node)
 				.WithMany(n => n.ElementNodes)
-				.HasForeignKey(en => new { en.NodeId, en.MeshId });
+				.HasForeignKey(en => new { en.MeshId, en.NodeId });
 			modelBuilder.Entity<ElementNode>()
-				.HasKey(m => new { m.ElementId, m.NodeId, m.MeshId });
+				.HasKey(m => new { m.MeshId, m.ElementId, m.NodeId });
 			modelBuilder.Entity<ElementNode>()
 				.ToTable("ElementNodes");
 

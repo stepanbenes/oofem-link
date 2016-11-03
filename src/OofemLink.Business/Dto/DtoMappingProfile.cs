@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using OofemLink.Data;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Business.Dto
 {
@@ -14,10 +15,13 @@ namespace OofemLink.Business.Dto
 			// ENTITY -> DTO
 			CreateMap<Project, ProjectDto>();
 			CreateMap<Simulation, ViewSimulationDto>()
-				.ForMember(s => s.ProjectName, options => options.MapFrom(s => s.Project.Name));
+				.ForMember(s => s.ProjectName, options => options.MapFrom(s => s.Project.Name))
+				.ForMember(s => s.ModelId, options => options.MapFrom(s => s.Models.Select(m => (int?)m.Id).SingleOrDefault()));
+			CreateMap<Vertex, VertexDto>();
 			// DTO -> ENTITY
 			CreateMap<ProjectDto, Project>();
 			CreateMap<EditSimulationDto, Simulation>();
+			CreateMap<VertexDto, Vertex>();
 		}
     }
 }

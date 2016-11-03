@@ -7,7 +7,7 @@ namespace OofemLink.Data.Entities
 {
     public class Surface : ModelEntity
     {
-		public int MacroId { get; set; }
+		public int? MacroId { get; set; }
 		public virtual Macro Macro { get; set; }
 
 		public virtual ICollection<SurfaceElementMap> SurfaceElementMap { get; set; } = new List<SurfaceElementMap>();

@@ -11,9 +11,9 @@ namespace OofemLink.WebApi.Controllers
 	[Route("api/[controller]")]
 	public class SimulationController : Controller
     {
-		readonly IService<ViewSimulationDto, EditSimulationDto, int> service;
+		readonly ISimulationService service;
 
-		public SimulationController(IService<ViewSimulationDto, EditSimulationDto, int> service)
+		public SimulationController(ISimulationService service)
 		{
 			this.service = service;
 		}

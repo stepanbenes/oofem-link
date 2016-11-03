@@ -7,8 +7,8 @@ namespace OofemLink.Data.Entities
 {
     public abstract class MeshEntity
     {
-		public int Id { get; set; }
-		public virtual int MeshId { get; set; }
+		public int MeshId { get; set; }
 		public virtual Mesh Mesh { get; set; }
+		public int Id { get; set; }
 	}
 }
