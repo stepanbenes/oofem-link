@@ -8,26 +8,26 @@ using System.Threading.Tasks;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 
-namespace OofemLink.Business
+namespace OofemLink.Business.Export
 {
-    public class InputWriter
+    public class OofemInputWriter
     {
 		// TODO: see DynamicInputRecord in OOFEM source
 
 		readonly StreamWriter writer;
 
-		public InputWriter(StreamWriter writer)
+		public OofemInputWriter(StreamWriter writer)
 		{
 			this.writer = writer;
 		}
 
-		public InputWriter WriteNodeCount(int nodeCount)
+		public OofemInputWriter WriteNodeCount(int nodeCount)
 		{
 			writer.WriteLine("nodes " + nodeCount);
 			return this;
 		}
 
-		public InputWriter WriteNode(Node node)
+		public OofemInputWriter WriteNode(Node node)
 		{
 			writer.WriteLine($"{node.Id} { node.X} { node.Y} { node.Z}");
 			return this;

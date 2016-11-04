@@ -7,6 +7,7 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using OofemLink.Business.Dto;
+using OofemLink.Business.Export;
 using OofemLink.Data;
 
 namespace OofemLink.Business.Services
@@ -22,7 +23,7 @@ namespace OofemLink.Business.Services
 			using (var stream = new FileStream(fileFullPath, FileMode.Create, FileAccess.Write, FileShare.None))
 			using (var streamWriter = new StreamWriter(stream))
 			{
-				var inputFile = new InputWriter(streamWriter);
+				var inputFile = new OofemInputWriter(streamWriter);
 
 				var nodes = Context.Meshes.Include(m => m.Nodes).Single(mesh => mesh.ModelId == simulationId).Nodes;
 
