@@ -45,9 +45,9 @@ namespace OofemLink.Business.Import
 
 		private Model importModel()
 		{
-			Model model = new Model();
+			ModelBuilder builder = new ModelBuilder();
 			// TODO: load model from GEO file
-			return model;
+			return builder.Model;
 		}
 
 		private Mesh importMesh(string taskName, ModelDimensions dimensions)

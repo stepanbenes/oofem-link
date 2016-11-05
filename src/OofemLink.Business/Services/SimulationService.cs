@@ -18,22 +18,10 @@ namespace OofemLink.Business.Services
 			: base(context)
 		{ }
 
-		public void BuildInputFile(int simulationId, string fileFullPath)
+		public void Export(int simulationId, IExportService exportService)
 		{
-			using (var stream = new FileStream(fileFullPath, FileMode.Create, FileAccess.Write, FileShare.None))
-			using (var streamWriter = new StreamWriter(stream))
-			{
-				var inputFile = new OofemInputWriter(streamWriter);
-
-				var nodes = Context.Meshes.Include(m => m.Nodes).Single(mesh => mesh.ModelId == simulationId).Nodes;
-
-				inputFile.WriteNodeCount(nodes.Count);
-
-				foreach (var node in nodes)
-				{
-					inputFile.WriteNode(node);
-				}
-			}
+			var simulation = Context.Simulations.Single(s => s.Id == simulationId);
+			exportService.ExportSimulation(simulation);
 		}
 
 		public void Run()

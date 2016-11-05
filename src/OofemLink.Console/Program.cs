@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using CommandLine;
 using OofemLink.Business.Dto;
+using OofemLink.Business.Export;
 using OofemLink.Business.Import;
 using OofemLink.Business.Services;
 using OofemLink.Data;
@@ -64,7 +65,8 @@ namespace OofemLink.Console
 				inputFileFullPath = Path.IsPathRooted(options.InputFileName) ? options.InputFileName : Path.Combine(Directory.GetCurrentDirectory(), options.InputFileName);
 			}
 			var simulationService = new SimulationService(context);
-			simulationService.BuildInputFile(options.SimulationId, inputFileFullPath);
+			var exportService = ExportServiceFactory.Create(inputFileFullPath);
+			simulationService.Export(options.SimulationId, exportService);
 			return Task.FromResult(0);
 		}
 

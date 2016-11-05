@@ -7,7 +7,7 @@ using OofemLink.Business.Import;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 
-namespace OofemLink.Business
+namespace OofemLink.Business.Import
 {
     public class ModelBuilder
     {
@@ -25,6 +25,8 @@ namespace OofemLink.Business
 
 		public static ModelBuilder CreateFromExistingModel(Model model) => new ModelBuilder(model);
 
+		public Model Model => model;
+		
 		//public ModelBuilder AddMacro(Macro newMacro) { }
 	}
 }
