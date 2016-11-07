@@ -13,7 +13,8 @@ namespace OofemLink.Data.Entities
 
 		public virtual ICollection<Mesh> Meshes { get; set; } = new List<Mesh>();
 
-		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
 		public virtual ICollection<GeometryEntity> GeometryEntities { get; set; } = new List<GeometryEntity>();
+		public virtual ICollection<Vertex> Vertices { get; set; } = new List<Vertex>();
+		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
 	}
 }

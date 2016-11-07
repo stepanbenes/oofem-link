@@ -9,7 +9,7 @@ namespace OofemLink.Data.Entities
     public class Element : MeshEntity
     {
 		public CellType Type { get; set; }
-		public int Tag { get; set; }
+		public int LocalNumber { get; set; }
 
 		public virtual ICollection<ElementNode> ElementNodes { get; set; } = new List<ElementNode>();
 	}

@@ -11,7 +11,7 @@ namespace OofemLink.Data.Entities
 		public virtual Model Model { get; set; }
 		public int Id { get; set; }
 
-		public int Tag { get; set; }
+		public int LocalNumber { get; set; }
 
 		public virtual ICollection<Macro> ParentMacros { get; set; } = new List<Macro>();
 	}
@@ -39,6 +39,7 @@ namespace OofemLink.Data.Entities
 		public int VertexId { get; set; }
 		public int CurveId { get; set; }
 
+		public virtual Model Model { get; set; }
 		public virtual Vertex Vertex { get; set; }
 		public virtual Curve Curve { get; set; }
 
@@ -51,6 +52,7 @@ namespace OofemLink.Data.Entities
 		public int CurveId { get; set; }
 		public int SurfaceId { get; set; }
 
+		public virtual Model Model { get; set; }
 		public virtual Curve Curve { get; set; }
 		public virtual Surface Surface { get; set; }
 
@@ -63,6 +65,7 @@ namespace OofemLink.Data.Entities
 		public int SurfaceId { get; set; }
 		public int VolumeId { get; set; }
 
+		public virtual Model Model { get; set; }
 		public virtual Surface Surface { get; set; }
 		public virtual Volume Volume { get; set; }
 

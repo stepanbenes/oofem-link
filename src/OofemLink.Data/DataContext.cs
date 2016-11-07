@@ -78,14 +78,17 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VertexCurveMapping>().HasKey(m => new { m.ModelId, m.VertexId, m.CurveId });
 			modelBuilder.Entity<VertexCurveMapping>().HasOne(m => m.Vertex).WithMany(v => v.Curves).HasForeignKey(m => new { m.ModelId, m.VertexId });
 			modelBuilder.Entity<VertexCurveMapping>().HasOne(m => m.Curve).WithMany(c => c.Vertices).HasForeignKey(m => new { m.ModelId, m.CurveId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<VertexCurveMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 
 			modelBuilder.Entity<CurveSurfaceMapping>().HasKey(m => new { m.ModelId, m.CurveId, m.SurfaceId });
 			modelBuilder.Entity<CurveSurfaceMapping>().HasOne(m => m.Curve).WithMany(c => c.Surfaces).HasForeignKey(m => new { m.ModelId, m.CurveId });
 			modelBuilder.Entity<CurveSurfaceMapping>().HasOne(m => m.Surface).WithMany(s => s.Curves).HasForeignKey(m => new { m.ModelId, m.SurfaceId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<CurveSurfaceMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 
 			modelBuilder.Entity<SurfaceVolumeMapping>().HasKey(m => new { m.ModelId, m.SurfaceId, m.VolumeId });
 			modelBuilder.Entity<SurfaceVolumeMapping>().HasOne(m => m.Surface).WithMany(s => s.Volumes).HasForeignKey(m => new { m.ModelId, m.SurfaceId });
 			modelBuilder.Entity<SurfaceVolumeMapping>().HasOne(m => m.Volume).WithMany(v => v.Surfaces).HasForeignKey(m => new { m.ModelId, m.VolumeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<SurfaceVolumeMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 
 			// MESH
 			modelBuilder.Entity<Node>().HasKey(b => new { b.MeshId, b.Id });
