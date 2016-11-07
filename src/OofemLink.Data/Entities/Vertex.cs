@@ -5,15 +5,17 @@ using System.Threading.Tasks;
 
 namespace OofemLink.Data.Entities
 {
-	public class Vertex : ModelEntity
+	public class Vertex : IModelEntity
 	{
-		public int? MacroId { get; set; }
-		public virtual Macro Macro { get; set; }
+		public int ModelId { get; set; }
+		public virtual Model Model { get; set; }
+
+		public int Id { get; set; }
 
 		public double X { get; set; }
 		public double Y { get; set; }
 		public double Z { get; set; }
 
-		public virtual ICollection<VertexNodeMap> VertexNodeMap { get; set; } = new List<VertexNodeMap>();
+		public virtual ICollection<VertexCurveMapping> Curves { get; set; } = new List<VertexCurveMapping>();
 	}
 }

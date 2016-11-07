@@ -11,8 +11,9 @@ namespace OofemLink.Data.Entities
 
 		public virtual Simulation Simulation { get; set; }
 
-		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
-
 		public virtual ICollection<Mesh> Meshes { get; set; } = new List<Mesh>();
+
+		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
+		public virtual ICollection<GeometryEntity> GeometryEntities { get; set; } = new List<GeometryEntity>();
 	}
 }

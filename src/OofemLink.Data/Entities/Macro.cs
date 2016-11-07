@@ -5,12 +5,15 @@ using System.Threading.Tasks;
 
 namespace OofemLink.Data.Entities
 {
-    public class Macro : ModelEntity
+    public class Macro : IModelEntity
     {
-		public virtual ICollection<Vertex> Vertices { get; set; } = new List<Vertex>();
-		public virtual ICollection<Curve> Curves { get; set; } = new List<Curve>();
-		public virtual ICollection<Surface> Surfaces { get; set; } = new List<Surface>();
+		public int ModelId { get; set; }
+		public virtual Model Model { get; set; }
+		public int Id { get; set; }
 
-		// TODO: add attributes: BoundaryConditions, Materials, CrossSections, LoadTimeFunctions, ...
+		public int GeometryEntityId { get; set; }
+		public virtual GeometryEntity GeometryEntity { get; set; }
+
+		//public virtual ICollection<AttributeMap> AttributeMappings { get; set; } = new List<AttributeMap>();
 	}
 }
