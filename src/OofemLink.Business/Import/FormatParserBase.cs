@@ -10,10 +10,15 @@ namespace OofemLink.Business.Import
 	{
 		#region Protected methods
 
+		protected static bool TryParseInt32(string text, out int result)
+		{
+			return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out result);
+		}
+
 		protected static int ParseInt32(string text)
 		{
 			int result;
-			if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
+			if (!TryParseInt32(text, out result))
 			{
 				throw new FormatException($"32bit integer expected instead of '{text}'");
 			}

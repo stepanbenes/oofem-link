@@ -9,63 +9,95 @@ using OofemLink.Data.Entities;
 
 namespace OofemLink.Business.Import
 {
-    public class ModelBuilder
-    {
+	public class ModelBuilder
+	{
 		readonly Model model;
-		readonly Dictionary<int, int> curveLocalNumberToIdMap;
 
 		private ModelBuilder(Model model)
 		{
 			Debug.Assert(model != null);
 			this.model = model;
-			this.curveLocalNumberToIdMap = new Dictionary<int, int>();
 		}
 
 		public ModelBuilder()
 			: this(new Model())
 		{ }
 
-		public static ModelBuilder CreateFromExistingModel(Model model) => new ModelBuilder(model);
+		public static ModelBuilder CreateFromExistingModel(Model model)
+		{
+			return new ModelBuilder(model);
+		}
 
 		public Model Model => model;
-		
-		public ModelBuilder AddVertex(int id, double x, double y, double z)
+
+		public ModelBuilder AddVertex(int vertexId, double x, double y, double z)
 		{
-			var vertex = new Vertex { Id = id, X = x, Y = y, Z = z };
+			var vertex = new Vertex { Id = vertexId, X = x, Y = y, Z = z };
 			model.Vertices.Add(vertex);
 			return this;
 		}
 
 		public ModelBuilder AddStraightLine(int lineId, int firstVertexId, int secondVertexId)
 		{
-			int entityId = model.GeometryEntities.Count + 1;
-			var straightLine = new Curve { Id = entityId, LocalNumber = lineId };
+			var straightLine = new Curve { Id = lineId, LocalNumber = lineId };
 			straightLine.Vertices.Add(new VertexCurveMapping { Model = model, Curve = straightLine, VertexId = firstVertexId, Rank = 1 });
 			straightLine.Vertices.Add(new VertexCurveMapping { Model = model, Curve = straightLine, VertexId = secondVertexId, Rank = 2 });
-			model.GeometryEntities.Add(straightLine);
-			curveLocalNumberToIdMap.Add(straightLine.LocalNumber, straightLine.Id);
+			model.Curves.Add(straightLine);
 			return this;
 		}
 
 		public ModelBuilder AddBeamMacro(int macroId, int lineId)
 		{
-			var macro = new Macro { Model = model, Id = macroId, GeometryEntityId = curveLocalNumberToIdMap[lineId] };
+			var macro = new Macro { Model = model, Id = macroId };
+			macro.BoundaryCurves.Add(new MacroBoundaryCurveMapping { Model = model, MacroId = macroId, BoundaryCurveId = lineId, Rank = 1 });
 			model.Macros.Add(macro);
 			return this;
 		}
 
-		public ModelBuilder AddSurfaceMacro(int macroId, IEnumerable<int> perimeterLineIds)
+		public ModelBuilder AddSurface(int surfaceId, IEnumerable<int> boundaryLineIds)
 		{
-			int surfaceId = model.GeometryEntities.Count + 1;
 			var surface = new Surface { Model = model, Id = surfaceId };
 			short rank = 1;
-			foreach (var lineId in perimeterLineIds)
+			foreach (var lineId in boundaryLineIds)
 			{
-				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = curveLocalNumberToIdMap[lineId], SurfaceId = surfaceId, Rank = rank });
+				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = lineId, Surface = surface, Rank = rank });
 				rank += 1;
 			}
-			var macro = new Macro { Model = model, Id = macroId, GeometryEntityId = surfaceId };
-			model.GeometryEntities.Add(surface);
+			model.Surfaces.Add(surface);
+			return this;
+		}
+
+		public ModelBuilder AddSurfaceMacro(int macroId, IEnumerable<int> boundaryLineIds, IEnumerable<int> openingLineIds, IEnumerable<int> internalLineIds, IEnumerable<int> internalVertexIds)
+		{
+			int surfaceId = macroId;
+			AddSurface(surfaceId, boundaryLineIds);
+			var macro = new Macro { Model = model, Id = macroId };
+			
+			// Boundary
+			macro.BoundarySurfaces.Add(new MacroBoundarySurfaceMapping { Model = model, BoundarySurfaceId = surfaceId, MacroId = macroId, Rank = 1 });
+
+			// Opening (hole)
+			short rank = 1;
+			foreach (var openingLineId in openingLineIds)
+			{
+				macro.OpeningCurves.Add(new MacroOpeningCurveMapping { Model = model, OpeningCurveId = openingLineId, MacroId = macroId, Rank = rank });
+				rank += 1;
+			}
+
+			// Internal lines
+			rank = 1;
+			foreach (var internalLineId in internalLineIds)
+			{
+				macro.InternalCurves.Add(new MacroInternalCurveMapping { Model = model, InternalCurveId = internalLineId, MacroId = macroId, Rank = rank });
+				rank += 1;
+			}
+
+			// Internal vertices
+			foreach (var internalVertexId in internalVertexIds)
+			{
+				macro.InternalVertices.Add(new MacroInternalVertexMapping { Model = model, InternalVertexId = internalVertexId, MacroId = macroId });
+			}
+
 			model.Macros.Add(macro);
 			return this;
 		}

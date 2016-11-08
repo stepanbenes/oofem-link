@@ -687,7 +687,7 @@ namespace OofemLink.Business.Import
 		{
 			var modelBuilder = new ModelBuilder();
 			dimensions = ModelDimensions.None;
-			foreach (var line in File.ReadLines(fileFullPath).Where(line => !line.StartsWith(" ") && !string.IsNullOrWhiteSpace(line)))
+			foreach (var line in File.ReadLines(fileFullPath).MergeIfStartsWith(" "))
 			{
 				string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 				if (tokens.Length < 2)
@@ -771,25 +771,39 @@ namespace OofemLink.Business.Import
 									break;
 								case GeoFileCodes.MacroTypeCodes.GEN:
 									{
+										var boundaryLineIds = new List<int>();
+										var openingLineIds = new List<int>();
+										var internalLineIds = new List<int>();
+										var internalVertexIds = new List<int>();
+										List<int> currentList = boundaryLineIds;
 										int index = 3;
-										List<int> perimeterLineIds = new List<int>();
 										while (index < tokens.Length)
 										{
-											switch (tokens[index])
+											int number;
+											if (TryParseInt32(tokens[index], out number))
 											{
-												case GeoFileCodes.MacroDetailCodes.OPEN:
-												case GeoFileCodes.MacroDetailCodes.LINE:
-												case GeoFileCodes.MacroDetailCodes.NODE:
-													throw new NotSupportedException($"Unsupported macro detail code '{tokens[2]}'");
-													//Console.WriteLine("Ignoring " + tokens[0] + " " + tokens[index]);
-												default:
-													int lineId = ParseInt32(tokens[index]);
-													perimeterLineIds.Add(lineId);
-													break;
+												currentList.Add(number);
+											}
+											else
+											{
+												switch (tokens[index])
+												{
+													case GeoFileCodes.MacroDetailCodes.OPEN:
+														currentList = openingLineIds;
+														break;
+													case GeoFileCodes.MacroDetailCodes.LINE:
+														currentList = internalLineIds;
+														break;
+													case GeoFileCodes.MacroDetailCodes.NODE:
+														currentList = internalVertexIds;
+														break;
+													default:
+														throw new NotSupportedException($"Unsupported macro detail code '{tokens[2]}'");
+												}
 											}
 											index += 1;
 										}
-										modelBuilder.AddSurfaceMacro(macroId, perimeterLineIds);
+										modelBuilder.AddSurfaceMacro(macroId, boundaryLineIds, openingLineIds, internalLineIds, internalVertexIds);
 									}
 									break;
 								default:

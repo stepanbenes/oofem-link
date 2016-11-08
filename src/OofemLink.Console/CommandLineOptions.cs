@@ -20,15 +20,12 @@ namespace OofemLink.Console
 		public string ProjectName { get; set; }
 	}
 
-	abstract class ProjectOptions : CommandLineOptions
-	{
-		[Option('p', "project", Required = true, HelpText = "Project id or name")]
-		public string ProjectNameOrId { get; set; }
-	}
-
 	[Verb("import", HelpText = "Import simulation data to OOFEM database")]
-	class ImportOptions : ProjectOptions
+	class ImportOptions : CommandLineOptions
 	{
+		[Option('p', "project", Required = false, HelpText = "Project id or name")]
+		public string ProjectNameOrId { get; set; }
+
 		[Option('s', "source", Required = false, HelpText = "Source of model data to import, options: \"ESA\" for Scia-Engineer (default)")]
 		public ImportSource Source { get; set; }
 

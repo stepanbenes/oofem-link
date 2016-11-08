@@ -69,11 +69,10 @@ namespace OofemLink.Data
 			//modelBuilder.Entity<VertexNodeMap>()
 			//	.HasKey(m => new { m.ModelId, m.VertexId, m.MeshId, m.NodeId });
 
-			modelBuilder.Entity<Macro>().HasKey(e => new { e.ModelId, e.Id });
-			modelBuilder.Entity<GeometryEntity>().HasKey(e => new { e.ModelId, e.Id });
-			modelBuilder.Entity<Vertex>().HasKey(v => new { v.ModelId, v.Id });
-
-			modelBuilder.Entity<Macro>().HasOne(m => m.GeometryEntity).WithMany(e => e.ParentMacros).HasForeignKey(m => new { m.ModelId, m.GeometryEntityId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<Vertex>().HasKey(e => new { e.ModelId, e.Id });
+			modelBuilder.Entity<Curve>().HasKey(e => new { e.ModelId, e.Id });
+			modelBuilder.Entity<Surface>().HasKey(e => new { e.ModelId, e.Id });
+			modelBuilder.Entity<Volume>().HasKey(e => new { e.ModelId, e.Id });
 
 			modelBuilder.Entity<VertexCurveMapping>().HasKey(m => new { m.ModelId, m.VertexId, m.CurveId });
 			modelBuilder.Entity<VertexCurveMapping>().HasOne(m => m.Vertex).WithMany(v => v.Curves).HasForeignKey(m => new { m.ModelId, m.VertexId });
@@ -89,6 +88,33 @@ namespace OofemLink.Data
 			modelBuilder.Entity<SurfaceVolumeMapping>().HasOne(m => m.Surface).WithMany(s => s.Volumes).HasForeignKey(m => new { m.ModelId, m.SurfaceId });
 			modelBuilder.Entity<SurfaceVolumeMapping>().HasOne(m => m.Volume).WithMany(v => v.Surfaces).HasForeignKey(m => new { m.ModelId, m.VolumeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceVolumeMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
+
+			modelBuilder.Entity<Macro>().HasKey(e => new { e.ModelId, e.Id });
+
+			modelBuilder.Entity<MacroBoundaryCurveMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.BoundaryCurveId });
+			modelBuilder.Entity<MacroBoundaryCurveMapping>().HasOne(m => m.BoundaryCurve).WithMany().HasForeignKey(m => new { m.ModelId, m.BoundaryCurveId });
+			modelBuilder.Entity<MacroBoundaryCurveMapping>().HasOne(m => m.Macro).WithMany(m => m.BoundaryCurves).HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<MacroBoundaryCurveMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
+
+			modelBuilder.Entity<MacroInternalCurveMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.InternalCurveId });
+			modelBuilder.Entity<MacroInternalCurveMapping>().HasOne(m => m.InternalCurve).WithMany().HasForeignKey(m => new { m.ModelId, m.InternalCurveId });
+			modelBuilder.Entity<MacroInternalCurveMapping>().HasOne(m => m.Macro).WithMany(m => m.InternalCurves).HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<MacroInternalCurveMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
+
+			modelBuilder.Entity<MacroInternalVertexMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.InternalVertexId });
+			modelBuilder.Entity<MacroInternalVertexMapping>().HasOne(m => m.InternalVertex).WithMany().HasForeignKey(m => new { m.ModelId, m.InternalVertexId });
+			modelBuilder.Entity<MacroInternalVertexMapping>().HasOne(m => m.Macro).WithMany(m => m.InternalVertices).HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<MacroInternalVertexMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
+
+			modelBuilder.Entity<MacroOpeningCurveMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.OpeningCurveId });
+			modelBuilder.Entity<MacroOpeningCurveMapping>().HasOne(m => m.OpeningCurve).WithMany().HasForeignKey(m => new { m.ModelId, m.OpeningCurveId });
+			modelBuilder.Entity<MacroOpeningCurveMapping>().HasOne(m => m.Macro).WithMany(m => m.OpeningCurves).HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<MacroOpeningCurveMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
+
+			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.BoundarySurfaceId });
+			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasOne(m => m.BoundarySurface).WithMany().HasForeignKey(m => new { m.ModelId, m.BoundarySurfaceId });
+			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasOne(m => m.Macro).WithMany(m => m.BoundarySurfaces).HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 
 			// MESH
 			modelBuilder.Entity<Node>().HasKey(b => new { b.MeshId, b.Id });

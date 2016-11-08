@@ -52,7 +52,7 @@ namespace OofemLink.Console
 			var location = options.Location ?? Directory.GetCurrentDirectory();
 			var projectService = new ProjectService(context);
 			var importService = ImportServiceFactory.Create(options.Source, location);
-			projectService.ImportSimulation(options.ProjectNameOrId, importService);
+			projectService.ImportSimulation(options.ProjectNameOrId ?? Path.GetDirectoryName(location), importService);
 			return Task.FromResult(0);
 		}
 

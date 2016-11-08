@@ -12,8 +12,15 @@ namespace OofemLink.Data.Entities
 		public int Id { get; set; }
 
 		public int LocalNumber { get; set; }
+	}
 
-		public virtual ICollection<Macro> ParentMacros { get; set; } = new List<Macro>();
+	public class Vertex : GeometryEntity
+	{
+		public double X { get; set; }
+		public double Y { get; set; }
+		public double Z { get; set; }
+
+		public virtual ICollection<VertexCurveMapping> Curves { get; set; } = new List<VertexCurveMapping>();
 	}
 
 	public class Curve : GeometryEntity
@@ -57,6 +64,7 @@ namespace OofemLink.Data.Entities
 		public virtual Surface Surface { get; set; }
 
 		public short Rank { get; set; }
+		public bool IsInversed { get; set; }
 	}
 
 	public class SurfaceVolumeMapping
@@ -70,5 +78,6 @@ namespace OofemLink.Data.Entities
 		public virtual Volume Volume { get; set; }
 
 		public short Rank { get; set; }
+		public bool IsInversed { get; set; }
 	}
 }
