@@ -116,6 +116,15 @@ namespace OofemLink.Data
 			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasOne(m => m.Macro).WithMany(m => m.BoundarySurfaces).HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 
+			// ATTRIBUTES
+			modelBuilder.Entity<MacroAttribute>().HasKey(a => new { a.ModelId, a.Id });
+
+			modelBuilder.Entity<AttributeMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.AttributeId });
+			modelBuilder.Entity<AttributeMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => new { m.ModelId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<AttributeMapping>().HasOne(m => m.TimeFunction).WithMany(t => t.AttributeMappings).HasForeignKey(m => m.TimeFunctionId).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<AttributeMapping>().HasOne(m => m.Attribute).WithMany(a => a.AttributeMappings).HasForeignKey(m => new { m.ModelId, m.AttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<AttributeMapping>().HasOne(m => m.Macro).WithMany(m => m.Attributes).HasForeignKey(m => new { m.ModelId, m.MacroId });
+
 			// MESH
 			modelBuilder.Entity<Node>().HasKey(b => new { b.MeshId, b.Id });
 			modelBuilder.Entity<Element>().HasKey(b => new { b.MeshId, b.Id });
@@ -156,6 +165,8 @@ namespace OofemLink.Data
 		public DbSet<Model> Models { get; set; }
 
 		public DbSet<Macro> Macros { get; set; }
+		public DbSet<MacroAttribute> MacroAttributes { get; set; }
+		public DbSet<TimeFunction> TimeFunctions { get; set; }
 
 		public DbSet<Vertex> Vertices { get; set; }
 		public DbSet<Curve> Curves { get; set; }

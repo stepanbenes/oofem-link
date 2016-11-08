@@ -20,6 +20,6 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<MacroBoundarySurfaceMapping> BoundarySurfaces { get; set; } = new List<MacroBoundarySurfaceMapping>();
 
 
-		//public virtual ICollection<AttributeMap> AttributeMappings { get; set; } = new List<AttributeMap>();
+		public virtual ICollection<AttributeMapping> Attributes { get; set; } = new List<AttributeMapping>();
 	}
 }
