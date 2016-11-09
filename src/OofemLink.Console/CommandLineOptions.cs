@@ -39,11 +39,11 @@ namespace OofemLink.Console
 		public int SimulationId { get; set; }
 	}
 
-	[Verb("build", HelpText = "Build OOFEM input file from model in database")]
-	class BuildOptions : SimulationOptions
+	[Verb("export", HelpText = "Build OOFEM input file from model in database")]
+	class ExportOptions : SimulationOptions
 	{
-		[Option('f', "file", Required = false, HelpText = "Input file full path or just name (\"<project-name>.in\" if not provided)")]
-		public string InputFileName { get; set; }
+		[Option('f', "file", Required = false, HelpText = "File absolute or relative path")]
+		public string FileName { get; set; }
 	}
 
 	[Verb("run", HelpText = "Run simulation in OOFEM")]

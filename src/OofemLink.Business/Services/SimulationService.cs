@@ -20,8 +20,7 @@ namespace OofemLink.Business.Services
 
 		public void Export(int simulationId, IExportService exportService)
 		{
-			var simulation = Context.Simulations.Single(s => s.Id == simulationId);
-			exportService.ExportSimulation(simulation);
+			exportService.ExportSimulation(simulationId);
 		}
 
 		public void Run()

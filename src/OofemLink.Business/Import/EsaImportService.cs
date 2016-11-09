@@ -97,7 +97,7 @@ namespace OofemLink.Business.Import
 		private void linkModelAndMeshTogether(string taskName, Model model, Mesh mesh)
 		{
 			string mtoFileFullPath = Path.Combine(location, $"{taskName}.MTO");
-			string linFileFullPath = Path.Combine(location, $"{taskName}.LIN");
+
 			// parse MTO file
 			foreach (var macroElementsLink in parseMtoFile(mtoFileFullPath))
 			{
@@ -144,9 +144,6 @@ namespace OofemLink.Business.Import
 						break;
 				}
 			}
-
-			// parse LIN file
-			//parseLinFile(linFileFullPath);
 		}
 
 		#region PRO file parsing

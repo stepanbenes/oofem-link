@@ -2,7 +2,7 @@
   "profiles": {
     "OofemLink.Console": {
       "commandName": "Project",
-      "commandLineArgs": "import -l C:\\temp\\ConstructionStages"
+      "commandLineArgs": "export -s 1"
     }
   }
 }

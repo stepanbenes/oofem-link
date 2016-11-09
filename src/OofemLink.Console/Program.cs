@@ -30,11 +30,11 @@ namespace OofemLink.Console
 #if DEBUG
 				context.Database.EnsureCreated();
 #endif
-				return Parser.Default.ParseArguments<CreateOptions, ImportOptions, BuildOptions, RunOptions>(args)
+				return Parser.Default.ParseArguments<CreateOptions, ImportOptions, ExportOptions, RunOptions>(args)
 					.MapResult(
 						(CreateOptions options) => runCreateCommandAsync(options, context),
 						(ImportOptions options) => runImportCommandAsync(options, context),
-						(BuildOptions options) => runBuildCommandAsync(options, context),
+						(ExportOptions options) => runExportCommandAsync(options, context),
 						(RunOptions options) => runRunCommandAsync(options, context),
 						errors => Task.FromResult(1)).Result; // blocking wait
 			}
@@ -52,20 +52,20 @@ namespace OofemLink.Console
 			var location = options.Location ?? Directory.GetCurrentDirectory();
 			var projectService = new ProjectService(context);
 			var importService = ImportServiceFactory.Create(options.Source, location);
-			projectService.ImportSimulation(options.ProjectNameOrId ?? Path.GetDirectoryName(location), importService);
+			projectService.ImportSimulation(options.ProjectNameOrId ?? Path.GetFileName(location), importService);
 			return Task.FromResult(0);
 		}
 
-		private static Task<int> runBuildCommandAsync(BuildOptions options, DataContext context)
+		private static Task<int> runExportCommandAsync(ExportOptions options, DataContext context)
 		{
-			string inputFileFullPath = null;
-			if (!string.IsNullOrEmpty(options.InputFileName))
+			string fileFullPath = null;
+			if (!string.IsNullOrEmpty(options.FileName))
 			{
 				// make absolute path
-				inputFileFullPath = Path.IsPathRooted(options.InputFileName) ? options.InputFileName : Path.Combine(Directory.GetCurrentDirectory(), options.InputFileName);
+				fileFullPath = Path.IsPathRooted(options.FileName) ? options.FileName : Path.Combine(Directory.GetCurrentDirectory(), options.FileName);
 			}
 			var simulationService = new SimulationService(context);
-			var exportService = ExportServiceFactory.Create(inputFileFullPath);
+			var exportService = ExportServiceFactory.Create(context, fileFullPath);
 			simulationService.Export(options.SimulationId, exportService);
 			return Task.FromResult(0);
 		}

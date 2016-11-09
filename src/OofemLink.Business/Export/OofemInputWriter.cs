@@ -2,18 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
-using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
-using OofemLink.Data;
-using OofemLink.Data.Entities;
 
 namespace OofemLink.Business.Export
 {
-    public class OofemInputWriter
+    class OofemInputWriter : IOofemInputCreator<OofemInputWriter>
     {
-		// TODO: see DynamicInputRecord in OOFEM source
-
 		readonly StreamWriter writer;
 
 		public OofemInputWriter(StreamWriter writer)
@@ -21,16 +15,22 @@ namespace OofemLink.Business.Export
 			this.writer = writer;
 		}
 
-		public OofemInputWriter WriteNodeCount(int nodeCount)
+		public OofemInputWriter SetOutputFileName(string outputFileName)
 		{
-			writer.WriteLine("nodes " + nodeCount);
+			writer.WriteLine(outputFileName);
 			return this;
 		}
 
-		public OofemInputWriter WriteNode(Node node)
+		public OofemInputWriter SetDescription(string description)
 		{
-			writer.WriteLine($"{node.Id} { node.X} { node.Y} { node.Z}");
+			writer.WriteLine(description);
 			return this;
 		}
-    }
+
+		public OofemInputWriter AddInputRecord(OofemInputRecord inputRecord)
+		{
+			writer.WriteLine(inputRecord.ToString());
+			return this;
+		}
+	}
 }
