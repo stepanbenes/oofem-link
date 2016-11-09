@@ -117,7 +117,7 @@ namespace OofemLink.Data
 			modelBuilder.Entity<MacroBoundarySurfaceMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 
 			// ATTRIBUTES
-			modelBuilder.Entity<MacroAttribute>().HasKey(a => new { a.ModelId, a.Id });
+			modelBuilder.Entity<Entities.Attribute>().HasKey(a => (new { a.ModelId, a.Id }));
 
 			modelBuilder.Entity<AttributeMapping>().HasKey(m => new { m.ModelId, m.MacroId, m.AttributeId });
 			modelBuilder.Entity<AttributeMapping>().HasOne(m => m.Model).WithMany().HasForeignKey(m => new { m.ModelId }).OnDelete(DeleteBehavior.Restrict);
@@ -165,7 +165,7 @@ namespace OofemLink.Data
 		public DbSet<Model> Models { get; set; }
 
 		public DbSet<Macro> Macros { get; set; }
-		public DbSet<MacroAttribute> MacroAttributes { get; set; }
+		public DbSet<Entities.Attribute> Attributes { get; set; }
 		public DbSet<TimeFunction> TimeFunctions { get; set; }
 
 		public DbSet<Vertex> Vertices { get; set; }
