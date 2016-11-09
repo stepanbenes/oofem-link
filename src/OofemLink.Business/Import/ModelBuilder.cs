@@ -60,7 +60,7 @@ namespace OofemLink.Business.Import
 			short rank = 1;
 			foreach (var lineId in boundaryLineIds)
 			{
-				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = lineId, Surface = surface, Rank = rank });
+				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = Math.Abs(lineId), Surface = surface, Rank = rank, IsInversed = lineId < 0 });
 				rank += 1;
 			}
 			model.Surfaces.Add(surface);
@@ -80,6 +80,7 @@ namespace OofemLink.Business.Import
 			short rank = 1;
 			foreach (var openingLineId in openingLineIds)
 			{
+				Debug.Assert(openingLineId > 0); // TODO: really?
 				macro.OpeningCurves.Add(new MacroOpeningCurveMapping { Model = model, OpeningCurveId = openingLineId, MacroId = macroId, Rank = rank });
 				rank += 1;
 			}
@@ -88,6 +89,7 @@ namespace OofemLink.Business.Import
 			rank = 1;
 			foreach (var internalLineId in internalLineIds)
 			{
+				Debug.Assert(internalLineId > 0); // TODO: really?
 				macro.InternalCurves.Add(new MacroInternalCurveMapping { Model = model, InternalCurveId = internalLineId, MacroId = macroId, Rank = rank });
 				rank += 1;
 			}
