@@ -49,7 +49,7 @@ namespace OofemLink.Business.Import
 		public ModelBuilder AddBeamMacro(int macroId, int lineId)
 		{
 			var macro = new Macro { Model = model, Id = macroId };
-			macro.BoundaryCurves.Add(new MacroBoundaryCurveMapping { Model = model, MacroId = macroId, BoundaryCurveId = lineId, Rank = 1 });
+			macro.Curves.Add(new MacroCurveMapping { Model = model, MacroId = macroId, CurveId = lineId });
 			model.Macros.Add(macro);
 			return this;
 		}
@@ -74,7 +74,7 @@ namespace OofemLink.Business.Import
 			var macro = new Macro { Model = model, Id = macroId };
 			
 			// Boundary
-			macro.BoundarySurfaces.Add(new MacroBoundarySurfaceMapping { Model = model, BoundarySurfaceId = surfaceId, MacroId = macroId, Rank = 1 });
+			macro.Surfaces.Add(new MacroSurfaceMapping { Model = model, SurfaceId = surfaceId, MacroId = macroId });
 
 			// Opening (hole)
 			short rank = 1;

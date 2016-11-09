@@ -21,23 +21,31 @@ namespace OofemLink.Data.Entities
 		public double Z { get; set; }
 
 		public virtual ICollection<VertexCurveMapping> Curves { get; set; } = new List<VertexCurveMapping>();
+
+		public virtual ICollection<VertexNodeMapping> Nodes { get; set; } = new List<VertexNodeMapping>();
 	}
 
 	public class Curve : GeometryEntity
 	{
 		public virtual ICollection<VertexCurveMapping> Vertices { get; set; } = new List<VertexCurveMapping>();
 		public virtual ICollection<CurveSurfaceMapping> Surfaces { get; set; } = new List<CurveSurfaceMapping>();
+
+		public virtual ICollection<Edge> Edges { get; set; } = new List<Edge>();
 	}
 
 	public class Surface : GeometryEntity
 	{
 		public virtual ICollection<CurveSurfaceMapping> Curves { get; set; } = new List<CurveSurfaceMapping>();
 		public virtual ICollection<SurfaceVolumeMapping> Volumes { get; set; } = new List<SurfaceVolumeMapping>();
+
+		public virtual ICollection<Face> Faces { get; set; } = new List<Face>();
 	}
 
 	public class Volume : GeometryEntity
 	{
 		public virtual ICollection<SurfaceVolumeMapping> Surfaces { get; set; } = new List<SurfaceVolumeMapping>();
+
+		public virtual ICollection<VolumeElementMapping> Elements { get; set; } = new List<VolumeElementMapping>();
 	}
 
 	public class VertexCurveMapping

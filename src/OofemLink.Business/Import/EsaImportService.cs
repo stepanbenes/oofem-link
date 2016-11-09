@@ -41,7 +41,7 @@ namespace OofemLink.Business.Import
 			var model = importModel(simulation.TaskName, out dimensions);
 			var mesh = importMesh(simulation.TaskName, dimensions);
 			model.Meshes.Add(mesh);
-			// TODO: link model and mesh entities togeteher (using e.g. file MTO)
+			linkModelAndMeshTogether(simulation.TaskName, model, mesh);
 			simulation.DimensionFlags = dimensions;
 			simulation.Models.Add(model);
 			return simulation;
@@ -89,6 +89,64 @@ namespace OofemLink.Business.Import
 				}
 			}
 			return mesh;
+		}
+
+		/// <summary>
+		/// link model and mesh entities together (using e.g. file MTO and LIN)
+		/// </summary>
+		private void linkModelAndMeshTogether(string taskName, Model model, Mesh mesh)
+		{
+			string mtoFileFullPath = Path.Combine(location, $"{taskName}.MTO");
+			string linFileFullPath = Path.Combine(location, $"{taskName}.LIN");
+			// parse MTO file
+			foreach (var macroElementsLink in parseMtoFile(mtoFileFullPath))
+			{
+				var macro = model.Macros.SingleOrDefault(m => m.Id == macroElementsLink.MacroId);
+				if (macro == null)
+					throw new KeyNotFoundException($"Macro with id {macroElementsLink.MacroId} was not found");
+				switch (macroElementsLink.Dimension)
+				{
+					case MacroElementsLink.ElementDimension.OneD:
+						{
+							var macroCurveMapping = macro.Curves.SingleOrDefault(c => c.CurveId == macroElementsLink.GeometryEntityId.Value);
+							if (macroCurveMapping == null)
+								throw new InvalidOperationException($"Curve with id {macroElementsLink.GeometryEntityId.Value} is not attached to macro with id {macroElementsLink.MacroId}.");
+							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
+							{
+								var edge = new Edge { Model = model, Mesh = mesh, CurveId = macroCurveMapping.CurveId, ElementId = elementId };
+								mesh.Edges.Add(edge);
+							}
+						}
+						break;
+					case MacroElementsLink.ElementDimension.TwoD:
+						{
+							var macroSurfaceMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.Surfaces.SingleOrDefault(s => s.SurfaceId == macroElementsLink.GeometryEntityId.Value) : macro.Surfaces.SingleOrDefault();
+							if(macroSurfaceMapping == null)
+								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to surface.");
+							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
+							{
+								var face = new Face { Model = model, Mesh = mesh, SurfaceId = macroSurfaceMapping.SurfaceId, ElementId = elementId };
+								mesh.Faces.Add(face);
+							}
+						}
+						break;
+					case MacroElementsLink.ElementDimension.ThreeD:
+						{
+							var macroVolumeMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.Volumes.SingleOrDefault(v => v.VolumeId == macroElementsLink.GeometryEntityId.Value) : macro.Volumes.SingleOrDefault();
+							if (macroVolumeMapping == null)
+								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to volume.");
+							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
+							{
+								var volumeElementMapping = new VolumeElementMapping { Model = model, Mesh = mesh, VolumeId = macroVolumeMapping.VolumeId, ElementId = elementId };
+								mesh.VolumeElements.Add(volumeElementMapping);
+							}
+						}
+						break;
+				}
+			}
+
+			// parse LIN file
+			//parseLinFile(linFileFullPath);
 		}
 
 		#region PRO file parsing
@@ -817,6 +875,95 @@ namespace OofemLink.Business.Import
 				}
 			}
 			return modelBuilder.Model;
+		}
+
+		#endregion
+
+		#region Model-Mesh link files parsing
+
+		private struct MacroElementsLink
+		{
+			public enum ElementDimension
+			{
+				OneD = 1, TwoD, ThreeD
+			}
+			public int MacroId { get; }
+			public int? GeometryEntityId { get; }
+			public ElementDimension Dimension { get; }
+			public int StartElementId { get; }
+			public int EndElementId { get; }
+			public MacroElementsLink(int macroId, int? geometryEntityId, ElementDimension dimension, int startElementId, int endElementId)
+			{
+				MacroId = macroId;
+				GeometryEntityId = geometryEntityId;
+				Dimension = dimension;
+				StartElementId = startElementId;
+				EndElementId = endElementId;
+			}
+		}
+
+		private static IEnumerable<MacroElementsLink> parseMtoFile(string fileFullPath)
+		{
+			foreach (var line in File.ReadLines(fileFullPath))
+			{
+				string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+				if (tokens.Length != 7)
+				{
+					throw new FormatException("Wrong MTO file format. Each row has to have exactly 7 records.");
+				}
+				switch (tokens[5])
+				{
+					case "B": // 1D MACRO
+						{
+							int macroId = ParseInt32(tokens[0]);
+							int memberId = ParseInt32(tokens[1]);
+							int lineId = ParseInt32(tokens[2]);
+							int startElementId = ParseInt32(tokens[3]);
+							int endElementId = ParseInt32(tokens[4]);
+
+							yield return new MacroElementsLink(macroId, lineId, MacroElementsLink.ElementDimension.OneD, startElementId, endElementId);
+						}
+						break;
+					case "C": // 2D MACRO
+					case "G":
+					case "Q":
+						{
+							int macroId = ParseInt32(tokens[0]);
+							int startElementId = ParseInt32(tokens[3]);
+							int endElementId = ParseInt32(tokens[4]);
+							int localAxisDirection = ParseInt32(tokens[6]); // TODO: deal with local axis direction parameter
+
+							yield return new MacroElementsLink(macroId, null, MacroElementsLink.ElementDimension.TwoD, startElementId, endElementId);
+						}
+						break;
+					case "D": // 3D MACRO
+						{
+							int macroId = ParseInt32(tokens[0]);
+							int startElementId = ParseInt32(tokens[3]);
+							int endElementId = ParseInt32(tokens[4]);
+
+							yield return new MacroElementsLink(macroId, null, MacroElementsLink.ElementDimension.ThreeD, startElementId, endElementId);
+						}
+						break;
+					case "S": // SUM
+						{
+							// TODO: check consistency with mesh object and program number
+							int numberOf2dElements = ParseInt32(tokens[0]);
+							int numberOf1dElements = ParseInt32(tokens[1]);
+							int numberOfNodes = ParseInt32(tokens[2]);
+							int NEXXProgramNumber = ParseInt32(tokens[3]);
+							int numberOf3dElements = ParseInt32(tokens[4]);
+						}
+						break;
+					default:
+						throw new NotSupportedException($"'{tokens[5]}' macro type is not recognized");
+				}
+			}
+		}
+
+		private static void parseLinFile(string fileFullPath)
+		{
+			throw new NotImplementedException();
 		}
 
 		#endregion

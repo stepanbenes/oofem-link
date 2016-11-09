@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "OofemLink.Console": {
+      "commandName": "Project",
+      "commandLineArgs": "import -l C:\\temp\\ConstructionStages"
+    }
+  }
+}
