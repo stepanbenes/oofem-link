@@ -8,20 +8,19 @@ using System.Threading.Tasks;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 
-namespace OofemLink.Business.Export
+namespace OofemLink.Business.Export.OOFEM
 {
-	class OofemInputBuilder : IOofemInputCreator<OofemInputBuilder>
+	class InputBuilder
 	{
 		// inspired by DynamicInputRecord in OOFEM source code
 
-		readonly List<OofemInputRecord> records = new List<OofemInputRecord>();
+		readonly List<InputRecord> records = new List<InputRecord>();
 
-		public OofemInputBuilder AddInputRecord(OofemInputRecord inputRecord)
+		public InputBuilder AddInputRecord(InputRecord inputRecord)
 		{
 			records.Add(inputRecord);
 			return this;
 		}
-
 
 		public void WriteTo(StreamWriter streamWriter)
 		{
@@ -31,4 +30,19 @@ namespace OofemLink.Business.Export
 			}
 		}
 	}
+
+	//class InputWriter
+	//{
+	//	readonly StreamWriter writer;
+
+	//	public OofemInputWriter(StreamWriter writer)
+	//	{
+	//		this.writer = writer;
+	//	}
+
+	//	public void AddInputRecord(InputRecord inputRecord)
+	//	{
+	//		writer.WriteLine(inputRecord.ToString());
+	//	}
+	//}
 }

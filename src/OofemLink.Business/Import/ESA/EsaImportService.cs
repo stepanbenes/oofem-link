@@ -9,7 +9,7 @@ using OofemLink.Common.Extensions;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 
-namespace OofemLink.Business.Import
+namespace OofemLink.Business.Import.ESA
 {
 	class EsaImportService : FormatParserBase, IImportService
 	{

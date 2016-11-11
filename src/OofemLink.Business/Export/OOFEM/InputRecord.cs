@@ -4,13 +4,13 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace OofemLink.Business.Export
+namespace OofemLink.Business.Export.OOFEM
 {
-    abstract class OofemInputRecord
+    abstract class InputRecord
     {
     }
 
-	class StringInputRecord : OofemInputRecord
+	class StringInputRecord : InputRecord
 	{
 		readonly string text;
 		public StringInputRecord(string text)
