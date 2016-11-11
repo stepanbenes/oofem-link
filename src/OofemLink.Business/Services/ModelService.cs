@@ -37,5 +37,10 @@ namespace OofemLink.Business.Services
 			context.Vertices.Add(vertex);
 			await context.SaveChangesAsync();
 		}
+
+		public async Task<IReadOnlyList<CurveDto>> GetAllCurvesAsync(int modelId)
+		{
+			return await context.Curves.AsNoTracking().Where(c => c.ModelId == modelId).ProjectTo<CurveDto>().ToListAsync();
+		}
 	}
 }

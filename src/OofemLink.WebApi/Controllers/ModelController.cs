@@ -8,7 +8,7 @@ using OofemLink.Business.Services;
 
 namespace OofemLink.WebApi.Controllers
 {
-	[Route("api/[controller]")]
+	[Route("api/model")]
 	public class ModelController : Controller
     {
 		readonly IModelService service;
@@ -18,16 +18,20 @@ namespace OofemLink.WebApi.Controllers
 			this.service = service;
 		}
 
-		// POST api/model/1/vertex
+		// GET api/model/1/vertex
 		[HttpGet("{modelId}/vertex")]
-		public Task<IReadOnlyList<VertexDto>> Get(int modelId) => service.GetAllVerticesAsync(modelId);
+		public Task<IReadOnlyList<VertexDto>> GetVertices(int modelId) => service.GetAllVerticesAsync(modelId);
 
-		// POST api/model/1/vertex/4
+		// GET api/model/1/vertex/4
 		[HttpGet("{modelId}/vertex/{vertexId}")]
-		public Task<VertexDto> Get(int modelId, int vertexId) => service.GetVertexAsync(modelId, vertexId);
+		public Task<VertexDto> GetVertex(int modelId, int vertexId) => service.GetVertexAsync(modelId, vertexId);
 
 		// POST api/model/1/vertex
 		[HttpPost("{modelId}/vertex")]
-		public Task Post(int modelId, [FromBody]VertexDto vertex) => service.CreateVertexAsync(modelId, vertex);
+		public Task PostVertex(int modelId, [FromBody]VertexDto vertex) => service.CreateVertexAsync(modelId, vertex);
+
+		// GET api/model/1/curve
+		[HttpGet("{modelId}/curve")]
+		public Task<IReadOnlyList<CurveDto>> GetCurves(int modelId) => service.GetAllCurvesAsync(modelId);
 	}
 }

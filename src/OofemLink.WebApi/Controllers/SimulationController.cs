@@ -8,7 +8,7 @@ using OofemLink.Business.Services;
 
 namespace OofemLink.WebApi.Controllers
 {
-	[Route("api/[controller]")]
+	[Route("api/simulation")]
 	public class SimulationController : Controller
     {
 		readonly ISimulationService service;

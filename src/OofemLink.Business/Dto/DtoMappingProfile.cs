@@ -18,6 +18,8 @@ namespace OofemLink.Business.Dto
 				.ForMember(s => s.ProjectName, options => options.MapFrom(s => s.Project.Name))
 				.ForMember(s => s.ModelId, options => options.MapFrom(s => s.Models.Select(m => (int?)m.Id).SingleOrDefault()));
 			CreateMap<Vertex, VertexDto>();
+			CreateMap<Curve, CurveDto>()
+				.ForMember(c => c.VertexIds, options => options.MapFrom(c => c.Vertices.OrderBy(v => v.Rank).Select(v => v.VertexId)));
 			// DTO -> ENTITY
 			CreateMap<ProjectDto, Project>();
 			CreateMap<EditSimulationDto, Simulation>();
