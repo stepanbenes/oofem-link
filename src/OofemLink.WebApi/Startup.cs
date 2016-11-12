@@ -43,6 +43,13 @@ namespace OofemLink.WebApi
 					options.SerializerSettings.Converters.Add(new Newtonsoft.Json.Converters.StringEnumConverter());
 				});
 
+			services.AddCors(o => o.AddPolicy("CorsPolicy", builder =>
+				{
+					builder.AllowAnyOrigin()
+						   .AllowAnyMethod()
+						   .AllowAnyHeader();
+				}));
+
 			services.AddDbContext<Data.DataContext>();
 
 			services.AddScoped<IProjectService, ProjectService>();
@@ -59,6 +66,8 @@ namespace OofemLink.WebApi
 		{
 			loggerFactory.AddConsole(Configuration.GetSection("Logging"));
 			loggerFactory.AddDebug();
+
+			app.UseCors("CorsPolicy");
 
 			app.UseMvc();
 
