@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.Extensions;
 using OofemLink.Data;
@@ -16,11 +17,13 @@ namespace OofemLink.Business.Import.ESA
 		#region Fields, constructor
 
 		readonly string location;
+		readonly ILogger logger;
 		int globalElementCounter;
 
-		public EsaImportService(string location)
+		public EsaImportService(string location, ILogger logger)
 		{
 			this.location = location;
+			this.logger = logger;
 		}
 
 		#endregion
@@ -29,6 +32,7 @@ namespace OofemLink.Business.Import.ESA
 
 		public Simulation ImportSimulation()
 		{
+			logger.LogInformation("Starting import...");
 			const string proFileExtension = ".PRO";
 			string proFileFullPath = Directory.EnumerateFiles(location, "*" + proFileExtension).Where(file => file.EndsWith(proFileExtension)).SingleOrDefault();
 			if (proFileFullPath == null)
@@ -44,6 +48,7 @@ namespace OofemLink.Business.Import.ESA
 			linkModelAndMeshTogether(simulation.TaskName, model, mesh);
 			simulation.DimensionFlags = dimensions;
 			simulation.Models.Add(model);
+			logger.LogInformation("Import finished.");
 			return simulation;
 		}
 
@@ -397,6 +402,7 @@ namespace OofemLink.Business.Import.ESA
 
 		private Simulation parseProFile(string fileFullPath)
 		{
+			logger.LogTrace("Parsing PRO file");
 			var simulation = new Simulation();
 			foreach (var line in File.ReadLines(fileFullPath).Select(l => l.TrimEnd('!')).MergeIfStartsWith(" "))
 			{
@@ -452,8 +458,10 @@ namespace OofemLink.Business.Import.ESA
 
 		#region Mesh files parsing
 
-		private static IEnumerable<Node> parseXyzFile(string fileFullPath, ModelDimensions dimensions)
+		private IEnumerable<Node> parseXyzFile(string fileFullPath, ModelDimensions dimensions)
 		{
+			logger.LogTrace("Parsing XYZ file");
+
 			/// Soubor .XYZ
 			/// Pro každý uzel jsou v něm uloženy binárně jeho 3 souřadnice jako proměnné typu double (pro rovinné úlohy se ukládají pouze 2 souřadnice). Záznam odpovídající jednomu uzlu má tedy délku 24 bytů(příp. 16 bytů pro rovinné úlohy).
 			/// Poznámka: Uzel s identifikátorem Id se nachází v Id-tém záznamu souboru .XYZ (za předpokladu, že je součástí nějaké generované entity, jinak by byl ignorován). Z toho vyplývá, že pokud je maximální Id větší než počet vygenerovaných uzlů, musí být uměle vytvořeny další uzly, aby měl soubor .XYZ dostatečnou velikost. Tyto uzly jsou naplněny hodnotou 1.e+30 pro všechny souřadnice.
@@ -513,6 +521,8 @@ namespace OofemLink.Business.Import.ESA
 
 		private IEnumerable<Element> parseE1DFile(string fileFullPath)
 		{
+			logger.LogTrace("Parsing E1D file");
+
 			long e1dFileLength = new FileInfo(fileFullPath).Length;
 			long e1dSize = 2 * sizeof(int);
 			long e1dRecords = e1dFileLength / e1dSize;
@@ -538,6 +548,8 @@ namespace OofemLink.Business.Import.ESA
 
 		private IEnumerable<Element> parseE2DFile(string fileFullPath)
 		{
+			logger.LogTrace("Parsing E2D file");
+
 			long e2dFileLength = new FileInfo(fileFullPath).Length;
 			long e2dSize = 4 * sizeof(int);
 			long e2dRecords = e2dFileLength / e2dSize;
@@ -738,8 +750,10 @@ namespace OofemLink.Business.Import.ESA
 			}
 		}
 
-		private static Model parseGeoFile(string fileFullPath, out ModelDimensions dimensions)
+		private Model parseGeoFile(string fileFullPath, out ModelDimensions dimensions)
 		{
+			logger.LogTrace("Parsing GEO file");
+
 			var modelBuilder = new ModelBuilder();
 			dimensions = ModelDimensions.None;
 			foreach (var line in File.ReadLines(fileFullPath).MergeIfStartsWith(" "))
@@ -867,7 +881,7 @@ namespace OofemLink.Business.Import.ESA
 						}
 						break;
 					default:
-						Console.WriteLine("Ignoring " + tokens[0]);
+						logger.LogWarning("Ignoring token '{0}' in GEO file", tokens[0]);
 						break;
 				}
 			}
@@ -899,8 +913,10 @@ namespace OofemLink.Business.Import.ESA
 			}
 		}
 
-		private static IEnumerable<MacroElementsLink> parseMtoFile(string fileFullPath)
+		private IEnumerable<MacroElementsLink> parseMtoFile(string fileFullPath)
 		{
+			logger.LogTrace("Parsing MTO file");
+
 			foreach (var line in File.ReadLines(fileFullPath))
 			{
 				string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
@@ -958,8 +974,9 @@ namespace OofemLink.Business.Import.ESA
 			}
 		}
 
-		private static void parseLinFile(string fileFullPath)
+		private void parseLinFile(string fileFullPath)
 		{
+			logger.LogTrace("Parsing LIN file");
 			throw new NotImplementedException();
 		}
 

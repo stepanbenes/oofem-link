@@ -65,7 +65,10 @@ namespace OofemLink.WebApi
 		public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
 		{
 			loggerFactory.AddConsole(Configuration.GetSection("Logging"));
-			loggerFactory.AddDebug();
+			if (env.IsDevelopment())
+			{
+				loggerFactory.AddDebug();
+			}
 
 			app.UseCors("CorsPolicy");
 

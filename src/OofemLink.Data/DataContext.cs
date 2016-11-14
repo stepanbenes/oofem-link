@@ -29,11 +29,19 @@ namespace OofemLink.Data
 		}
 
 		public DataContext()
-		{ }
+		{
+#if DEBUG
+			Database.EnsureCreated();
+#endif
+		}
 
 		public DataContext(DbContextOptions<DataContext> options)
 			: base(options)
-		{ }
+		{
+#if DEBUG
+			Database.EnsureCreated();
+#endif
+		}
 
 		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
 		{
