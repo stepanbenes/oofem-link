@@ -141,13 +141,12 @@ namespace OofemLink.Common.Encoding
 						);
 					break;
 			}
-
-			return output.ToString();
+			// trim padding at the end, because it can be added later in Decode method
+			return output.ToString().TrimEnd('=');
 		}
 
 		public string Decode(string input)
 		{
-
 			int expOrgSize = (int)Math.Floor(input.Length / 1.6);
 			int expPadSize = ((int)Math.Ceiling(expOrgSize / 5.0)) * 8;
 
@@ -268,6 +267,5 @@ namespace OofemLink.Common.Encoding
 
 			return result;
 		}
-
 	}
 }
