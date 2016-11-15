@@ -80,8 +80,8 @@ namespace OofemLink.Console
 		{
 			var location = options.Location ?? Directory.GetCurrentDirectory();
 			var projectService = serviceProvider.GetRequiredService<IProjectService>();
-			var importService = serviceProvider.GetRequiredService<IImportServiceFactory>().Create(options.Source, location);
-			projectService.ImportSimulation(options.ProjectNameOrId ?? Path.GetFileName(location), importService);
+			var importService = serviceProvider.GetRequiredService<IImportServiceFactory>().Create(options.Source, location, options.TaskName);
+			projectService.ImportSimulation(importService);
 			return Task.FromResult(0);
 		}
 

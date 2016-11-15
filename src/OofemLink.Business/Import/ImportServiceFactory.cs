@@ -11,7 +11,7 @@ namespace OofemLink.Business.Import
 {
 	public interface IImportServiceFactory
 	{
-		IImportService Create(ImportSource source, string location);
+		IImportService Create(ImportSource source, string location, string taskName);
 	}
 
 	public class ImportServiceFactory : IImportServiceFactory
@@ -23,12 +23,12 @@ namespace OofemLink.Business.Import
 			this.loggerFactory = loggerFactory;
 		}
 
-		public IImportService Create(ImportSource source, string location)
+		public IImportService Create(ImportSource source, string location, string taskName)
 		{
 			switch (source)
 			{
 				case ImportSource.ESA:
-					return new EsaImportService(location, loggerFactory.CreateLogger<EsaImportService>());
+					return new EsaImportService(location, taskName, loggerFactory.CreateLogger<EsaImportService>());
 				default:
 					throw new NotSupportedException();
 			}

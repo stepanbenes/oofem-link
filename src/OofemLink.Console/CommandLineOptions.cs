@@ -23,8 +23,8 @@ namespace OofemLink.Console
 	[Verb("import", HelpText = "Import simulation data to OOFEM database")]
 	class ImportOptions : CommandLineOptions
 	{
-		[Option('p', "project", Required = false, HelpText = "Project id or name")]
-		public string ProjectNameOrId { get; set; }
+		[Value(index: 0, Required = true, MetaName = "Task-name", HelpText = "Name of task to import")]
+		public string TaskName { get; set; }
 
 		[Option('s', "source", Required = false, HelpText = "Source of model data to import, options: \"ESA\" for Scia-Engineer (default)")]
 		public ImportSource Source { get; set; }

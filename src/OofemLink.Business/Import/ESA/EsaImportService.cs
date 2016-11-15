@@ -16,13 +16,14 @@ namespace OofemLink.Business.Import.ESA
 	{
 		#region Fields, constructor
 
-		readonly string location;
+		readonly string location, taskName;
 		readonly ILogger logger;
 		int globalElementCounter;
 
-		public EsaImportService(string location, ILogger logger)
+		public EsaImportService(string location, string taskName, ILogger logger)
 		{
 			this.location = location;
+			this.taskName = taskName;
 			this.logger = logger;
 		}
 
@@ -42,10 +43,10 @@ namespace OofemLink.Business.Import.ESA
 
 			var simulation = parseProFile(proFileFullPath);
 			ModelDimensions dimensions;
-			var model = importModel(simulation.TaskName, out dimensions);
-			var mesh = importMesh(simulation.TaskName, dimensions);
+			var model = importModel(out dimensions);
+			var mesh = importMesh(dimensions);
 			model.Meshes.Add(mesh);
-			linkModelAndMeshTogether(simulation.TaskName, model, mesh);
+			linkModelAndMeshTogether(model, mesh);
 			simulation.DimensionFlags = dimensions;
 			simulation.Models.Add(model);
 			logger.LogInformation("Import finished.");
@@ -56,13 +57,13 @@ namespace OofemLink.Business.Import.ESA
 
 		#region Private methods
 
-		private Model importModel(string taskName, out ModelDimensions dimensions)
+		private Model importModel(out ModelDimensions dimensions)
 		{
 			string geoFileFullPath = Path.Combine(location, $"{taskName}.geo");
 			return parseGeoFile(geoFileFullPath, out dimensions);
 		}
 
-		private Mesh importMesh(string taskName, ModelDimensions dimensions)
+		private Mesh importMesh(ModelDimensions dimensions)
 		{
 			string xyzFileFullPath = Path.Combine(location, $"{taskName}.XYZ");
 			string e1dFileFullPath = Path.Combine(location, $"{taskName}.E1D");
@@ -99,7 +100,7 @@ namespace OofemLink.Business.Import.ESA
 		/// <summary>
 		/// link model and mesh entities together (using e.g. file MTO and LIN)
 		/// </summary>
-		private void linkModelAndMeshTogether(string taskName, Model model, Mesh mesh)
+		private void linkModelAndMeshTogether(Model model, Mesh mesh)
 		{
 			string mtoFileFullPath = Path.Combine(location, $"{taskName}.MTO");
 
@@ -126,7 +127,7 @@ namespace OofemLink.Business.Import.ESA
 					case MacroElementsLink.ElementDimension.TwoD:
 						{
 							var macroSurfaceMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.Surfaces.SingleOrDefault(s => s.SurfaceId == macroElementsLink.GeometryEntityId.Value) : macro.Surfaces.SingleOrDefault();
-							if(macroSurfaceMapping == null)
+							if (macroSurfaceMapping == null)
 								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to surface.");
 							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
 							{
@@ -403,7 +404,7 @@ namespace OofemLink.Business.Import.ESA
 		private Simulation parseProFile(string fileFullPath)
 		{
 			logger.LogTrace("Parsing PRO file");
-			var simulation = new Simulation();
+			var simulation = new Simulation { TaskName = taskName };
 			foreach (var line in File.ReadLines(fileFullPath).Select(l => l.TrimEnd('!')).MergeIfStartsWith(" "))
 			{
 				string[] tokens = line.Split('=');
@@ -418,10 +419,19 @@ namespace OofemLink.Business.Import.ESA
 				switch (code)
 				{
 					case ProFileCodes.SYSTEM:
-						Debug.Assert(value == "ESA");
+						if (value != "ESA")
+						{
+							logger.LogError($"PRO: Attribute {ProFileCodes.SYSTEM} has unrecognized value. ESA code expected.");
+						}
 						break;
 					case ProFileCodes.ULOHA:
-						simulation.TaskName = value;
+						if (value != taskName)
+						{
+							logger.LogError($"PRO: Attribute {ProFileCodes.ULOHA} has inconsistent value. '{taskName}' expected.");
+						}
+						break;
+					case ProFileCodes.PROJ_NAME:
+						simulation.Project = new Project { Name = value };
 						break;
 					case ProFileCodes.AXIS_Z:
 						simulation.ZAxisUp = value == "UP";
@@ -881,7 +891,7 @@ namespace OofemLink.Business.Import.ESA
 						}
 						break;
 					default:
-						logger.LogWarning("Ignoring token '{0}' in GEO file", tokens[0]);
+						logger.LogWarning("GEO: Ignoring token '{0}'", tokens[0]);
 						break;
 				}
 			}

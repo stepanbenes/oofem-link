@@ -7,6 +7,7 @@ using AutoMapper.QueryableExtensions;
 using Microsoft.EntityFrameworkCore;
 using OofemLink.Business.Dto;
 using OofemLink.Business.Import;
+using OofemLink.Common.Encoding;
 using OofemLink.Data;
 
 namespace OofemLink.Business.Services
@@ -17,28 +18,25 @@ namespace OofemLink.Business.Services
 			: base(context)
 		{ }
 
-		public void ImportSimulation(string projectNameOrId, IImportService importService)
+		public void ImportSimulation(IImportService importService)
 		{
 			var simulation = importService.ImportSimulation();
-			int projectId;
-			if (int.TryParse(projectNameOrId, out projectId)) // find existing project or create new
+			if (simulation.Project == null || string.IsNullOrEmpty(simulation.Project.Name))
 			{
-				simulation.ProjectId = projectId;
+				string projectName = new ZBaseEncoder().Encode(Guid.NewGuid().ToByteArray()); // generate unique project name
+				simulation.Project = new Project { Name = projectName };
+			}
+			
+			Project existingProject = Context.Projects.Where(p => p.Name == simulation.Project.Name).SingleOrDefault();
+			if (existingProject != null)
+			{
+				simulation.Project = existingProject;
 			}
 			else
 			{
-				Project project = Context.Projects.Where(p => p.Name == projectNameOrId).SingleOrDefault();
-				if (project == null)
-				{
-					project = new Project { Name = projectNameOrId };
-					Context.Projects.Add(project);
-					simulation.Project = project;
-				}
-				else
-				{
-					simulation.ProjectId = project.Id;
-				}
+				Context.Projects.Add(simulation.Project);
 			}
+
 			Context.Simulations.Add(simulation);
 			Context.SaveChanges();
 		}
