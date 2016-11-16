@@ -10,39 +10,35 @@ using OofemLink.Data.Entities;
 
 namespace OofemLink.Business.Export.OOFEM
 {
-	class InputBuilder
+	class InputBuilder : IDisposable
 	{
-		// inspired by DynamicInputRecord in OOFEM source code
+		readonly StreamWriter streamWriter;
 
-		readonly List<InputRecord> records = new List<InputRecord>();
-
-		public InputBuilder AddInputRecord(InputRecord inputRecord)
+		public InputBuilder(string fileFullPath)
 		{
-			records.Add(inputRecord);
-			return this;
+			var stream = new FileStream(fileFullPath, FileMode.Create, FileAccess.Write, FileShare.None);
+			streamWriter = new StreamWriter(stream);
 		}
 
-		public void WriteTo(StreamWriter streamWriter)
+		public void AddComment(string comment)
 		{
-			foreach (var record in records)
-			{
-				streamWriter.WriteLine(record.ToString());
-			}
+			Add(new CommentRecord(comment));
+		}
+
+		public void AddString(string text)
+		{
+			Add(new EmptyRecord(text));
+		}
+
+		public void Add(InputRecord record)
+		{
+			// TODO: decide whether to add record to buffer and then write them all at once in Dispose method, or write them immediately
+			streamWriter.WriteLine(record.ToString().Trim());
+		}
+
+		public void Dispose()
+		{
+			streamWriter.Dispose();
 		}
 	}
-
-	//class InputWriter
-	//{
-	//	readonly StreamWriter writer;
-
-	//	public OofemInputWriter(StreamWriter writer)
-	//	{
-	//		this.writer = writer;
-	//	}
-
-	//	public void AddInputRecord(InputRecord inputRecord)
-	//	{
-	//		writer.WriteLine(inputRecord.ToString());
-	//	}
-	//}
 }
