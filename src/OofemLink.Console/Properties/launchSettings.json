@@ -2,7 +2,7 @@
   "profiles": {
     "OofemLink.Console": {
       "commandName": "Project",
-      "commandLineArgs": "export -s 1"
+      "commandLineArgs": "import -l C:\\Users\\benes\\ESA16.1\\Temp"
     }
   }
 }

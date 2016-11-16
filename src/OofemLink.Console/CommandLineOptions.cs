@@ -7,8 +7,8 @@ using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Console
 {
-    abstract class CommandLineOptions
-    {
+	abstract class CommandLineOptions
+	{
 		[Option(Required = false, HelpText = "Prints all messages to standard output.")]
 		public bool Verbose { get; set; }
 	}
@@ -23,13 +23,15 @@ namespace OofemLink.Console
 	[Verb("import", HelpText = "Import simulation data to OOFEM database")]
 	class ImportOptions : CommandLineOptions
 	{
-		[Value(index: 0, Required = true, MetaName = "Task-name", HelpText = "Name of task to import")]
+		public const string DefaultTaskName = @"$001$064";
+
+		[Value(index: 0, Required = false, MetaName = "Task-name", Default = DefaultTaskName, HelpText = "Name of task to import")]
 		public string TaskName { get; set; }
 
-		[Option('s', "source", Required = false, HelpText = "Source of model data to import, options: \"ESA\" for Scia-Engineer (default)")]
+		[Option('s', "source", Required = false, Default = ImportSource.Default, HelpText = "Source of model data to import")]
 		public ImportSource Source { get; set; }
 
-		[Option('l', "location", Required = false, HelpText = "Location of input data (current directory is used if none provided)")]
+		[Option('l', "location", Required = false, HelpText = "Location of input data (current directory is default)")]
 		public string Location { get; set; }
 	}
 
