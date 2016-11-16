@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using OofemLink.Business.Import;
+using OofemLink.Common.Enumerations;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 
@@ -37,12 +38,29 @@ namespace OofemLink.Business.Import
 			return this;
 		}
 
-		public ModelBuilder AddStraightLine(int lineId, int firstVertexId, int secondVertexId)
+		public ModelBuilder AddCurve(int lineId, CurveType type, IEnumerable<int> vertexIds)
 		{
-			var straightLine = new Curve { Id = lineId, LocalNumber = lineId };
-			straightLine.Vertices.Add(new VertexCurveMapping { Model = model, Curve = straightLine, VertexId = firstVertexId, Rank = 1 });
-			straightLine.Vertices.Add(new VertexCurveMapping { Model = model, Curve = straightLine, VertexId = secondVertexId, Rank = 2 });
-			model.Curves.Add(straightLine);
+			var curve = new Curve { Id = lineId, Type = type };
+			short rank = 1;
+			foreach (var vertexId in vertexIds)
+			{
+				curve.Vertices.Add(new VertexCurveMapping { Model = model, Curve = curve, VertexId = vertexId, Rank = rank });
+				rank += 1;
+			}
+			model.Curves.Add(curve);
+			return this;
+		}
+
+		public ModelBuilder AddSurface(int surfaceId, SurfaceType type, IEnumerable<int> boundaryLineIds)
+		{
+			var surface = new Surface { Model = model, Id = surfaceId, Type = type };
+			short rank = 1;
+			foreach (var lineId in boundaryLineIds)
+			{
+				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = Math.Abs(lineId), Surface = surface, Rank = rank, IsInversed = lineId < 0 });
+				rank += 1;
+			}
+			model.Surfaces.Add(surface);
 			return this;
 		}
 
@@ -57,23 +75,10 @@ namespace OofemLink.Business.Import
 			return this;
 		}
 
-		public ModelBuilder AddSurface(int surfaceId, IEnumerable<int> boundaryLineIds)
-		{
-			var surface = new Surface { Model = model, Id = surfaceId };
-			short rank = 1;
-			foreach (var lineId in boundaryLineIds)
-			{
-				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = Math.Abs(lineId), Surface = surface, Rank = rank, IsInversed = lineId < 0 });
-				rank += 1;
-			}
-			model.Surfaces.Add(surface);
-			return this;
-		}
-
-		public ModelBuilder AddSurfaceMacro(int macroId, IEnumerable<int> boundaryLineIds, IEnumerable<int> openingLineIds, IEnumerable<int> internalLineIds, IEnumerable<int> internalVertexIds)
+		public ModelBuilder AddGeneralSurfaceMacro(int macroId, IEnumerable<int> boundaryLineIds, IEnumerable<int> openingLineIds, IEnumerable<int> internalLineIds, IEnumerable<int> internalVertexIds)
 		{
 			int surfaceId = macroId;
-			AddSurface(surfaceId, boundaryLineIds);
+			AddSurface(surfaceId, SurfaceType.General, boundaryLineIds);
 			var macro = new Macro { Model = model, Id = macroId };
 			
 			// Boundary

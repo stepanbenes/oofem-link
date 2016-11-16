@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Data.Entities
 {
@@ -10,8 +12,6 @@ namespace OofemLink.Data.Entities
 		public int ModelId { get; set; }
 		public virtual Model Model { get; set; }
 		public int Id { get; set; }
-
-		public int LocalNumber { get; set; }
 	}
 
 	public class Vertex : GeometryEntity
@@ -27,6 +27,8 @@ namespace OofemLink.Data.Entities
 
 	public class Curve : GeometryEntity
 	{
+		public CurveType Type { get; set; }
+
 		public virtual ICollection<VertexCurveMapping> Vertices { get; set; } = new List<VertexCurveMapping>();
 		public virtual ICollection<CurveSurfaceMapping> Surfaces { get; set; } = new List<CurveSurfaceMapping>();
 
@@ -35,6 +37,8 @@ namespace OofemLink.Data.Entities
 
 	public class Surface : GeometryEntity
 	{
+		public SurfaceType Type { get; set; }
+
 		public virtual ICollection<CurveSurfaceMapping> Curves { get; set; } = new List<CurveSurfaceMapping>();
 		public virtual ICollection<SurfaceVolumeMapping> Volumes { get; set; } = new List<SurfaceVolumeMapping>();
 

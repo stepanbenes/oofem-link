@@ -823,18 +823,16 @@ namespace OofemLink.Business.Import.ESA
 					case GeoFileCodes.LINE:
 						{
 							int lineId = ParseInt32(tokens[1]);
-							switch (tokens[2])
+							CurveType type;
+							if (!Enum.TryParse(tokens[2], out type))
+								throw new NotSupportedException($"Line code '{tokens[2]}' is not supported");
+							var vertexIds = new List<int>();
+							for (int index = 3; index < tokens.Length; index++)
 							{
-								case GeoFileCodes.LineTypeCodes.STRL:
-									{
-										int firstVertexId = ParseInt32(tokens[3]);
-										int secondVertexId = ParseInt32(tokens[4]);
-										modelBuilder.AddStraightLine(lineId, firstVertexId, secondVertexId);
-									}
-									break;
-								default:
-									throw new NotSupportedException($"Line code '{tokens[2]}' is not supported");
+								int vertexId = ParseInt32(tokens[index]);
+								vertexIds.Add(vertexId);
 							}
+							modelBuilder.AddCurve(lineId, type, vertexIds);
 						}
 						break;
 					case GeoFileCodes.MACR:
@@ -886,7 +884,7 @@ namespace OofemLink.Business.Import.ESA
 											}
 											index += 1;
 										}
-										modelBuilder.AddSurfaceMacro(macroId, boundaryLineIds, openingLineIds, internalLineIds, internalVertexIds);
+										modelBuilder.AddGeneralSurfaceMacro(macroId, boundaryLineIds, openingLineIds, internalLineIds, internalVertexIds);
 									}
 									break;
 								default:
