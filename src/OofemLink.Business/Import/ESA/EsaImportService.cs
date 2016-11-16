@@ -844,8 +844,13 @@ namespace OofemLink.Business.Import.ESA
 							{
 								case GeoFileCodes.MacroTypeCodes.BEAM:
 									{
-										int lineId = ParseInt32(tokens[3]);
-										modelBuilder.AddBeamMacro(macroId, lineId);
+										var lineIds = new List<int>();
+										for (int index = 3; index < tokens.Length; index++)
+										{
+											int lineId = ParseInt32(tokens[index]);
+											lineIds.Add(lineId);
+										}
+										modelBuilder.AddBeamMacro(macroId, lineIds);
 									}
 									break;
 								case GeoFileCodes.MacroTypeCodes.GEN:
@@ -855,8 +860,7 @@ namespace OofemLink.Business.Import.ESA
 										var internalLineIds = new List<int>();
 										var internalVertexIds = new List<int>();
 										List<int> currentList = boundaryLineIds;
-										int index = 3;
-										while (index < tokens.Length)
+										for (int index = 3; index < tokens.Length; index++)
 										{
 											int number;
 											if (TryParseInt32(tokens[index], out number))

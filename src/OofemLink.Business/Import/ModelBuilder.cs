@@ -46,10 +46,13 @@ namespace OofemLink.Business.Import
 			return this;
 		}
 
-		public ModelBuilder AddBeamMacro(int macroId, int lineId)
+		public ModelBuilder AddBeamMacro(int macroId, IEnumerable<int> lineIds)
 		{
 			var macro = new Macro { Model = model, Id = macroId };
-			macro.Curves.Add(new MacroCurveMapping { Model = model, MacroId = macroId, CurveId = lineId });
+			foreach (var lineId in lineIds)
+			{
+				macro.Curves.Add(new MacroCurveMapping { Model = model, MacroId = macroId, CurveId = lineId });
+			}
 			model.Macros.Add(macro);
 			return this;
 		}
