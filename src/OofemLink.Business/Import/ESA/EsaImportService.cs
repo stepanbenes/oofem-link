@@ -932,9 +932,9 @@ namespace OofemLink.Business.Import.ESA
 			foreach (var line in File.ReadLines(fileFullPath))
 			{
 				string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-				if (tokens.Length != 7)
+				if (tokens.Length < 7)
 				{
-					throw new FormatException("Wrong MTO file format. Each row has to have exactly 7 records.");
+					throw new FormatException("Wrong MTO file format. Each row has to have at least 7 records.");
 				}
 				switch (tokens[5])
 				{
