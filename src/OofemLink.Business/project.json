@@ -2,10 +2,10 @@
     "version": "0.1.0-*",
 
     "dependencies": {
-        "NETStandard.Library": "1.6.0",
         "OofemLink.Common": "0.1.0-*",
         "OofemLink.Data": "0.1.0-*",
-        "AutoMapper": "5.1.1"
+        "AutoMapper": "5.1.1",
+        "NETStandard.Library": "1.6.1"
     },
 
   "frameworks": {

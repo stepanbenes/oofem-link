@@ -1,4 +1,4 @@
-﻿{
+{
     "title": "OOFEM-link",
     "copyright": "Copyright (c) 2016-2017 OOFEM team",
     "description": "Public interface for OOFEM solver. File conversion engine, execution control, model and results database administration.",
@@ -11,18 +11,18 @@
 
     "dependencies": {
         "CommandLineParser.Unofficial": "2.0.275",
-        "Microsoft.Extensions.Logging.Console": "1.0.0",
-        "Microsoft.Extensions.Logging.Debug": "1.0.0",
+        "Microsoft.Extensions.Logging.Console": "1.1.0",
+        "Microsoft.Extensions.Logging.Debug": "1.1.0",
         "Microsoft.NETCore.App": {
             "type": "platform",
-            "version": "1.0.1"
+            "version": "1.1.0"
         },
         "OofemLink.Business": "0.1.0-*",
         "OofemLink.Common": "0.1.0-*"
     },
 
     "frameworks": {
-        "netcoreapp1.0": {
+        "netcoreapp1.1": {
             "imports": "dnxcore50"
         }
     }
