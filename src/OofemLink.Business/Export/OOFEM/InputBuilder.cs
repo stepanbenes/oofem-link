@@ -58,7 +58,10 @@ namespace OofemLink.Business.Export.OOFEM
 
 		public void Dispose()
 		{
-			streamWriter.Dispose();
+			if (streamWriter != null)
+			{
+				streamWriter.Dispose();
+			}
 		}
 
 		#endregion

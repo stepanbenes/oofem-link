@@ -9,14 +9,14 @@ using OofemLink.Data;
 
 namespace OofemLink.Business.Export.OOFEM
 {
-	class OofemInputFileExportService : IExportService
+	class InputFileExportService : IExportService
 	{
 		#region Fields, constructor
 
 		readonly string fileFullPath;
 		readonly DataContext dataContext;
 
-		public OofemInputFileExportService(DataContext dataContext, string fileFullPath)
+		public InputFileExportService(DataContext dataContext, string fileFullPath)
 		{
 			this.dataContext = dataContext;
 			if (!string.IsNullOrEmpty(fileFullPath))

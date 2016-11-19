@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
-using OofemLink.Business.Export.OOFEM;
 using OofemLink.Data;
 
 namespace OofemLink.Business.Export
@@ -24,7 +23,7 @@ namespace OofemLink.Business.Export
 
 		public IExportService Create(string fileFullPath)
 		{
-			return new OofemInputFileExportService(dataContext, fileFullPath);
+			return new OOFEM.InputFileExportService(dataContext, fileFullPath);
 		}
 	}
 }
