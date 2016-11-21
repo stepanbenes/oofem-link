@@ -12,11 +12,15 @@ using OofemLink.Services.Export;
 using OofemLink.Services.Import;
 using OofemLink.Services.DataAccess;
 using OofemLink.Data;
+using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 
 namespace OofemLink.Cli
 {
 	public class Program
 	{
+		#region Entry point
+
 		public static int Main(string[] args)
 		{
 			if (args.Length == 0)
@@ -24,14 +28,38 @@ namespace OofemLink.Cli
 				drawHelloImage();
 			}
 
-			return new Program().Run(args).Result; // blocking wait
+			return new Program().RunAsync(args).Result; // blocking wait
 		}
 
+		public async Task<int> RunAsync(string[] args)
+		{
+			using (serviceProvider.CreateScope())
+			{
+				return await Parser.Default.ParseArguments<CreateOptions, ImportOptions, ExportOptions, RunOptions>(args)
+					.WithParsed((CommandLineOptions options) => configureApp(options))
+					.MapResult(
+						(CreateOptions options) => runCreateCommandAsync(options),
+						(ImportOptions options) => runImportCommandAsync(options),
+						(ExportOptions options) => runExportCommandAsync(options),
+						(RunOptions options) => runRunCommandAsync(options),
+						errors => Task.FromResult(1));
+			}
+		}
+
+		#endregion
+
+		#region Initialization
+
 		readonly IServiceProvider serviceProvider;
+		readonly IConfigurationRoot configuration;
 
 		private Program()
 		{
-			Mapper.Initialize(config => config.AddProfile<DtoMappingProfile>());
+			var configurationBuilder = new ConfigurationBuilder()
+				.SetBasePath(Directory.GetCurrentDirectory())
+				//.AddInMemoryCollection()
+				.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
+			this.configuration = configurationBuilder.Build();
 
 			var services = new ServiceCollection();
 			configureServices(services);
@@ -41,32 +69,43 @@ namespace OofemLink.Cli
 		private void configureServices(IServiceCollection services)
 		{
 			services.AddLogging();
-			services.AddDbContext<DataContext>();
 
-			services.AddSingleton<IProjectService, ProjectService>();
-			services.AddSingleton<ISimulationService, SimulationService>();
-			services.AddSingleton<IImportServiceFactory, ImportServiceFactory>();
-			services.AddSingleton<IExportServiceFactory, ExportServiceFactory>();
+			services.AddDbContext<DataContext>(options =>
+			{
+				switch (configuration["DatabaseProvider"])
+				{
+					case "SqlServer":
+						options.UseSqlServer(configuration.GetConnectionString("oofem_db"));
+						break;
+					case "Sqlite":
+						options.UseSqlite(configuration.GetConnectionString("oofem_db"));
+						break;
+					case "InMemory":
+						options.UseInMemoryDatabase();
+						break;
+				}
+			});
+
+			services.AddScoped<IProjectService, ProjectService>();
+			services.AddScoped<ISimulationService, SimulationService>();
+			services.AddScoped<IImportServiceFactory, ImportServiceFactory>();
+			services.AddScoped<IExportServiceFactory, ExportServiceFactory>();
+
+			Mapper.Initialize(config => config.AddProfile<DtoMappingProfile>());
 		}
 
-		private void configure(bool verbose)
+		private void configureApp(CommandLineOptions options)
 		{
 			var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-			loggerFactory.AddConsole(minLevel: verbose ? LogLevel.Information : LogLevel.Warning);
+			loggerFactory.AddConsole(minLevel: options.Verbose ? LogLevel.Information : LogLevel.Warning);
+#if DEBUG
 			loggerFactory.AddDebug(minLevel: LogLevel.Trace);
+#endif
 		}
 
-		public Task<int> Run(string[] args)
-		{
-			return Parser.Default.ParseArguments<CreateOptions, ImportOptions, ExportOptions, RunOptions>(args)
-				.WithParsed((CommandLineOptions options) => configure(options.Verbose))
-				.MapResult(
-					(CreateOptions options) => runCreateCommandAsync(options),
-					(ImportOptions options) => runImportCommandAsync(options),
-					(ExportOptions options) => runExportCommandAsync(options),
-					(RunOptions options) => runRunCommandAsync(options),
-					errors => Task.FromResult(1));
-		}
+		#endregion
+
+		#region Commands
 
 		private async Task<int> runCreateCommandAsync(CreateOptions options)
 		{
@@ -105,6 +144,10 @@ namespace OofemLink.Cli
 			return Task.FromResult(0);
 		}
 
+		#endregion
+
+		#region Helper methods
+
 		private static void drawHelloImage()
 		{
 			Console.WriteLine(
@@ -128,5 +171,7 @@ namespace OofemLink.Cli
 "
 				);
 		}
+
+		#endregion
 	}
 }

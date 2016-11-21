@@ -11,43 +11,12 @@ namespace OofemLink.Data
 {
 	public class DataContext : DbContext
 	{
-		public static DbContextOptions<DataContext> CreateNewInMemoryContextOptions()
-		{
-			// Create a fresh service provider, and therefore a fresh 
-			// InMemory database instance.
-			var serviceProvider = new ServiceCollection()
-				.AddEntityFrameworkInMemoryDatabase()
-				.BuildServiceProvider();
-
-			// Create a new options instance telling the context to use an
-			// InMemory database and the new service provider.
-			var builder = new DbContextOptionsBuilder<DataContext>();
-			builder.UseInMemoryDatabase()
-				   .UseInternalServiceProvider(serviceProvider);
-
-			return builder.Options;
-		}
-
-		public DataContext()
-		{
-#if DEBUG
-			Database.EnsureCreated();
-#endif
-		}
-
 		public DataContext(DbContextOptions<DataContext> options)
 			: base(options)
 		{
 #if DEBUG
 			Database.EnsureCreated();
 #endif
-		}
-
-		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-		{
-			//optionsBuilder.UseInMemoryDatabase();
-			//optionsBuilder.UseSqlite("Filename=./oofem.db", b => b.MigrationsAssembly("OofemLink.WebApi"));
-			optionsBuilder.UseSqlServer(@"Server=(localdb)\mssqllocaldb;Database=oofem_db;Trusted_Connection=True;", b => b.MigrationsAssembly("OofemLink.WebApi"));
 		}
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)

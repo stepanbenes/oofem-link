@@ -6,6 +6,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -50,7 +51,21 @@ namespace OofemLink.WebApi
 						   .AllowAnyHeader();
 				}));
 
-			services.AddDbContext<Data.DataContext>();
+			services.AddDbContext<Data.DataContext>(options =>
+			{
+				switch (Configuration["DatabaseProvider"])
+				{
+					case "SqlServer":
+						options.UseSqlServer(Configuration.GetConnectionString("oofem_db"));
+						break;
+					case "Sqlite":
+						options.UseSqlite(Configuration.GetConnectionString("oofem_db"));
+						break;
+					case "InMemory":
+						options.UseInMemoryDatabase();
+						break;
+				}
+			});
 
 			services.AddScoped<IProjectService, ProjectService>();
 			services.AddScoped<ISimulationService, SimulationService>();
