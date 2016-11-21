@@ -17,7 +17,7 @@
             "type": "platform",
             "version": "1.1.0"
         },
-        "OofemLink.Business": "0.1.0-*",
+        "OofemLink.Services": "0.1.0-*",
         "OofemLink.Common": "0.1.0-*"
     },
 

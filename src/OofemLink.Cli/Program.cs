@@ -7,10 +7,10 @@ using AutoMapper;
 using CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using OofemLink.Business.Dto;
-using OofemLink.Business.Export;
-using OofemLink.Business.Import;
-using OofemLink.Business.Services;
+using OofemLink.Data.DataTransferObjects;
+using OofemLink.Services.Export;
+using OofemLink.Services.Import;
+using OofemLink.Services.DataAccess;
 using OofemLink.Data;
 
 namespace OofemLink.Cli

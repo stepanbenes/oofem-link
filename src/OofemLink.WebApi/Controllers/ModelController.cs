@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using OofemLink.Business.Dto;
-using OofemLink.Business.Services;
+using OofemLink.Data.DataTransferObjects;
+using OofemLink.Services.DataAccess;
 
 namespace OofemLink.WebApi.Controllers
 {
