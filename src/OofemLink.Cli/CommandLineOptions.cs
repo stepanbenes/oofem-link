@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using CommandLine;
 using OofemLink.Common.Enumerations;
 
-namespace OofemLink.Console
+namespace OofemLink.Cli
 {
 	abstract class CommandLineOptions
 	{

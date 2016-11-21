@@ -12,9 +12,8 @@ using OofemLink.Business.Export;
 using OofemLink.Business.Import;
 using OofemLink.Business.Services;
 using OofemLink.Data;
-using static System.Console;
 
-namespace OofemLink.Console
+namespace OofemLink.Cli
 {
 	public class Program
 	{
@@ -108,7 +107,7 @@ namespace OofemLink.Console
 
 		private static void drawHelloImage()
 		{
-			WriteLine(
+			Console.WriteLine(
 @"
          ,:.             .,,        ,::::::::::`      .:;,                      
       ;;;;;;;;        .;;;;;;;.     ;;;;;;;;;;;     ;;;;;;;;     .;           ;:

@@ -1,7 +1,7 @@
 {
-    "title": "OOFEM-link",
+    "title": "OOFEM-link CLI",
     "copyright": "Copyright (c) 2016-2017 OOFEM team",
-    "description": "Public interface for OOFEM solver. File conversion engine, execution control, model and results database administration.",
+    "description": "Command-line interface for OOFEM solver. File conversion engine, execution control, model and results database administration.",
     "version": "0.1.0-*",
     "authors": [ "OOFEM team" ],
     
