@@ -62,6 +62,7 @@ namespace OofemLink.WebApi
 						options.UseSqlite(Configuration.GetConnectionString("oofem_db"));
 						break;
 					case "InMemory":
+					default:
 						options.UseInMemoryDatabase();
 						break;
 				}

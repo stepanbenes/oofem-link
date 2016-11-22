@@ -55,10 +55,12 @@ namespace OofemLink.Cli
 
 		private Program()
 		{
+			var configurationLocation = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
+			Console.WriteLine(configurationLocation);
 			var configurationBuilder = new ConfigurationBuilder()
-				.SetBasePath(Directory.GetCurrentDirectory())
+				.SetBasePath(configurationLocation)
+				.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
 				//.AddInMemoryCollection()
-				.AddJsonFile("appsettings.json", optional: false, reloadOnChange: false);
 			this.configuration = configurationBuilder.Build();
 
 			var services = new ServiceCollection();
@@ -81,6 +83,7 @@ namespace OofemLink.Cli
 						options.UseSqlite(configuration.GetConnectionString("oofem_db"));
 						break;
 					case "InMemory":
+					default:
 						options.UseInMemoryDatabase();
 						break;
 				}
