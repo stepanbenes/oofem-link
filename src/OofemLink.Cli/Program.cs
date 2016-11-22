@@ -56,7 +56,6 @@ namespace OofemLink.Cli
 		private Program()
 		{
 			var configurationLocation = Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location);
-			Console.WriteLine(configurationLocation);
 			var configurationBuilder = new ConfigurationBuilder()
 				.SetBasePath(configurationLocation)
 				.AddJsonFile("appsettings.json", optional: true, reloadOnChange: false);
