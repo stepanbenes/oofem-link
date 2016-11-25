@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -19,5 +18,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<Volume> Volumes { get; set; } = new List<Volume>();
 
 		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
+
+		public virtual ICollection<Attribute> Attributes { get; set; } = new List<Attribute>();
 	}
 }

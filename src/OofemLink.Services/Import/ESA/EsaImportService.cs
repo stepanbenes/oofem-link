@@ -42,13 +42,24 @@ namespace OofemLink.Services.Import.ESA
 			}
 
 			var simulation = parseProFile(proFileFullPath);
+
 			ModelDimensions dimensions;
 			var model = importModel(out dimensions);
+
 			var mesh = importMesh(dimensions);
+
 			model.Meshes.Add(mesh);
+
 			linkModelAndMeshTogether(model, mesh);
+
+			foreach (var attribute in importAttributes())
+			{
+				model.Attributes.Add(attribute);
+			}
+
 			simulation.DimensionFlags = dimensions;
 			simulation.Models.Add(model);
+
 			logger.LogInformation("Import finished.");
 			return simulation;
 		}
@@ -150,6 +161,13 @@ namespace OofemLink.Services.Import.ESA
 						break;
 				}
 			}
+		}
+
+		private IEnumerable<Data.Entities.Attribute> importAttributes()
+		{
+			string istFileFullPath = Path.Combine(location, $"{taskName}.IST");
+			return parseIstFile(istFileFullPath);
+			// TODO: add Ix files parsing
 		}
 
 		#region PRO file parsing
@@ -989,6 +1007,17 @@ namespace OofemLink.Services.Import.ESA
 		private void parseLinFile(string fileFullPath)
 		{
 			logger.LogTrace("Parsing LIN file");
+			throw new NotImplementedException();
+		}
+
+		#endregion
+
+		#region Attribute files parsing
+
+		private IEnumerable<Data.Entities.Attribute> parseIstFile(string fileFullPath)
+		{
+			logger.LogTrace("Parsing IST file");
+
 			throw new NotImplementedException();
 		}
 
