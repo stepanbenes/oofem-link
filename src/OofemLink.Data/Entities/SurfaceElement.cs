@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 namespace OofemLink.Data.Entities
 {
 	/// <summary>
-	/// Surface-Element mapping
+	/// Surface to element face mapping
 	/// </summary>
-    public class Face
+    public class SurfaceElement
     {
 		public int ModelId { get; set; }
 		public int SurfaceId { get; set; }

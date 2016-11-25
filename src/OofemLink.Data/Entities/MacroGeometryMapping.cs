@@ -14,25 +14,25 @@ namespace OofemLink.Data.Entities
 		public virtual Macro Macro { get; set; }
 	}
 
-	public class MacroCurveMapping : MacroGeometryMapping
+	public class MacroCurve : MacroGeometryMapping
 	{
 		public int CurveId { get; set; }
 		public virtual Curve Curve { get; set; }
 	}
 
-	public class MacroSurfaceMapping : MacroGeometryMapping
+	public class MacroSurface : MacroGeometryMapping
 	{
 		public int SurfaceId { get; set; }
 		public virtual Surface Surface { get; set; }
 	}
 
-	public class MacroVolumeMapping : MacroGeometryMapping
+	public class MacroVolume : MacroGeometryMapping
 	{
 		public int VolumeId { get; set; }
 		public virtual Volume Volume { get; set; }
 	}
 
-	public class MacroInternalCurveMapping : MacroGeometryMapping
+	public class MacroInternalCurve : MacroGeometryMapping
 	{
 		public int InternalCurveId { get; set; }
 		public virtual Curve InternalCurve { get; set; }
@@ -40,13 +40,13 @@ namespace OofemLink.Data.Entities
 		public bool IsInversed { get; set; }
 	}
 
-	public class MacroInternalVertexMapping : MacroGeometryMapping
+	public class MacroInternalVertex : MacroGeometryMapping
 	{
 		public int InternalVertexId { get; set; }
 		public virtual Vertex InternalVertex { get; set; }
 	}
 
-	public class MacroOpeningCurveMapping : MacroGeometryMapping
+	public class MacroOpeningCurve : MacroGeometryMapping
 	{
 		public int OpeningCurveId { get; set; }
 		public virtual Curve OpeningCurve { get; set; }

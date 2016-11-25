@@ -44,7 +44,7 @@ namespace OofemLink.Services.Import
 			short rank = 1;
 			foreach (var vertexId in vertexIds)
 			{
-				curve.Vertices.Add(new VertexCurveMapping { Model = model, Curve = curve, VertexId = vertexId, Rank = rank });
+				curve.CurveVertices.Add(new VertexCurve { Model = model, Curve = curve, VertexId = vertexId, Rank = rank });
 				rank += 1;
 			}
 			model.Curves.Add(curve);
@@ -57,7 +57,7 @@ namespace OofemLink.Services.Import
 			short rank = 1;
 			foreach (var lineId in boundaryLineIds)
 			{
-				surface.Curves.Add(new CurveSurfaceMapping { Model = model, CurveId = Math.Abs(lineId), Surface = surface, Rank = rank, IsInversed = lineId < 0 });
+				surface.SurfaceCurves.Add(new SurfaceCurve { Model = model, CurveId = Math.Abs(lineId), Surface = surface, Rank = rank, IsInversed = lineId < 0 });
 				rank += 1;
 			}
 			model.Surfaces.Add(surface);
@@ -69,7 +69,7 @@ namespace OofemLink.Services.Import
 			var macro = new Macro { Model = model, Id = macroId };
 			foreach (var lineId in lineIds)
 			{
-				macro.Curves.Add(new MacroCurveMapping { Model = model, MacroId = macroId, CurveId = lineId });
+				macro.MacroCurves.Add(new MacroCurve { Model = model, MacroId = macroId, CurveId = lineId });
 			}
 			model.Macros.Add(macro);
 			return this;
@@ -82,14 +82,14 @@ namespace OofemLink.Services.Import
 			var macro = new Macro { Model = model, Id = macroId };
 			
 			// Boundary
-			macro.Surfaces.Add(new MacroSurfaceMapping { Model = model, SurfaceId = surfaceId, MacroId = macroId });
+			macro.MacroSurfaces.Add(new MacroSurface { Model = model, SurfaceId = surfaceId, MacroId = macroId });
 
 			// Opening (hole)
 			short rank = 1;
 			foreach (var openingLineId in openingLineIds)
 			{
 				Debug.Assert(openingLineId > 0); // TODO: really?
-				macro.OpeningCurves.Add(new MacroOpeningCurveMapping { Model = model, OpeningCurveId = openingLineId, MacroId = macroId, Rank = rank });
+				macro.MacroOpeningCurves.Add(new MacroOpeningCurve { Model = model, OpeningCurveId = openingLineId, MacroId = macroId, Rank = rank });
 				rank += 1;
 			}
 
@@ -98,14 +98,14 @@ namespace OofemLink.Services.Import
 			foreach (var internalLineId in internalLineIds)
 			{
 				Debug.Assert(internalLineId > 0); // TODO: really?
-				macro.InternalCurves.Add(new MacroInternalCurveMapping { Model = model, InternalCurveId = internalLineId, MacroId = macroId, Rank = rank });
+				macro.MacroInternalCurves.Add(new MacroInternalCurve { Model = model, InternalCurveId = internalLineId, MacroId = macroId, Rank = rank });
 				rank += 1;
 			}
 
 			// Internal vertices
 			foreach (var internalVertexId in internalVertexIds)
 			{
-				macro.InternalVertices.Add(new MacroInternalVertexMapping { Model = model, InternalVertexId = internalVertexId, MacroId = macroId });
+				macro.MacroInternalVertices.Add(new MacroInternalVertex { Model = model, InternalVertexId = internalVertexId, MacroId = macroId });
 			}
 
 			model.Macros.Add(macro);

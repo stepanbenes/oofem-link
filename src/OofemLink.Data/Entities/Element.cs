@@ -12,9 +12,9 @@ namespace OofemLink.Data.Entities
 		public int LocalNumber { get; set; }
 
 		public virtual ICollection<ElementNode> ElementNodes { get; set; } = new List<ElementNode>();
-		public virtual ICollection<Edge> Edges { get; set; } = new List<Edge>();
-		public virtual ICollection<Face> Faces { get; set; } = new List<Face>();
+		public virtual ICollection<CurveElement> Edges { get; set; } = new List<CurveElement>();
+		public virtual ICollection<SurfaceElement> Faces { get; set; } = new List<SurfaceElement>();
 
-		public virtual ICollection<VolumeElementMapping> Volumes { get; set; } = new List<VolumeElementMapping>();
+		public virtual ICollection<VolumeElement> Volumes { get; set; } = new List<VolumeElement>();
 	}
 }

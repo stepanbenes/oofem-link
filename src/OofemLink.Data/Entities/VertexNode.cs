@@ -5,17 +5,17 @@ using System.Threading.Tasks;
 
 namespace OofemLink.Data.Entities
 {
-    public class VolumeElementMapping
+    public class VertexNode
     {
 		public int ModelId { get; set; }
-		public int VolumeId { get; set; }
+		public int VertexId { get; set; }
 
 		public int MeshId { get; set; }
-		public int ElementId { get; set; }
+		public int NodeId { get; set; }
 
 		public virtual Model Model { get; set; }
 		public virtual Mesh Mesh { get; set; }
-		public virtual Volume Volume { get; set; }
-		public virtual Element Element { get; set; }
+		public virtual Vertex Vertex { get; set; }
+		public virtual Node Node { get; set; }
 	}
 }

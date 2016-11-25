@@ -82,7 +82,6 @@ namespace OofemLink.Cli
 						options.UseSqlite(configuration.GetConnectionString("oofem_db"));
 						break;
 					case "InMemory":
-					default:
 						options.UseInMemoryDatabase();
 						break;
 				}

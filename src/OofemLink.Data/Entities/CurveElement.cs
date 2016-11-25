@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 namespace OofemLink.Data.Entities
 {
 	/// <summary>
-	/// Curve-Element mapping
+	/// Curve to element edge mapping
 	/// </summary>
-    public class Edge
+    public class CurveElement
     {
 		public int ModelId { get; set; }
 		public int CurveId { get; set; }

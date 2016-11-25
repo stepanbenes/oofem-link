@@ -13,6 +13,6 @@ namespace OofemLink.Data.Entities
 
 		public virtual ICollection<ElementNode> ElementNodes { get; set; } = new List<ElementNode>();
 
-		public virtual ICollection<VertexNodeMapping> Vertices { get; set; } = new List<VertexNodeMapping>();
+		public virtual ICollection<VertexNode> NodeVertices { get; set; } = new List<VertexNode>();
 	}
 }

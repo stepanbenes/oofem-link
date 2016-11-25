@@ -20,39 +20,39 @@ namespace OofemLink.Data.Entities
 		public double Y { get; set; }
 		public double Z { get; set; }
 
-		public virtual ICollection<VertexCurveMapping> Curves { get; set; } = new List<VertexCurveMapping>();
-
-		public virtual ICollection<VertexNodeMapping> Nodes { get; set; } = new List<VertexNodeMapping>();
+		public virtual ICollection<VertexCurve> VertexCurves { get; set; } = new List<VertexCurve>();
+		public virtual ICollection<VertexNode> VertexNodes { get; set; } = new List<VertexNode>();
+		public virtual ICollection<VertexAttribute> VertexAttributes { get; set; } = new List<VertexAttribute>();
 	}
 
 	public class Curve : GeometryEntity
 	{
 		public CurveType Type { get; set; }
 
-		public virtual ICollection<VertexCurveMapping> Vertices { get; set; } = new List<VertexCurveMapping>();
-		public virtual ICollection<CurveSurfaceMapping> Surfaces { get; set; } = new List<CurveSurfaceMapping>();
-
-		public virtual ICollection<Edge> Edges { get; set; } = new List<Edge>();
+		public virtual ICollection<VertexCurve> CurveVertices { get; set; } = new List<VertexCurve>();
+		public virtual ICollection<SurfaceCurve> CurveSurfaces { get; set; } = new List<SurfaceCurve>();
+		public virtual ICollection<CurveElement> CurveElements { get; set; } = new List<CurveElement>();
+		public virtual ICollection<CurveAttribute> CurveAttributes { get; set; } = new List<CurveAttribute>();
 	}
 
 	public class Surface : GeometryEntity
 	{
 		public SurfaceType Type { get; set; }
 
-		public virtual ICollection<CurveSurfaceMapping> Curves { get; set; } = new List<CurveSurfaceMapping>();
-		public virtual ICollection<SurfaceVolumeMapping> Volumes { get; set; } = new List<SurfaceVolumeMapping>();
-
-		public virtual ICollection<Face> Faces { get; set; } = new List<Face>();
+		public virtual ICollection<SurfaceCurve> SurfaceCurves { get; set; } = new List<SurfaceCurve>();
+		public virtual ICollection<SurfaceVolume> SurfaceVolumes { get; set; } = new List<SurfaceVolume>();
+		public virtual ICollection<SurfaceElement> SurfaceElements { get; set; } = new List<SurfaceElement>();
+		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
 	}
 
 	public class Volume : GeometryEntity
 	{
-		public virtual ICollection<SurfaceVolumeMapping> Surfaces { get; set; } = new List<SurfaceVolumeMapping>();
-
-		public virtual ICollection<VolumeElementMapping> Elements { get; set; } = new List<VolumeElementMapping>();
+		public virtual ICollection<SurfaceVolume> VolumeSurfaces { get; set; } = new List<SurfaceVolume>();
+		public virtual ICollection<VolumeElement> VolumeElements { get; set; } = new List<VolumeElement>();
+		public virtual ICollection<VolumeAttribute> VolumeAttributes { get; set; } = new List<VolumeAttribute>();
 	}
 
-	public class VertexCurveMapping
+	public class VertexCurve
 	{
 		public int ModelId { get; set; }
 		public int VertexId { get; set; }
@@ -65,7 +65,7 @@ namespace OofemLink.Data.Entities
 		public short Rank { get; set; }
 	}
 
-	public class CurveSurfaceMapping
+	public class SurfaceCurve
 	{
 		public int ModelId { get; set; }
 		public int CurveId { get; set; }
@@ -79,7 +79,7 @@ namespace OofemLink.Data.Entities
 		public bool IsInversed { get; set; }
 	}
 
-	public class SurfaceVolumeMapping
+	public class SurfaceVolume
 	{
 		public int ModelId { get; set; }
 		public int SurfaceId { get; set; }

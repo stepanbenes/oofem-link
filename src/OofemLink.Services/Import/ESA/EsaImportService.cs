@@ -114,36 +114,36 @@ namespace OofemLink.Services.Import.ESA
 				{
 					case MacroElementsLink.ElementDimension.OneD:
 						{
-							var macroCurveMapping = macro.Curves.SingleOrDefault(c => c.CurveId == macroElementsLink.GeometryEntityId.Value);
+							var macroCurveMapping = macro.MacroCurves.SingleOrDefault(c => c.CurveId == macroElementsLink.GeometryEntityId.Value);
 							if (macroCurveMapping == null)
 								throw new InvalidOperationException($"Curve with id {macroElementsLink.GeometryEntityId.Value} is not attached to macro with id {macroElementsLink.MacroId}.");
 							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
 							{
-								var edge = new Edge { Model = model, Mesh = mesh, CurveId = macroCurveMapping.CurveId, ElementId = elementId };
-								mesh.Edges.Add(edge);
+								var edge = new CurveElement { Model = model, Mesh = mesh, CurveId = macroCurveMapping.CurveId, ElementId = elementId };
+								mesh.CurveElements.Add(edge);
 							}
 						}
 						break;
 					case MacroElementsLink.ElementDimension.TwoD:
 						{
-							var macroSurfaceMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.Surfaces.SingleOrDefault(s => s.SurfaceId == macroElementsLink.GeometryEntityId.Value) : macro.Surfaces.SingleOrDefault();
+							var macroSurfaceMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.MacroSurfaces.SingleOrDefault(s => s.SurfaceId == macroElementsLink.GeometryEntityId.Value) : macro.MacroSurfaces.SingleOrDefault();
 							if (macroSurfaceMapping == null)
 								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to surface.");
 							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
 							{
-								var face = new Face { Model = model, Mesh = mesh, SurfaceId = macroSurfaceMapping.SurfaceId, ElementId = elementId };
-								mesh.Faces.Add(face);
+								var face = new SurfaceElement { Model = model, Mesh = mesh, SurfaceId = macroSurfaceMapping.SurfaceId, ElementId = elementId };
+								mesh.SurfaceElements.Add(face);
 							}
 						}
 						break;
 					case MacroElementsLink.ElementDimension.ThreeD:
 						{
-							var macroVolumeMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.Volumes.SingleOrDefault(v => v.VolumeId == macroElementsLink.GeometryEntityId.Value) : macro.Volumes.SingleOrDefault();
+							var macroVolumeMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.MacroVolumes.SingleOrDefault(v => v.VolumeId == macroElementsLink.GeometryEntityId.Value) : macro.MacroVolumes.SingleOrDefault();
 							if (macroVolumeMapping == null)
 								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to volume.");
 							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
 							{
-								var volumeElementMapping = new VolumeElementMapping { Model = model, Mesh = mesh, VolumeId = macroVolumeMapping.VolumeId, ElementId = elementId };
+								var volumeElementMapping = new VolumeElement { Model = model, Mesh = mesh, VolumeId = macroVolumeMapping.VolumeId, ElementId = elementId };
 								mesh.VolumeElements.Add(volumeElementMapping);
 							}
 						}
