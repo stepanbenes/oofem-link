@@ -15,7 +15,6 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<Node> Nodes { get; set; } = new List<Node>();
 		public virtual ICollection<Element> Elements { get; set; } = new List<Element>();
 
-		public virtual ICollection<VertexNode> VertexNodes { get; set; } = new List<VertexNode>();
 		public virtual ICollection<CurveElement> CurveElements { get; set; } = new List<CurveElement>();
 		public virtual ICollection<SurfaceElement> SurfaceElements { get; set; } = new List<SurfaceElement>();
 		public virtual ICollection<VolumeElement> VolumeElements { get; set; } = new List<VolumeElement>();

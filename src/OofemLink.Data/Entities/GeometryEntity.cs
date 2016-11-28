@@ -21,7 +21,6 @@ namespace OofemLink.Data.Entities
 		public double Z { get; set; }
 
 		public virtual ICollection<VertexCurve> VertexCurves { get; set; } = new List<VertexCurve>();
-		public virtual ICollection<VertexNode> VertexNodes { get; set; } = new List<VertexNode>();
 		public virtual ICollection<VertexAttribute> VertexAttributes { get; set; } = new List<VertexAttribute>();
 	}
 

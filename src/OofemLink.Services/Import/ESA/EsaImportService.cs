@@ -1004,21 +1004,17 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private void parseLinFile(string fileFullPath)
-		{
-			logger.LogTrace("Parsing LIN file");
-			throw new NotImplementedException();
-		}
-
 		#endregion
 
 		#region Attribute files parsing
 
 		private IEnumerable<Data.Entities.Attribute> parseIstFile(string fileFullPath)
 		{
-			logger.LogTrace("Parsing IST file");
+			//logger.LogTrace("Parsing IST file");
 
-			throw new NotImplementedException();
+			yield break;
+
+			// TODO: implement this method
 		}
 
 		#endregion

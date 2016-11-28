@@ -167,13 +167,6 @@ namespace OofemLink.Data
 				.WithMany(m => m.Meshes)
 				.OnDelete(DeleteBehavior.Restrict);
 
-			modelBuilder.Entity<VertexNode>().HasKey(m => new { m.ModelId, m.VertexId, m.MeshId, m.NodeId });
-			modelBuilder.Entity<VertexNode>().HasOne(m => m.Vertex).WithMany(v => v.VertexNodes).HasForeignKey(m => new { m.ModelId, m.VertexId });
-			modelBuilder.Entity<VertexNode>().HasOne(m => m.Node).WithMany(n => n.NodeVertices).HasForeignKey(m => new { m.MeshId, m.NodeId });
-			modelBuilder.Entity<VertexNode>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VertexNode>().HasOne(m => m.Mesh).WithMany(m => m.VertexNodes).HasForeignKey(m => m.MeshId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VertexNode>().ToTable("VertexNodes");
-
 			modelBuilder.Entity<CurveElement>().HasKey(e => new { e.ModelId, e.CurveId, e.MeshId, e.ElementId });
 			modelBuilder.Entity<CurveElement>().HasOne(e => e.Curve).WithMany(c => c.CurveElements).HasForeignKey(e => new { e.ModelId, e.CurveId });
 			modelBuilder.Entity<CurveElement>().HasOne(e => e.Element).WithMany(c => c.Edges).HasForeignKey(e => new { e.MeshId, e.ElementId });
