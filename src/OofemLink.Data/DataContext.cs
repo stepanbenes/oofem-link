@@ -97,8 +97,8 @@ namespace OofemLink.Data
 			modelBuilder.Entity<MacroOpeningCurve>().ToTable("MacroOpeningCurves");
 
 			// ATTRIBUTES
-			modelBuilder.Entity<Entities.Attribute>().HasKey(a => new { a.ModelId, a.Id });
-			modelBuilder.Entity<Entities.Attribute>().HasOne(a => a.Model).WithMany(m => m.Attributes).HasForeignKey(a => a.ModelId);
+			modelBuilder.Entity<ModelAttribute>().HasKey(a => new { a.ModelId, a.Id });
+			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.Model).WithMany(m => m.Attributes).HasForeignKey(a => a.ModelId);
 
 			modelBuilder.Entity<AttributeComposition>().HasKey(c => new { c.ModelId, c.ParentAttributeId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Model).WithMany().HasForeignKey(c => c.ModelId).OnDelete(DeleteBehavior.Restrict);
@@ -195,7 +195,7 @@ namespace OofemLink.Data
 		public DbSet<Model> Models { get; set; }
 
 		public DbSet<Macro> Macros { get; set; }
-		public DbSet<Entities.Attribute> Attributes { get; set; }
+		public DbSet<ModelAttribute> Attributes { get; set; }
 		public DbSet<TimeFunction> TimeFunctions { get; set; }
 
 		public DbSet<Vertex> Vertices { get; set; }

@@ -12,7 +12,7 @@ namespace OofemLink.Data.Entities
 		public int TimeFunctionId { get; set; }
 
 		public virtual Model Model { get; set; }
-		public virtual Attribute Attribute { get; set; }
+		public virtual ModelAttribute Attribute { get; set; }
 		public virtual TimeFunction TimeFunction { get; set; }
 	}
 

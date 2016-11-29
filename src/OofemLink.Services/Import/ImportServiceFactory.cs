@@ -27,7 +27,7 @@ namespace OofemLink.Services.Import
 			switch (source)
 			{
 				case ImportSource.ESA:
-					return new EsaImportService(location, taskName, loggerFactory.CreateLogger<EsaImportService>());
+					return new EsaImportService(location, taskName, loggerFactory);
 				default:
 					throw new NotSupportedException();
 			}

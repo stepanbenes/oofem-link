@@ -19,6 +19,6 @@ namespace OofemLink.Data.Entities
 
 		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
 
-		public virtual ICollection<Attribute> Attributes { get; set; } = new List<Attribute>();
+		public virtual ICollection<ModelAttribute> Attributes { get; set; } = new List<ModelAttribute>();
 	}
 }

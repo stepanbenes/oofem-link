@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OofemLink.Data.Entities;
 
-namespace OofemLink.Data
+namespace OofemLink.Data.Entities
 {
     public class ElementNode
     {

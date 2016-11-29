@@ -6,7 +6,7 @@ using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Data.Entities
 {
-    public class Attribute : IModelEntity
+    public class ModelAttribute : IModelEntity
     {
 		public int ModelId { get; set; }
 		public virtual Model Model { get; set; }

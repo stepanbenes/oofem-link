@@ -12,7 +12,7 @@ namespace OofemLink.Data.Entities
 		public int ChildAttributeId { get; set; }
 
 		public virtual Model Model { get; set; }
-		public virtual Attribute ParentAttribute { get; set; }
-		public virtual Attribute ChildAttribute { get; set; }
+		public virtual ModelAttribute ParentAttribute { get; set; }
+		public virtual ModelAttribute ChildAttribute { get; set; }
 	}
 }
