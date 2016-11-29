@@ -100,10 +100,10 @@ namespace OofemLink.Data
 			modelBuilder.Entity<Entities.Attribute>().HasKey(a => new { a.ModelId, a.Id });
 			modelBuilder.Entity<Entities.Attribute>().HasOne(a => a.Model).WithMany(m => m.Attributes).HasForeignKey(a => a.ModelId);
 
-			modelBuilder.Entity<AttributeComposition>().HasKey(c => new { c.ModelId, c.ParentId, c.ChildId });
+			modelBuilder.Entity<AttributeComposition>().HasKey(c => new { c.ModelId, c.ParentAttributeId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Model).WithMany().HasForeignKey(c => c.ModelId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Parent).WithMany(a => a.ParentAttributes).HasForeignKey(c => new { c.ModelId, c.ParentId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Child).WithMany(a => a.ChildAttributes).HasForeignKey(c => new { c.ModelId, c.ChildId });
+			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ParentAttribute).WithMany(a => a.ParentAttributes).HasForeignKey(c => new { c.ModelId, c.ParentAttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ChildAttribute).WithMany(a => a.ChildAttributes).HasForeignKey(c => new { c.ModelId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().ToTable("AttributeCompositions");
 
 			modelBuilder.Entity<VertexAttribute>().HasKey(a => new { a.ModelId, a.VertexId, a.AttributeId });

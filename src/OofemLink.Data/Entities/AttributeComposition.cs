@@ -8,11 +8,11 @@ namespace OofemLink.Data.Entities
     public class AttributeComposition
     {
 		public int ModelId { get; set; }
-		public int ParentId { get; set; }
-		public int ChildId { get; set; }
+		public int ParentAttributeId { get; set; }
+		public int ChildAttributeId { get; set; }
 
 		public virtual Model Model { get; set; }
-		public virtual Attribute Parent { get; set; }
-		public virtual Attribute Child { get; set; }
+		public virtual Attribute ParentAttribute { get; set; }
+		public virtual Attribute ChildAttribute { get; set; }
 	}
 }
