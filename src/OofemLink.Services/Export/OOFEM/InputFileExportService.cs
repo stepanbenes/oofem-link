@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -72,41 +73,72 @@ namespace OofemLink.Services.Export.OOFEM
 
 			// TODO: complete header
 
+			addDebugComment(input, "NODES");
 			var nodesQuery = from node in dataContext.Nodes
 							 where node.MeshId == mesh.Id
 							 select node;
-
 			foreach (var node in nodesQuery)
 			{
 				input.AddNode(node.Id).WithCoordinates(node.X, node.Y, node.Z);
 			}
 
+			addDebugComment(input, "ELEMENTS");
 			var elementQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
 							   where element.MeshId == mesh.Id
 							   select element;
-
 			foreach (var element in elementQuery)
 			{
-				string elementName;
+				var nodeIds = (from elementNode in element.ElementNodes
+							   orderby elementNode.Rank
+							   select elementNode.NodeId).ToArray();
+
 				switch (element.Type)
 				{
 					case CellType.LineLinear:
-						elementName = "beam3d";
+						Debug.Assert(nodeIds.Length == 2);
+						input.AddElement("beam3d", element.Id).HavingNodes(nodeIds);
 						break;
 					case CellType.TriangleLinear:
-						elementName = "triangle";
+						Debug.Assert(nodeIds.Length == 3);
+						input.AddElement("mitc4shell", element.Id).HavingNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
 						break;
 					case CellType.QuadLinear:
-						elementName = "quad";
+						Debug.Assert(nodeIds.Length == 4);
+						input.AddElement("mitc4shell", element.Id).HavingNodes(nodeIds);
 						break;
 					default:
 						throw new NotSupportedException($"Element type {element.Type} is not supported.");
 				}
-
-				input.AddElement(elementName, element.Id).HavingNodes((from elementNode in element.ElementNodes
-																	   orderby elementNode.Rank
-																	   select elementNode.NodeId).ToArray());
 			}
+
+			addDebugComment(input, "CROSS-SECTIONS");
+			var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
+									 where attribute.ModelId == model.Id
+									 where attribute.Type == AttributeType.CrossSection
+									 select attribute;
+			foreach (var crossSection in crossSectionsQuery)
+			{
+				input.AddCrossSection(crossSection.Name, crossSection.LocalNumber)
+					 .WithParameters(crossSection.Parameters)
+					 .HasMaterial(materialId: crossSection.ChildAttributes.Single().ChildAttribute.LocalNumber); // TODO: handle cases with non-single referenced materials
+				// TODO: add reference to set
+			}
+
+			addDebugComment(input, "MATERIALS");
+			var materialsQuery = from attribute in dataContext.Attributes
+								 where attribute.ModelId == model.Id
+								 where attribute.Type == AttributeType.Material
+								 select attribute;
+			foreach (var material in materialsQuery)
+			{
+				input.AddMaterial(material.Name, material.LocalNumber).WithParameters(material.Parameters);
+			}
+		}
+
+		[Conditional("DEBUG")]
+		private static void addDebugComment(InputBuilder input, string comment)
+		{
+			input.AddComment(comment);
 		}
 
 		#endregion

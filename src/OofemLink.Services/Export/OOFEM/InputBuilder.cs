@@ -9,7 +9,7 @@ using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
 {
-	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder
+	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder, ICrossSectionBuilder, IMaterialBuilder
 	{
 		#region Fields, constructor
 
@@ -53,6 +53,20 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
+		public ICrossSectionBuilder AddCrossSection(string name, int id)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{name} {id}");
+			return this;
+		}
+
+		public IMaterialBuilder AddMaterial(string name, int id)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{name} {id}");
+			return this;
+		}
+
 		public void Dispose()
 		{
 			if (streamWriter != null)
@@ -75,6 +89,29 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			streamWriter.Write($" {Keyword.nodes} {nodeIds.Length} {string.Join(" ", nodeIds)}");
 			return this;
+		}
+
+		ICrossSectionBuilder ICrossSectionBuilder.WithParameters(string parameters)
+		{
+			streamWriter.Write(" " + parameters);
+			return this;
+		}
+
+		ICrossSectionBuilder ICrossSectionBuilder.HasMaterial(int materialId)
+		{
+			streamWriter.Write($" {Keyword.material} {materialId}");
+			return this;
+		}
+
+		ICrossSectionBuilder ICrossSectionBuilder.AppliesToSet(int setId)
+		{
+			streamWriter.Write($" {Keyword.set} {setId}");
+			return this;
+		}
+
+		void IMaterialBuilder.WithParameters(string parameters)
+		{
+			streamWriter.Write(" " + parameters);
 		}
 
 		#endregion
@@ -100,5 +137,17 @@ namespace OofemLink.Services.Export.OOFEM
 	interface IElementRecordBuilder
 	{
 		IElementRecordBuilder HavingNodes(params int[] nodeIds);
+	}
+
+	interface ICrossSectionBuilder
+	{
+		ICrossSectionBuilder WithParameters(string parameters);
+		ICrossSectionBuilder HasMaterial(int materialId);
+		ICrossSectionBuilder AppliesToSet(int setId);
+	}
+
+	interface IMaterialBuilder
+	{
+		void WithParameters(string parameters);
 	}
 }

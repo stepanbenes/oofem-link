@@ -10,5 +10,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public const string node = nameof(node);
 		public const string coords = nameof(coords);
 		public const string nodes = nameof(nodes);
+		public const string material = nameof(material);
+		public const string set = nameof(set);
 	}
 }
