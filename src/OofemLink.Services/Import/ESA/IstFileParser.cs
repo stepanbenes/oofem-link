@@ -1,13 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using OofemLink.Common;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.Extensions;
 using OofemLink.Data.Entities;
+using static System.FormattableString;
 
 namespace OofemLink.Services.Import.ESA
 {
@@ -42,7 +45,7 @@ namespace OofemLink.Services.Import.ESA
 					// TODO: pass values to parse methods
 					switch (tokens[0])
 					{
-						case IstFileCodes.MAT:
+						case Codes.MAT:
 							yield return parseMaterialSection(streamReader, dimensionType: tokens[1], materialType: tokens[2], number: ParseInt32(tokens[7]));
 							break;
 					}
@@ -50,16 +53,16 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
+		#region Private methods
+
 		private ModelAttribute parseMaterialSection(StreamReader streamReader, string dimensionType, string materialType, int number)
 		{
 			switch (dimensionType)
 			{
-				case IstFileCodes.SURF:
-					throw new NotImplementedException();
-				case IstFileCodes.LIN:
+				case Codes.LIN:
 					switch (materialType)
 					{
-						case IstFileCodes.SECT:
+						case Codes.SECT:
 							{
 								string line1 = streamReader.ReadLine();
 								double?[] line1_values = line1.Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
@@ -67,13 +70,33 @@ namespace OofemLink.Services.Import.ESA
 								string line2 = streamReader.ReadLine();
 								double?[] line2_values = line2.Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
 
-								return createAttributeFromBeamCrossSectionCharacteristics(number);
+								return createAttributeFromBeamCrossSectionCharacteristics(number,
+										Ix: line1_values[3] ?? 0.0, // TODO: is it ok to replace missing values with zeroes?
+										Iy: line1_values[4] ?? 0.0,
+										Iz: line1_values[5] ?? 0.0,
+										E: line1_values[6] ?? 0.0,
+										G: line1_values[7] ?? 0.0,
+										gamma: line2_values[6] ?? 0.0,
+										area: line2_values[7] ?? 0.0
+									);
 							}
-						case IstFileCodes.STIF:
+						case Codes.STIF:
 							{
 								// TODO: add line reading and parsing
 								return createAttributeFromBeamStiffnessCharacteristics();
 							}
+						default:
+							throw new NotSupportedException($"material type '{materialType}' is not supported");
+					}
+				case Codes.SURF:
+					switch (materialType)
+					{
+						case Codes.ISO:
+							throw new NotImplementedException();
+						case Codes.ORT:
+							throw new NotImplementedException();
+						case Codes.STIF:
+							throw new NotImplementedException();
 						default:
 							throw new NotSupportedException($"material type '{materialType}' is not supported");
 					}
@@ -82,21 +105,24 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private static ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number)
+		private static ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
 		{
+			const double beamShearCoeff = 1.0e18;
+			const double tAlpha = 0.0;
+
 			var crossSection = new ModelAttribute
 			{
 				Type = AttributeType.CrossSection,
 				LocalNumber = number,
-				Name = OofemCrossSectionNames.SimpleCS,
-				//Parameters = 
+				Name = CrossSectionNames.SimpleCS,
+				Parameters = Invariant($"area {area} Iy {Iy} Iz {Iz} Ik {Ix} beamShearCoeff {beamShearCoeff}")
 			};
 			var material = new ModelAttribute
 			{
 				Type = AttributeType.Material,
 				LocalNumber = number,
-				Name = OofemMaterialNames.IsoLE,
-				// Parameters = 
+				Name = MaterialNames.IsoLE,
+				Parameters = Invariant($"d {gamma / PhysicalConstants.g} E {E} n {E / G / 2 - 1} tAlpha {tAlpha}")
 			};
 			var relation = new AttributeComposition { ParentAttribute = crossSection, ChildAttribute = material };
 			crossSection.ChildAttributes.Add(relation);
@@ -109,7 +135,11 @@ namespace OofemLink.Services.Import.ESA
 			throw new NotImplementedException();
 		}
 
-		private static class IstFileCodes
+		#endregion
+
+		#region Keywords
+
+		private static class Codes
 		{
 			public const string MODEL = nameof(MODEL);
 			public const string MAT = nameof(MAT);
@@ -117,16 +147,20 @@ namespace OofemLink.Services.Import.ESA
 			public const string LIN = nameof(LIN);
 			public const string SECT = nameof(SECT);
 			public const string STIF = nameof(STIF);
+			public const string ISO = nameof(ISO);
+			public const string ORT = nameof(ORT);
 		}
 
-		private static class OofemCrossSectionNames
+		public static class CrossSectionNames
 		{
 			public const string SimpleCS = nameof(SimpleCS);
 		}
 
-		private static class OofemMaterialNames
+		public static class MaterialNames
 		{
 			public const string IsoLE = nameof(IsoLE);
 		}
+
+		#endregion
 	}
 }
