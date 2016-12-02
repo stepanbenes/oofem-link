@@ -14,6 +14,7 @@ using OofemLink.Services.DataAccess;
 using OofemLink.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 
 namespace OofemLink.Cli
 {
@@ -28,7 +29,43 @@ namespace OofemLink.Cli
 				drawHelloImage();
 			}
 
-			return new Program().RunAsync(args).Result; // blocking wait
+			Stopwatch stopwatch = new Stopwatch();
+			stopwatch.Start(); //start measuring execution time
+			int returnCode;
+			try
+			{
+				// run program
+				returnCode = new Program().RunAsync(args).Result; // use blocking wait
+			}
+			catch (Exception ex)
+			{
+				using (new ConsoleBrush(ConsoleColor.Red)) // write error message in red
+				{
+					Console.Error.WriteLine(ex.GetType().FullName);
+					Console.Error.WriteLine(ex.Message + Environment.NewLine + Environment.NewLine + ex.StackTrace);
+				}
+				returnCode = -1;
+			}
+
+			stopwatch.Stop();
+
+			if (returnCode != 1) // write footer with success flag and execution time
+			{
+				if (returnCode == 0)
+				{
+					using (new ConsoleBrush(ConsoleColor.Green))
+						Console.Write("Success. ");
+				}
+				else
+				{
+					using (new ConsoleBrush(ConsoleColor.Red))
+						Console.Write("Fail. ");
+				}
+				using (new ConsoleBrush(ConsoleColor.Gray))
+					Console.WriteLine($"Execution time: {stopwatch.Elapsed}");
+			}
+
+			return returnCode;
 		}
 
 		public async Task<int> RunAsync(string[] args)
@@ -179,7 +216,7 @@ namespace OofemLink.Cli
 		private static void printSimulationInfo(ViewSimulationDto simulation)
 		{
 			Console.Write("  ");
-			using (new ConsoleBrush(ConsoleColor.Green))
+			using (new ConsoleBrush(ConsoleColor.Cyan))
 				Console.Write(simulation.TaskName);
 			using (new ConsoleBrush(ConsoleColor.Gray))
 				Console.Write($" id: {simulation.Id}, state: {simulation.State}, dimensions: {simulation.DimensionFlags}, model id: {simulation.ModelId}, z-axis up: {simulation.ZAxisUp}");
