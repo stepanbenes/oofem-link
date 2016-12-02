@@ -35,9 +35,10 @@ namespace OofemLink.Cli
 		{
 			using (serviceProvider.CreateScope())
 			{
-				return await Parser.Default.ParseArguments<CreateOptions, ImportOptions, ExportOptions, RunOptions>(args)
+				return await Parser.Default.ParseArguments<ListOptions, CreateOptions, ImportOptions, ExportOptions, RunOptions>(args)
 					.WithParsed((CommandLineOptions options) => configureApp(options))
 					.MapResult(
+						(ListOptions options) => runListCommandAsync(options),
 						(CreateOptions options) => runCreateCommandAsync(options),
 						(ImportOptions options) => runImportCommandAsync(options),
 						(ExportOptions options) => runExportCommandAsync(options),
@@ -98,7 +99,7 @@ namespace OofemLink.Cli
 		private void configureApp(CommandLineOptions options)
 		{
 			var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-			loggerFactory.AddConsole(minLevel: options.Verbose ? LogLevel.Information : LogLevel.Warning);
+			loggerFactory.AddConsole(minLevel: options.Verbose ? LogLevel.Information : LogLevel.Error);
 #if DEBUG
 			loggerFactory.AddDebug(minLevel: LogLevel.Trace);
 #endif
@@ -107,6 +108,23 @@ namespace OofemLink.Cli
 		#endregion
 
 		#region Commands
+
+		private async Task<int> runListCommandAsync(ListOptions options)
+		{
+			var projectService = serviceProvider.GetRequiredService<IProjectService>();
+			var simulationService = serviceProvider.GetRequiredService<ISimulationService>();
+			var projects = await projectService.GetAllAsync();
+			for (int i = 0; i < projects.Count; i++)
+			{
+				printProjectInfo(projects[i]);
+				var simulations = await simulationService.GetAllAsync(q => q.Where(s => s.ProjectId == projects[i].Id));
+				for (int j = 0; j < simulations.Count; j++)
+				{
+					printSimulationInfo(simulations[j]);
+				}
+			}
+			return 0;
+		}
 
 		private async Task<int> runCreateCommandAsync(CreateOptions options)
 		{
@@ -148,6 +166,25 @@ namespace OofemLink.Cli
 		#endregion
 
 		#region Helper methods
+
+		private static void printProjectInfo(ProjectDto project)
+		{
+			using (new ConsoleBrush(ConsoleColor.Magenta))
+				Console.Write(project.Name);
+			using (new ConsoleBrush(ConsoleColor.Gray))
+				Console.Write($" id: {project.Id}");
+			Console.WriteLine();
+		}
+
+		private static void printSimulationInfo(ViewSimulationDto simulation)
+		{
+			Console.Write("  ");
+			using (new ConsoleBrush(ConsoleColor.Green))
+				Console.Write(simulation.TaskName);
+			using (new ConsoleBrush(ConsoleColor.Gray))
+				Console.Write($" id: {simulation.Id}, state: {simulation.State}, dimensions: {simulation.DimensionFlags}, model id: {simulation.ModelId}, z-axis up: {simulation.ZAxisUp}");
+			Console.WriteLine();
+		}
 
 		private static void drawHelloImage()
 		{

@@ -13,6 +13,11 @@ namespace OofemLink.Cli
 		public bool Verbose { get; set; }
 	}
 
+	[Verb("list", HelpText = "Show list of all projects and simulations in OOFEM database")]
+	class ListOptions : CommandLineOptions
+	{
+	}
+
 	[Verb("create", HelpText = "Create new project in OOFEM database")]
 	class CreateOptions : CommandLineOptions
 	{
