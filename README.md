@@ -6,18 +6,17 @@ Public interface for OOFEM solver consisting of command-line interface (CLI) too
 * geometric model, finite element mesh and fem results database management
 * execution control
 
-## How to run
-
+## how to run
 Application targets .NET Core 1.1 runtime. You need to download and install .NET Core 1.1 SDK. Available [here](https://www.microsoft.com/net/download/core) (switch to Current release)
 
-After installing dotnet, you can use dotnet tools to build and run the application from the coomand line. Just go to the directory containg project OofemLink.Cli and use command `dotnet run`.
+After installing dotnet, you can use dotnet tools to build and run the application from the command line. Just go to the directory containing project OofemLink.Cli and use command `dotnet run`.
 
 To use oofem-link you must first configure the database.
 
 ## configuration
-Place configuration file _appsettings.json_ to folder that contains application executables.
+Place configuration file with name _appsettings.json_ to folder that contains application executables.
 
-### Example of appsettings.json
+### example of appsettings.json
 ```
 {
     "DatabaseProvider": "Sqlite",
