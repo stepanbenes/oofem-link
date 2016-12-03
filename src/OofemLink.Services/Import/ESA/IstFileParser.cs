@@ -151,16 +151,6 @@ namespace OofemLink.Services.Import.ESA
 			public const string ORT = nameof(ORT);
 		}
 
-		public static class CrossSectionNames
-		{
-			public const string SimpleCS = nameof(SimpleCS);
-		}
-
-		public static class MaterialNames
-		{
-			public const string IsoLE = nameof(IsoLE);
-		}
-
 		#endregion
 	}
 }
