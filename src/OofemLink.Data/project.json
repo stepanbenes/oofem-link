@@ -2,11 +2,11 @@
     "version": "0.1.0-*",
 
     "dependencies": {
+        "AutoMapper": "5.2.0",
         "Microsoft.EntityFrameworkCore": "1.1.0",
         "Microsoft.EntityFrameworkCore.InMemory": "1.1.0",
         "Microsoft.EntityFrameworkCore.Sqlite": "1.1.0",
         "Microsoft.EntityFrameworkCore.SqlServer": "1.1.0",
-        "AutoMapper": "5.1.1",
         "NETStandard.Library": "1.6.1",
         "OofemLink.Common": "0.1.0-*"
     },
