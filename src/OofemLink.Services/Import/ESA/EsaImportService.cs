@@ -51,7 +51,7 @@ namespace OofemLink.Services.Import.ESA
 			importAttributesToModel(model);
 
 			simulation.DimensionFlags = dimensions;
-			simulation.Models.Add(model);
+			simulation.Model = model;
 
 			logger.LogInformation("Import finished.");
 			return simulation;

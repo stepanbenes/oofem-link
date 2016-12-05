@@ -8,6 +8,7 @@ namespace OofemLink.Data.Entities
     {
 		public int Id { get; set; }
 
+		public int SimulationId { get; set; }
 		public virtual Simulation Simulation { get; set; }
 
 		public virtual ICollection<Mesh> Meshes { get; set; } = new List<Mesh>();

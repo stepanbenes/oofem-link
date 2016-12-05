@@ -14,9 +14,10 @@ namespace OofemLink.Data.Entities
 		public int ProjectId { get; set; }
 		public virtual Project Project { get; set; }
 
-		public virtual ICollection<TimeStep> TimeSteps { get; set; } = new List<TimeStep>();
+		public int? ModelId { get; set; }
+		public virtual Model Model { get; set; }
 
-		public virtual ICollection<Model> Models { get; set; } = new List<Model>(); // should be only one or zero
+		public virtual ICollection<TimeStep> TimeSteps { get; set; } = new List<TimeStep>();
 
 		public SimulationState State { get; set; }
 

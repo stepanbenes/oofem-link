@@ -24,15 +24,21 @@ namespace OofemLink.Data
 			// MODEL
 			modelBuilder.Entity<Project>().HasIndex(p => p.Name).IsUnique();
 
+			modelBuilder.Entity<Simulation>()
+				.HasOne(s => s.Model)
+				.WithOne(m => m.Simulation)
+				.HasForeignKey<Simulation>(s => s.ModelId)
+				.IsRequired(false);
+
 			modelBuilder.Entity<Model>()
 				.Property(m => m.Id)
 				.ValueGeneratedNever(); // don't let db to generate id
 
 			modelBuilder.Entity<Model>()
 				.HasOne(m => m.Simulation)
-				.WithMany(s => s.Models)
-				.HasForeignKey(m => m.Id)
-				.IsRequired();
+				.WithOne(s => s.Model)
+				.HasForeignKey<Model>(m => m.SimulationId)
+				.IsRequired(true);
 
 			modelBuilder.Entity<TimeFunction>().HasKey(tf => new { tf.ModelId, tf.Id });
 

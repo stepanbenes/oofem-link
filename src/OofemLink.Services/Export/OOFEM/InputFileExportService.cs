@@ -46,18 +46,16 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			var simulation = dataContext.Simulations
 								.Include(s => s.Project)
-								.Include(s => s.Models)
+								.Include(s => s.Model)
 								.ThenInclude(m => m.Meshes)
 								.FirstOrDefault(s => s.Id == simulationId);
 
 			if (simulation == null)
 				throw new KeyNotFoundException($"Simulation with id {simulationId} was not found.");
-			if (simulation.Models.Count == 0)
+			if (simulation.Model == null)
 				throw new InvalidDataException($"Simulation {simulationId} does not contain any model.");
-			if (simulation.Models.Count > 1)
-				throw new InvalidDataException($"Simulation {simulationId} contains more then one model.");
 
-			var model = simulation.Models.Single();
+			var model = simulation.Model;
 
 			if (model.Meshes.Count == 0)
 				throw new InvalidDataException($"No mesh found for model {model.Id}.");

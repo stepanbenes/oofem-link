@@ -14,8 +14,7 @@ namespace OofemLink.Data.DataTransferObjects
 			// ENTITY -> DTO
 			CreateMap<Project, ProjectDto>();
 			CreateMap<Simulation, ViewSimulationDto>()
-				.ForMember(s => s.ProjectName, options => options.MapFrom(s => s.Project.Name))
-				.ForMember(s => s.ModelId, options => options.MapFrom(s => s.Models.Select(m => (int?)m.Id).SingleOrDefault()));
+				.ForMember(s => s.ProjectName, options => options.MapFrom(s => s.Project.Name));
 			CreateMap<Vertex, VertexDto>();
 			CreateMap<Curve, CurveDto>()
 				.ForMember(c => c.VertexIds, options => options.MapFrom(c => c.CurveVertices.OrderBy(v => v.Rank).Select(v => v.VertexId)));
