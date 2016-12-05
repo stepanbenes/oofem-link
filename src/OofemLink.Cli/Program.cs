@@ -34,8 +34,9 @@ namespace OofemLink.Cli
 			int returnCode;
 			try
 			{
-				// run program
-				returnCode = new Program().RunAsync(args).Result; // use blocking wait
+				// run program; use blocking wait of asynchronous task
+				//returnCode = new Program().RunAsync(args).Result; // this throws AggregateException
+				returnCode = new Program().RunAsync(args).GetAwaiter().GetResult(); // this throws the first exception that occurs
 			}
 			catch (Exception ex)
 			{
