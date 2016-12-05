@@ -140,38 +140,21 @@ namespace OofemLink.Services.Import.ESA
 
 		private void importAttributesToModel(Model model)
 		{
-			var globalTimeFunction = new TimeFunction
-			{
-				Id = 1, /**/
-				Model = model,
-				Type = TimeFunctionType.Constant
-			};
-
 			var istParser = new IstFileParser(location, taskName, loggerFactory);
-			int count = addAttributesToModel(model, globalTimeFunction, startAttributeId: 1, attributes: istParser.Parse());
+			int count = addAttributesToModel(model, startAttributeId: 1, attributes: istParser.Parse());
 
 			// TODO: add Ix files parsing
 		}
 
-		private int addAttributesToModel(Model model, TimeFunction globalTimeFunction, int startAttributeId, IEnumerable<ModelAttribute> attributes)
+		private int addAttributesToModel(Model model, int startAttributeId, IEnumerable<ModelAttribute> attributes)
 		{
 			int id = startAttributeId;
 			foreach (var attribute in attributes)
 			{
 				attribute.Id = id;
-
-				foreach (var vertexAttribute in attribute.VertexAttributes)
-					vertexAttribute.TimeFunction = globalTimeFunction;
-				foreach (var curveAttribute in attribute.CurveAttributes)
-					curveAttribute.TimeFunction = globalTimeFunction;
-				foreach (var surfaceAttribute in attribute.SurfaceAttributes)
-					surfaceAttribute.TimeFunction = globalTimeFunction;
-				foreach (var volumeAttribute in attribute.VolumeAttributes)
-					volumeAttribute.TimeFunction = globalTimeFunction;
-
 				model.Attributes.Add(attribute);
 				id += 1;
-				int addedCount = addAttributesToModel(model, globalTimeFunction, id, attribute.ChildAttributes.Select(c => c.ChildAttribute));
+				int addedCount = addAttributesToModel(model, id, attribute.ChildAttributes.Select(c => c.ChildAttribute));
 				id += addedCount;
 			}
 			return id - startAttributeId; // returns count of attributes that were added

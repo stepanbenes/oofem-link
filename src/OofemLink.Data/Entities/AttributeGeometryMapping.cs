@@ -10,7 +10,7 @@ namespace OofemLink.Data.Entities
 		public int ModelId { get; set; }
 		public int AttributeId { get; set; }
 		public int MacroId { get; set; }
-		public int TimeFunctionId { get; set; }
+		public int? TimeFunctionId { get; set; }
 
 		public virtual Model Model { get; set; }
 		public virtual ModelAttribute Attribute { get; set; }
