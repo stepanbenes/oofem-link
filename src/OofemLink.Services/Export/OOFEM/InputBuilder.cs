@@ -9,7 +9,7 @@ using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
 {
-	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder, ICrossSectionBuilder, IMaterialBuilder
+	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder, ICrossSectionBuilder, IMaterialBuilder, ISetBuilder
 	{
 		#region Fields, constructor
 
@@ -67,6 +67,13 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
+		public ISetBuilder AddSet(int id)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{Keyword.set} {id}");
+			return this;
+		}
+
 		public void Dispose()
 		{
 			if (streamWriter != null)
@@ -114,6 +121,24 @@ namespace OofemLink.Services.Export.OOFEM
 			streamWriter.Write(" " + parameters);
 		}
 
+		ISetBuilder ISetBuilder.ContainingNodes(IReadOnlyList<int> nodeIds)
+		{
+			if (nodeIds.Count > 0)
+			{
+				streamWriter.Write($" {Keyword.nodes} {nodeIds.Count} {string.Join(" ", nodeIds)}");
+			}
+			return this;
+		}
+
+		ISetBuilder ISetBuilder.ContainingElements(IReadOnlyList<int> elementIds)
+		{
+			if (elementIds.Count > 0)
+			{
+				streamWriter.Write($" {Keyword.elements} {elementIds.Count} {string.Join(" ", elementIds)}");
+			}
+			return this;
+		}
+
 		#endregion
 
 		#region Private methods
@@ -149,5 +174,11 @@ namespace OofemLink.Services.Export.OOFEM
 	interface IMaterialBuilder
 	{
 		void WithParameters(string parameters);
+	}
+
+	interface ISetBuilder
+	{
+		ISetBuilder ContainingNodes(IReadOnlyList<int> nodeIds);
+		ISetBuilder ContainingElements(IReadOnlyList<int> elementIds);
 	}
 }

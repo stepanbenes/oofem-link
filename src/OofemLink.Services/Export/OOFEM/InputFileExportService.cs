@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using OofemLink.Common.Enumerations;
 using OofemLink.Data;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.Export.OOFEM
 {
@@ -81,10 +82,10 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "ELEMENTS");
-			var elementQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
-							   where element.MeshId == mesh.Id
-							   select element;
-			foreach (var element in elementQuery)
+			var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
+								where element.MeshId == mesh.Id
+								select element;
+			foreach (var element in elementsQuery)
 			{
 				var nodeIds = (from elementNode in element.ElementNodes
 							   orderby elementNode.Rank
@@ -109,28 +110,49 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
+			var sets = new List<Set>();
+
 			addDebugComment(input, "CROSS-SECTIONS");
-			var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
-									 where attribute.ModelId == model.Id
-									 where attribute.Type == AttributeType.CrossSection
-									 select attribute;
-			foreach (var crossSection in crossSectionsQuery)
+			var crossSections = (from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
+								 where attribute.ModelId == model.Id
+								 where attribute.Type == AttributeType.CrossSection
+								 select attribute).ToArray();
+			foreach (var crossSection in crossSections)
 			{
 				input.AddCrossSection(crossSection.Name, crossSection.LocalNumber)
 					 .WithParameters(crossSection.Parameters)
-					 .HasMaterial(materialId: crossSection.ChildAttributes.Single().ChildAttribute.LocalNumber); // TODO: handle cases with non-single referenced materials
-				// TODO: add reference to set
+					 .HasMaterial(materialId: crossSection.ChildAttributes.Single().ChildAttribute.LocalNumber) // TODO: handle cases with non-single referenced materials
+					 .AppliesToSet(getOrCreateSetForAttribute(crossSection, sets).Id);
 			}
 
 			addDebugComment(input, "MATERIALS");
-			var materialsQuery = from attribute in dataContext.Attributes
-								 where attribute.ModelId == model.Id
-								 where attribute.Type == AttributeType.Material
-								 select attribute;
-			foreach (var material in materialsQuery)
+			foreach (var material in from attribute in dataContext.Attributes
+									 where attribute.ModelId == model.Id
+									 where attribute.Type == AttributeType.Material
+									 select attribute)
 			{
 				input.AddMaterial(material.Name, material.LocalNumber).WithParameters(material.Parameters);
 			}
+
+			addDebugComment(input, "SETS");
+			foreach (var set in sets)
+			{
+				input.AddSet(set.Id).ContainingNodes(set.Nodes).ContainingElements(set.Elements);
+			}
+		}
+
+		private Set getOrCreateSetForAttribute(ModelAttribute attribute, List<Set> sets)
+		{
+			var q = from a in dataContext.Attributes
+					where a.ModelId == attribute.ModelId
+					where a.Id == attribute.Id
+					from curveAttribute in a.CurveAttributes
+					from curveElement in curveAttribute.Curve.CurveElements
+					orderby curveElement.ElementId
+					select curveElement.ElementId;
+			var set = new Set(id: sets.Count + 1).WithElements(q.ToArray());
+			sets.Add(set); // TODO: try to look in cache if it contains the same set
+			return set;
 		}
 
 		[Conditional("DEBUG")]

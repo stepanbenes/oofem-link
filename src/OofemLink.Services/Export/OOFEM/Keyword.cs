@@ -12,5 +12,6 @@ namespace OofemLink.Services.Export.OOFEM
 		public const string nodes = nameof(nodes);
 		public const string material = nameof(material);
 		public const string set = nameof(set);
+		public const string elements = nameof(elements);
 	}
 }
