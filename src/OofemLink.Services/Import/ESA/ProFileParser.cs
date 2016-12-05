@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OofemLink.Common.Extensions;
-using OofemLink.Data;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.Import.ESA
 {
@@ -38,13 +38,13 @@ namespace OofemLink.Services.Import.ESA
 					case Codes.SYSTEM:
 						if (value != "ESA")
 						{
-							Logger.LogError($"PRO: Attribute {Codes.SYSTEM} has unrecognized value. ESA code expected.");
+							Logger.LogError($"Attribute {Codes.SYSTEM} has unrecognized value. ESA code expected.");
 						}
 						break;
 					case Codes.ULOHA:
 						if (value != taskName)
 						{
-							Logger.LogError($"PRO: Attribute {Codes.ULOHA} has inconsistent value. '{taskName}' expected.");
+							Logger.LogError($"Attribute {Codes.ULOHA} has inconsistent value. '{taskName}' expected.");
 						}
 						break;
 					case Codes.PROJ_NAME:
@@ -52,6 +52,13 @@ namespace OofemLink.Services.Import.ESA
 						break;
 					case Codes.AXIS_Z:
 						simulation.ZAxisUp = value == "UP";
+						break;
+					case Codes.CASE:
+						int[] loadCaseNumbers = value.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(token => ParseInt32(token)).ToArray();
+						for (int index = 0; index < loadCaseNumbers.Length; index += 1)
+						{
+							simulation.TimeSteps.Add(new TimeStep { Number = loadCaseNumbers[index] });
+						}
 						break;
 					//case Codes.TYPE:
 					//case Codes.NEXIS_TYPE:

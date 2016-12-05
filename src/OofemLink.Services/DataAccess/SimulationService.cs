@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using OofemLink.Data.DataTransferObjects;
 using OofemLink.Services.Export;
 using OofemLink.Data;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.DataAccess
 {

@@ -9,6 +9,7 @@ using OofemLink.Data.DataTransferObjects;
 using OofemLink.Services.Import;
 using OofemLink.Common.Encoding;
 using OofemLink.Data;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.DataAccess
 {

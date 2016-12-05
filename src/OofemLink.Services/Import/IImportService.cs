@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OofemLink.Data;
+using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.Import
 {

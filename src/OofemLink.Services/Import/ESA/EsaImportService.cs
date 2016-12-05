@@ -48,7 +48,7 @@ namespace OofemLink.Services.Import.ESA
 
 			linkModelAndMeshTogether(model, mesh);
 
-			importAttributesToModel(model, new TimeFunction());
+			importAttributesToModel(model);
 
 			simulation.DimensionFlags = dimensions;
 			simulation.Models.Add(model);
@@ -138,8 +138,15 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private void importAttributesToModel(Model model, TimeFunction globalTimeFunction)
+		private void importAttributesToModel(Model model)
 		{
+			var globalTimeFunction = new TimeFunction
+			{
+				Id = 1, /**/
+				Model = model,
+				Type = TimeFunctionType.Constant
+			};
+
 			var istParser = new IstFileParser(location, taskName, loggerFactory);
 			int count = addAttributesToModel(model, globalTimeFunction, startAttributeId: 1, attributes: istParser.Parse());
 
