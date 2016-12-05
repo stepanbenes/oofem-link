@@ -16,6 +16,8 @@ namespace OofemLink.Services.Import.ESA
 {
 	class IstFileParser : EsaFileParserBase
 	{
+		Dictionary<int, ModelAttribute> materialMap/*, supportsMap*/;
+
 		public IstFileParser(string location, string taskName, ILoggerFactory loggerFactory)
 			: base(location, taskName, loggerFactory)
 		{ }
@@ -25,6 +27,8 @@ namespace OofemLink.Services.Import.ESA
 		public IEnumerable<ModelAttribute> Parse()
 		{
 			LogStart();
+
+			materialMap = new Dictionary<int, ModelAttribute>();
 
 			using (var stream = new FileStream(FileFullPath, FileMode.Open, FileAccess.Read, FileShare.Read))
 			using (var streamReader = new StreamReader(stream))
@@ -40,27 +44,50 @@ namespace OofemLink.Services.Import.ESA
 					// druh_polozky, dimenze, typ_veliciny, smer, material_#, podlozi_#, typ_vyberu, cislo, x, y, z, hodnota
 					string[] tokens = line.Substring(0, 80).Split(chunkSize: 10).Select(chunk => chunk.TrimStart()).ToArray();
 					Debug.Assert(tokens.Length == 8);
-					double?[] values = line.Substring(80).Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
+					double?[] values = line.Substring(startIndex: 80).Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
 					Debug.Assert(values.Length == 4);
-					// TODO: pass values to parse methods
+					// TODO: pass values to parsing methods
 					switch (tokens[0])
 					{
 						case Codes.MAT:
-							yield return parseMaterialSection(streamReader, dimensionType: tokens[1], materialType: tokens[2], number: ParseInt32(tokens[7]));
+							var materialAttribute = parseMaterialSection(streamReader,
+									dimensionType: tokens[1],
+									quantityType: tokens[2],
+									number: ParseInt32(tokens[7])
+								);
+							materialMap.Add(materialAttribute.LocalNumber, materialAttribute); // LocalNumber should be unique for each AttributeType
+							break;
+						case Codes.PHYS:
+							parsePhysicalDataSection(streamReader,
+									dimensionType: tokens[1],
+									quantityType: tokens[2],
+									specificParameterName: tokens[3],
+									materialId: TryParseInt32(tokens[4]),
+									subgradeId: TryParseInt32(tokens[5]),
+									selectionType: tokens[6],
+									number: ParseInt32(tokens[7])
+								);
+							break;
+						//case Codes.FIX:
+						//	throw new NotImplementedException();
+						default:
+							Logger.LogWarning("Ignoring token '{0}'", tokens[0]);
 							break;
 					}
 				}
 			}
+
+			return materialMap.Values; // TODO: concat with supportsMap etc.
 		}
 
-		#region Private methods
+		#region Parsing materials
 
-		private ModelAttribute parseMaterialSection(StreamReader streamReader, string dimensionType, string materialType, int number)
+		private ModelAttribute parseMaterialSection(StreamReader streamReader, string dimensionType, string quantityType, int number)
 		{
 			switch (dimensionType)
 			{
 				case Codes.LIN:
-					switch (materialType)
+					switch (quantityType)
 					{
 						case Codes.SECT:
 							{
@@ -86,10 +113,10 @@ namespace OofemLink.Services.Import.ESA
 								return createAttributeFromBeamStiffnessCharacteristics();
 							}
 						default:
-							throw new NotSupportedException($"material type '{materialType}' is not supported");
+							throw new NotSupportedException($"quantity type '{quantityType}' is not supported");
 					}
 				case Codes.SURF:
-					switch (materialType)
+					switch (quantityType)
 					{
 						case Codes.ISO:
 							throw new NotImplementedException();
@@ -98,7 +125,7 @@ namespace OofemLink.Services.Import.ESA
 						case Codes.STIF:
 							throw new NotImplementedException();
 						default:
-							throw new NotSupportedException($"material type '{materialType}' is not supported");
+							throw new NotSupportedException($"quantity type '{quantityType}' is not supported");
 					}
 				default:
 					throw new NotSupportedException($"dimension type '{dimensionType}' is not supported");
@@ -117,6 +144,7 @@ namespace OofemLink.Services.Import.ESA
 				Name = CrossSectionNames.SimpleCS,
 				Parameters = Invariant($"area {area} Iy {Iy} Iz {Iz} Ik {Ix} beamShearCoeff {beamShearCoeff}")
 			};
+
 			var material = new ModelAttribute
 			{
 				Type = AttributeType.Material,
@@ -124,9 +152,12 @@ namespace OofemLink.Services.Import.ESA
 				Name = MaterialNames.IsoLE,
 				Parameters = Invariant($"d {gamma / PhysicalConstants.g} E {E} n {E / G / 2 - 1} tAlpha {tAlpha}")
 			};
+
+			// create cross-section - material relation
 			var relation = new AttributeComposition { ParentAttribute = crossSection, ChildAttribute = material };
 			crossSection.ChildAttributes.Add(relation);
 			material.ParentAttributes.Add(relation);
+
 			return crossSection;
 		}
 
@@ -137,18 +168,81 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
+		#region Parsing attribute-macro mapping
+
+		private void parsePhysicalDataSection(StreamReader streamReader, string dimensionType, string quantityType, string specificParameterName, int? materialId, int? subgradeId, string selectionType, int number)
+		{
+			switch (dimensionType)
+			{
+				case Codes.BEAM:
+					switch (quantityType)
+					{
+						case Codes.MAT:
+							{
+								if (selectionType != Codes.MACR)
+									throw new InvalidDataException($"Physical data {Codes.BEAM} {Codes.MAT} can be applied only to {Codes.MACR} selection");
+								string line1 = streamReader.ReadLine();
+								string geometryEntitySelectionName = line1.Substring(startIndex: 60, length: 10).TrimStart();
+								if (geometryEntitySelectionName != Codes.LINE)
+									throw new InvalidDataException($"Selection type '{geometryEntitySelectionName}' was not expected. '{Codes.LINE}' was expected instead.");
+								int lineId = ParseInt32(line1.Substring(startIndex: 70, length: 10).TrimStart());
+								var curveAttribute = new CurveAttribute
+								{
+									MacroId = number,
+									CurveId = lineId,
+								};
+								var materialAttribute = materialMap[materialId.Value];
+								materialAttribute.CurveAttributes.Add(curveAttribute);
+							}
+							break;
+						case Codes.VARL:
+							throw new NotImplementedException();
+						default:
+							throw new NotSupportedException($"quantity type '{quantityType}' is not supported");
+					}
+					break;
+				case Codes.PLAT:
+				case Codes.PLAN:
+				case Codes.FLAT:
+					throw new NotImplementedException();
+				default:
+					throw new NotSupportedException($"dimension type '{dimensionType}' is not supported");
+			}
+		}
+
+		#endregion
+
 		#region Keywords
 
 		private static class Codes
 		{
+			// File section names
 			public const string MODEL = nameof(MODEL);
 			public const string MAT = nameof(MAT);
+			public const string PHYS = nameof(PHYS);
+			public const string FIX = nameof(FIX);
+			public const string LCS = nameof(LCS);
+			public const string SPR = nameof(SPR);
+			public const string REL = nameof(REL);
+
+			// dimension types
 			public const string SURF = nameof(SURF);
 			public const string LIN = nameof(LIN);
+			public const string BEAM = nameof(BEAM);
+			public const string PLAT = nameof(PLAT);
+			public const string PLAN = nameof(PLAN);
+			public const string FLAT = nameof(FLAT);
+
+			// quantity types
 			public const string SECT = nameof(SECT);
 			public const string STIF = nameof(STIF);
 			public const string ISO = nameof(ISO);
 			public const string ORT = nameof(ORT);
+			public const string VARL = nameof(VARL);
+
+			// selection types
+			public const string MACR = nameof(MACR);
+			public const string LINE = nameof(LINE);
 		}
 
 		#endregion

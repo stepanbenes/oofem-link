@@ -151,7 +151,7 @@ namespace OofemLink.Services.Import.ESA
 						}
 						break;
 					default:
-						Logger.LogWarning("GEO: Ignoring token '{0}'", tokens[0]);
+						Logger.LogWarning("Ignoring token '{0}'", tokens[0]);
 						break;
 				}
 			}

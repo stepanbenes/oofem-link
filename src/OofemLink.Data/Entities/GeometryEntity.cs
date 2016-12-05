@@ -21,6 +21,7 @@ namespace OofemLink.Data.Entities
 		public double Z { get; set; }
 
 		public virtual ICollection<VertexCurve> VertexCurves { get; set; } = new List<VertexCurve>();
+
 		public virtual ICollection<VertexAttribute> VertexAttributes { get; set; } = new List<VertexAttribute>();
 	}
 
@@ -31,6 +32,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<VertexCurve> CurveVertices { get; set; } = new List<VertexCurve>();
 		public virtual ICollection<SurfaceCurve> CurveSurfaces { get; set; } = new List<SurfaceCurve>();
 		public virtual ICollection<CurveElement> CurveElements { get; set; } = new List<CurveElement>();
+
 		public virtual ICollection<CurveAttribute> CurveAttributes { get; set; } = new List<CurveAttribute>();
 	}
 
@@ -41,6 +43,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<SurfaceCurve> SurfaceCurves { get; set; } = new List<SurfaceCurve>();
 		public virtual ICollection<SurfaceVolume> SurfaceVolumes { get; set; } = new List<SurfaceVolume>();
 		public virtual ICollection<SurfaceElement> SurfaceElements { get; set; } = new List<SurfaceElement>();
+
 		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
 	}
 
@@ -48,6 +51,7 @@ namespace OofemLink.Data.Entities
 	{
 		public virtual ICollection<SurfaceVolume> VolumeSurfaces { get; set; } = new List<SurfaceVolume>();
 		public virtual ICollection<VolumeElement> VolumeElements { get; set; } = new List<VolumeElement>();
+
 		public virtual ICollection<VolumeAttribute> VolumeAttributes { get; set; } = new List<VolumeAttribute>();
 	}
 

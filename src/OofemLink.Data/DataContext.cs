@@ -111,7 +111,7 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Macro).WithMany(m => m.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Vertex).WithMany(v => v.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.VertexId });
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => a.TimeFunctionId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Attribute).WithMany().HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Attribute).WithMany(a => a.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().ToTable("VertexAttributes");
 
 			modelBuilder.Entity<CurveAttribute>().HasKey(a => new { a.ModelId, a.MacroId, a.CurveId, a.AttributeId });
@@ -119,7 +119,7 @@ namespace OofemLink.Data
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Macro).WithMany(m => m.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Curve).WithMany(c => c.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.CurveId });
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => a.TimeFunctionId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Attribute).WithMany().HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Attribute).WithMany(a => a.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().ToTable("CurveAttributes");
 
 			modelBuilder.Entity<SurfaceAttribute>().HasKey(a => new { a.ModelId, a.MacroId, a.SurfaceId, a.AttributeId });
@@ -127,7 +127,7 @@ namespace OofemLink.Data
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Macro).WithMany(m => m.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Surface).WithMany(s => s.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.SurfaceId });
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => a.TimeFunctionId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Attribute).WithMany().HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Attribute).WithMany(a => a.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().ToTable("SurfaceAttributes");
 
 			modelBuilder.Entity<VolumeAttribute>().HasKey(a => new { a.ModelId, a.MacroId, a.VolumeId, a.AttributeId });
@@ -135,7 +135,7 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Macro).WithMany(m => m.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Volume).WithMany(v => v.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.VolumeId });
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => a.TimeFunctionId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Attribute).WithMany().HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Attribute).WithMany(a => a.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().ToTable("VolumeAttributes");
 
 			// MESH
