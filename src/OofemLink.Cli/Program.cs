@@ -152,10 +152,12 @@ namespace OofemLink.Cli
 			var projectService = serviceProvider.GetRequiredService<IProjectService>();
 			var simulationService = serviceProvider.GetRequiredService<ISimulationService>();
 			var projects = await projectService.GetAllAsync();
+			using (new ConsoleBrush(ConsoleColor.DarkGray))
+				Console.WriteLine($"{projects.Count} project{(projects.Count == 1 ? "" : "s")}");
 			for (int i = 0; i < projects.Count; i++)
 			{
-				printProjectInfo(projects[i]);
 				var simulations = await simulationService.GetAllAsync(q => q.Where(s => s.ProjectId == projects[i].Id));
+				printProjectInfo(projects[i], simulations.Count);
 				for (int j = 0; j < simulations.Count; j++)
 				{
 					printSimulationInfo(simulations[j]);
@@ -205,18 +207,22 @@ namespace OofemLink.Cli
 
 		#region Helper methods
 
-		private static void printProjectInfo(ProjectDto project)
+		private static void printProjectInfo(ProjectDto project, int simulationCount)
 		{
 			using (new ConsoleBrush(ConsoleColor.Magenta))
 				Console.Write(project.Name);
 			using (new ConsoleBrush(ConsoleColor.Gray))
 				Console.Write($" id: {project.Id}");
 			Console.WriteLine();
+			using (new ConsoleBrush(ConsoleColor.DarkGray))
+				Console.WriteLine($"  {simulationCount} simulation{(simulationCount == 1 ? "" : "s")}");
 		}
 
 		private static void printSimulationInfo(ViewSimulationDto simulation)
 		{
 			Console.Write("  ");
+			using (new ConsoleBrush(ConsoleColor.Gray))
+				Console.Write("task: ");
 			using (new ConsoleBrush(ConsoleColor.Cyan))
 				Console.Write(simulation.TaskName);
 			using (new ConsoleBrush(ConsoleColor.Gray))
