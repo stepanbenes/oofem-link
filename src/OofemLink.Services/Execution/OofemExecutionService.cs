@@ -94,7 +94,7 @@ namespace OofemLink.Services.Execution
 		private string prepareInputFile(int simulationId)
 		{
 			string inputFileFullPath = Path.GetTempFileName();
-			var oofemExportService = new InputFileExportService(dataContext, inputFileFullPath);
+			var oofemExportService = new OofemInputFileExportService(dataContext, inputFileFullPath);
 			oofemExportService.ExportSimulation(simulationId); // TODO: make async
 			return inputFileFullPath;
 		}

@@ -22,7 +22,7 @@ namespace OofemLink.Services.Export
 
 		public IExportService Create(string fileFullPath)
 		{
-			return new OOFEM.InputFileExportService(dataContext, fileFullPath);
+			return new OOFEM.OofemInputFileExportService(dataContext, fileFullPath);
 		}
 	}
 }
