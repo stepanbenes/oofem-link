@@ -156,7 +156,7 @@ namespace OofemLink.Cli
 			var projectService = serviceProvider.GetRequiredService<IProjectService>();
 			var simulationService = serviceProvider.GetRequiredService<ISimulationService>();
 			var projects = await projectService.GetAllAsync();
-			using (new ConsoleBrush(ConsoleColor.DarkGray))
+			using (new ConsoleBrush(ConsoleColor.Yellow))
 				Console.WriteLine($"{projects.Count} project{(projects.Count == 1 ? "" : "s")}");
 			for (int i = 0; i < projects.Count; i++)
 			{
@@ -214,21 +214,21 @@ namespace OofemLink.Cli
 		{
 			using (new ConsoleBrush(ConsoleColor.Magenta))
 				Console.Write(project.Name);
-			using (new ConsoleBrush(ConsoleColor.Gray))
+			using (new ConsoleBrush(ConsoleColor.White))
 				Console.Write($" id: {project.Id}");
 			Console.WriteLine();
-			using (new ConsoleBrush(ConsoleColor.DarkGray))
+			using (new ConsoleBrush(ConsoleColor.Yellow))
 				Console.WriteLine($"  {simulationCount} simulation{(simulationCount == 1 ? "" : "s")}");
 		}
 
 		private static void printSimulationInfo(ViewSimulationDto simulation)
 		{
 			Console.Write("  ");
-			using (new ConsoleBrush(ConsoleColor.Gray))
+			using (new ConsoleBrush(ConsoleColor.White))
 				Console.Write("task: ");
 			using (new ConsoleBrush(ConsoleColor.Cyan))
 				Console.Write(simulation.TaskName);
-			using (new ConsoleBrush(ConsoleColor.Gray))
+			using (new ConsoleBrush(ConsoleColor.White))
 				Console.Write($" id: {simulation.Id}, state: {simulation.State}, dimensions: {simulation.DimensionFlags}, model id: {simulation.ModelId}, z-axis up: {simulation.ZAxisUp}");
 			Console.WriteLine();
 		}
