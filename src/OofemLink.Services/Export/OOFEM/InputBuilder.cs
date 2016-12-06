@@ -33,10 +33,28 @@ namespace OofemLink.Services.Export.OOFEM
 			streamWriter.Write("# " + comment);
 		}
 
-		public void AddPlainString(string text)
+		public void AddPlainText(string text)
 		{
 			streamWriter.WriteLine();
 			streamWriter.Write(text);
+		}
+
+		public void AddEngineeringModel(string engineeringModelName, int numberOfTimeSteps, int numberOfExportModules)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{engineeringModelName} {Keyword.nsteps} {numberOfTimeSteps} {Keyword.nmodules} {numberOfExportModules}");
+		}
+
+		public void AddDomain(string domainType)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{Keyword.domain} {domainType}");
+		}
+
+		public void AddRecordCounts(int dofManagerCount, int elementCount, int crossSectionCount = 0, int materialCount = 0, int boundaryConditionCount = 0, int initialConditionCount = 0, int timeFunctionCount = 0, int setCount = 0)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{Keyword.ndofman} {dofManagerCount} {Keyword.nelem} {elementCount} {Keyword.ncrosssect} {crossSectionCount} {Keyword.nmat} {materialCount} {Keyword.nbc} {boundaryConditionCount} {Keyword.nic} {initialConditionCount} {Keyword.nltf} {timeFunctionCount} {Keyword.nset} {setCount}");
 		}
 
 		public INodeRecordBuilder AddNode(int id)

@@ -45,7 +45,7 @@ namespace OofemLink.Services.Execution
 				await prepareSimulationToRunAsync(simulation);
 			}
 
-			if (simulation.State != SimulationState.ReadyToRun)
+			if (simulation.State != SimulationState.ReadyToRun && simulation.State != SimulationState.Finished/**/)
 			{
 				throw new InvalidOperationException("Simulation is not ready to run. Current state: " + simulation.State);
 			}
@@ -79,11 +79,12 @@ namespace OofemLink.Services.Execution
 			int oofemExitCode = await tsc.Task; // Await Exited event
 
 			bool success = oofemExitCode == 0;
-			if (success)
+
 			{
 				simulation.State = SimulationState.Finished;
 				await dataContext.SaveChangesAsync();
 			}
+
 			//logger.LogInformation("Simulation finished " + (success ? "successfully" : "with errors"));
 			return success;
 		}

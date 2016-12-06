@@ -47,6 +47,7 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			var simulation = dataContext.Simulations
 								.Include(s => s.Project)
+								.Include(s => s.TimeSteps)
 								.Include(s => s.Model)
 								.ThenInclude(m => m.Meshes)
 								.FirstOrDefault(s => s.Id == simulationId);
@@ -65,26 +66,64 @@ namespace OofemLink.Services.Export.OOFEM
 
 			var mesh = model.Meshes.Single();
 
-			// first line: Output file name
-			input.AddPlainString("oofem.out");
-			// second line: Description
-			input.AddPlainString($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");
-
-			// TODO: complete header
-
-			addDebugComment(input, "NODES");
 			var nodesQuery = from node in dataContext.Nodes
 							 where node.MeshId == mesh.Id
 							 select node;
+			var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
+								where element.MeshId == mesh.Id
+								select element;
+			var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
+									 where attribute.ModelId == model.Id
+									 where attribute.Type == AttributeType.CrossSection
+									 select attribute;
+			var materialsQuery = from attribute in dataContext.Attributes
+								 where attribute.ModelId == model.Id
+								 where attribute.Type == AttributeType.Material
+								 select attribute;
+			// =========================================================================================
+
+			// Output file name
+			input.AddPlainText((simulation.Project?.Name ?? "output") + ".out"); // TODO: make valid filename
+			// Description
+			input.AddPlainText($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");
+
+			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+			input.AddEngineeringModel(
+					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+					numberOfTimeSteps: simulation.TimeSteps.Count,
+					numberOfExportModules: 1 /**/
+				);
+
+			// the export module is vtk
+			// TODO: this is hard-coded now, enable this to be configurable
+			input.AddPlainText("vtkxml tstep_all domain_all primvars 1 1");
+
+			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
+			// TODO: avoid hard-coded string
+			input.AddDomain("3dshell");
+
+			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
+			// TODO: avoid hard-coded string
+			input.AddPlainText("OutputManager tstep_all dofman_all element_all");
+
+			// number of dofmanagers(generalization of nodes), number of elements, n of corssections, n of materials, boundary conditions, initial conditions, load time functions, and sets
+			input.AddRecordCounts(
+					dofManagerCount: nodesQuery.Count(),
+					elementCount: elementsQuery.Count(),
+					crossSectionCount: crossSectionsQuery.Count(),
+					materialCount: materialsQuery.Count()
+					// TODO: complete record counts
+				);
+
+			addDebugComment(input, "NODES");
+			
 			foreach (var node in nodesQuery)
 			{
 				input.AddNode(node.Id).WithCoordinates(node.X, node.Y, node.Z);
 			}
 
 			addDebugComment(input, "ELEMENTS");
-			var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
-								where element.MeshId == mesh.Id
-								select element;
+			
 			foreach (var element in elementsQuery)
 			{
 				var nodeIds = (from elementNode in element.ElementNodes
@@ -113,10 +152,7 @@ namespace OofemLink.Services.Export.OOFEM
 			var sets = new List<Set>();
 
 			addDebugComment(input, "CROSS-SECTIONS");
-			var crossSections = (from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
-								 where attribute.ModelId == model.Id
-								 where attribute.Type == AttributeType.CrossSection
-								 select attribute).ToArray();
+			var crossSections = crossSectionsQuery.ToArray();
 			foreach (var crossSection in crossSections)
 			{
 				input.AddCrossSection(crossSection.Name, crossSection.LocalNumber)
@@ -126,10 +162,7 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "MATERIALS");
-			foreach (var material in from attribute in dataContext.Attributes
-									 where attribute.ModelId == model.Id
-									 where attribute.Type == AttributeType.Material
-									 select attribute)
+			foreach (var material in materialsQuery)
 			{
 				input.AddMaterial(material.Name, material.LocalNumber).WithParameters(material.Parameters);
 			}
