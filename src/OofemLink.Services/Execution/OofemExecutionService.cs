@@ -71,10 +71,19 @@ namespace OofemLink.Services.Execution
 
 			process.Start(); // RUUUN OOFEM RUUUN!
 
+			{
+				simulation.State = SimulationState.Running;
+				await dataContext.SaveChangesAsync();
+			}
+
 			int oofemExitCode = await tsc.Task; // Await Exited event
 
 			bool success = oofemExitCode == 0;
-			await finishSimulationAsync(simulation, success);
+			if (success)
+			{
+				simulation.State = SimulationState.Finished;
+				await dataContext.SaveChangesAsync();
+			}
 			//logger.LogInformation("Simulation finished " + (success ? "successfully" : "with errors"));
 			return success;
 		}
@@ -97,15 +106,6 @@ namespace OofemLink.Services.Execution
 			var oofemExportService = new OofemInputFileExportService(dataContext, inputFileFullPath);
 			oofemExportService.ExportSimulation(simulationId); // TODO: make async
 			return inputFileFullPath;
-		}
-
-		private async Task finishSimulationAsync(Simulation simulation, bool success)
-		{
-			if (success)
-			{
-				simulation.State = SimulationState.Finished;
-				await dataContext.SaveChangesAsync();
-			}
 		}
 
 		#endregion
