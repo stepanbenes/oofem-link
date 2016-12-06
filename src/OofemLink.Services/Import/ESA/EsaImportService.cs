@@ -41,9 +41,7 @@ namespace OofemLink.Services.Import.ESA
 
 			ModelDimensions dimensions;
 			var model = new GeoFileParser(location, taskName, loggerFactory).Parse(out dimensions);
-
 			var mesh = importMesh(dimensions);
-
 			model.Meshes.Add(mesh);
 
 			linkModelAndMeshTogether(model, mesh);
@@ -52,6 +50,8 @@ namespace OofemLink.Services.Import.ESA
 
 			simulation.DimensionFlags = dimensions;
 			simulation.Model = model;
+
+			simulation.State = SimulationState.MeshGenerated;
 
 			logger.LogInformation("Import finished.");
 			return simulation;

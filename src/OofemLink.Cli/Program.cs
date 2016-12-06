@@ -15,6 +15,7 @@ using OofemLink.Data;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
+using OofemLink.Services.Execution;
 
 namespace OofemLink.Cli
 {
@@ -109,6 +110,8 @@ namespace OofemLink.Cli
 		private void configureServices(IServiceCollection services)
 		{
 			services.AddLogging();
+			services.AddOptions();
+			services.Configure<ExecutionOptions>(configuration.GetSection("Execution"));
 
 			services.AddDbContext<DataContext>(options =>
 			{
@@ -130,6 +133,7 @@ namespace OofemLink.Cli
 			services.AddScoped<ISimulationService, SimulationService>();
 			services.AddScoped<IImportServiceFactory, ImportServiceFactory>();
 			services.AddScoped<IExportServiceFactory, ExportServiceFactory>();
+			services.AddScoped<IExecutionService, OofemExecutionService>();
 
 			Mapper.Initialize(config => config.AddProfile<DtoMappingProfile>());
 		}
@@ -190,17 +194,16 @@ namespace OofemLink.Cli
 				// make absolute path
 				fileFullPath = Path.IsPathRooted(options.FileName) ? options.FileName : Path.Combine(Directory.GetCurrentDirectory(), options.FileName);
 			}
-			var simulationService = serviceProvider.GetRequiredService<ISimulationService>();
 			var exportService = serviceProvider.GetRequiredService<IExportServiceFactory>().Create(fileFullPath);
-			simulationService.Export(options.SimulationId, exportService);
+			exportService.ExportSimulation(options.SimulationId);
 			return Task.FromResult(0);
 		}
 
-		private Task<int> runRunCommandAsync(RunOptions options)
+		private async Task<int> runRunCommandAsync(RunOptions options)
 		{
-			var simulationService = serviceProvider.GetRequiredService<ISimulationService>();
-			simulationService.Run();
-			return Task.FromResult(0);
+			var executionService = serviceProvider.GetRequiredService<IExecutionService>();
+			var success = await executionService.ExecuteAsync(options.SimulationId);
+			return success ? 0 : 666;
 		}
 
 		#endregion

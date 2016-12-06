@@ -9,7 +9,5 @@ namespace OofemLink.Services.DataAccess
 {
     public interface ISimulationService : IQuery<ViewSimulationDto, int>, ICommand<EditSimulationDto, int>
     {
-		void Export(int simulationId, IExportService exportService);
-		void Run();
 	}
 }

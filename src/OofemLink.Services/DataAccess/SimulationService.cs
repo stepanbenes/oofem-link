@@ -18,16 +18,6 @@ namespace OofemLink.Services.DataAccess
 			: base(context)
 		{ }
 
-		public void Export(int simulationId, IExportService exportService)
-		{
-			exportService.ExportSimulation(simulationId);
-		}
-
-		public void Run()
-		{
-			throw new NotImplementedException();
-		}
-
 		public async Task<IReadOnlyList<ViewSimulationDto>> GetAllAsync(Func<IQueryable<ViewSimulationDto>, IQueryable<ViewSimulationDto>> filter = null)
 		{
 			return await GetQuery<Simulation, ViewSimulationDto>(filter).ToListAsync();
