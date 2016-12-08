@@ -83,7 +83,8 @@ namespace OofemLink.Services.Export.OOFEM
 			// =========================================================================================
 
 			// Output file name
-			input.AddPlainText((simulation.Project?.Name ?? "output") + ".out"); // TODO: make valid filename
+			string outputFileFullPath = Path.GetTempFileName(); // TODO: allow output file path to be configurable
+			input.AddPlainText(outputFileFullPath);
 			// Description
 			input.AddPlainText($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");
 
