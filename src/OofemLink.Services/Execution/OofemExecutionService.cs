@@ -40,12 +40,12 @@ namespace OofemLink.Services.Execution
 				throw new KeyNotFoundException($"Simulation with id {simulationId} does not exist.");
 			}
 
-			if (simulation.State == SimulationState.MeshGenerated)
+			if (simulation.State == SimulationState.ModelReady)
 			{
 				await prepareSimulationToRunAsync(simulation);
 			}
 
-			if (simulation.State != SimulationState.ReadyToRun && simulation.State != SimulationState.Finished/**/)
+			if (simulation.State != SimulationState.ReadyToRun)
 			{
 				throw new InvalidOperationException("Simulation is not ready to run. Current state: " + simulation.State);
 			}
@@ -71,15 +71,11 @@ namespace OofemLink.Services.Execution
 
 			process.Start(); // RUUUN OOFEM RUUUN!
 
-			{
-				simulation.State = SimulationState.Running;
-				await dataContext.SaveChangesAsync();
-			}
-
 			int oofemExitCode = await tsc.Task; // Await Exited event
 
 			bool success = oofemExitCode == 0;
 
+			if (success)
 			{
 				simulation.State = SimulationState.Finished;
 				await dataContext.SaveChangesAsync();

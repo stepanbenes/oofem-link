@@ -8,10 +8,8 @@ namespace OofemLink.Common.Enumerations
     public enum SimulationState : byte
     {
 		New = 0,
-		ModelCreated,
-		MeshGenerated,
+		ModelReady,
 		ReadyToRun,
-		Running,
 		Finished,
 		ReadyToPostprocess
 	}

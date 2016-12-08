@@ -51,7 +51,7 @@ namespace OofemLink.Services.Import.ESA
 			simulation.DimensionFlags = dimensions;
 			simulation.Model = model;
 
-			simulation.State = SimulationState.MeshGenerated;
+			simulation.State = SimulationState.ModelReady;
 
 			logger.LogInformation("Import finished.");
 			return simulation;
