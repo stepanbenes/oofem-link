@@ -30,8 +30,7 @@ namespace OofemLink.Services.Import.ESA
 
 			materialMap = new Dictionary<int, ModelAttribute>();
 
-			using (var stream = new FileStream(FileFullPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-			using (var streamReader = new StreamReader(stream))
+			using (var streamReader = File.OpenText(FileFullPath))
 			{
 				string line = streamReader.ReadLine(); // read Directory path
 				while ((line = streamReader.ReadLine()) != null)

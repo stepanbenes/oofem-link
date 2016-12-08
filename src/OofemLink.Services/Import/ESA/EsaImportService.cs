@@ -46,7 +46,7 @@ namespace OofemLink.Services.Import.ESA
 
 			linkModelAndMeshTogether(model, mesh);
 
-			importAttributesToModel(model);
+			importAttributesToModel(model, loadCasesNumbers: simulation.TimeSteps.Select(ts => ts.Number));
 
 			simulation.DimensionFlags = dimensions;
 			simulation.Model = model;
@@ -138,12 +138,17 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private void importAttributesToModel(Model model)
+		private void importAttributesToModel(Model model, IEnumerable<int> loadCasesNumbers)
 		{
 			var istParser = new IstFileParser(location, taskName, loggerFactory);
 			int count = addAttributesToModel(model, startAttributeId: 1, attributes: istParser.Parse());
 
-			// TODO: add Ix files parsing
+			// Ixxxx files parsing
+			foreach (int loadCaseNumber in loadCasesNumbers)
+			{
+				var ixxxxFileParser = new IxxxxFileParser(loadCaseNumber, location, taskName, loggerFactory);
+				count += addAttributesToModel(model, startAttributeId: count, attributes: ixxxxFileParser.Parse());
+			}
 		}
 
 		private int addAttributesToModel(Model model, int startAttributeId, IEnumerable<ModelAttribute> attributes)

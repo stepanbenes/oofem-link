@@ -12,9 +12,8 @@ namespace OofemLink.Data.Entities
 		/// </summary>
 		public long Id { get; set; }
 
-		/// <summary>
-		/// time step value
-		/// </summary>
-		public double Number { get; set; }
-    }
+		public int Number { get; set; }
+
+		public double? Time { get; set; }
+	}
 }
