@@ -17,7 +17,7 @@ namespace OofemLink.Services.Import.ESA
 
 		public override string Extension => "PRO";
 
-		public Simulation Parse()
+		public Simulation Parse(IEnumerable<int> loadCasesToIgnore)
 		{
 			LogStart();
 
@@ -55,9 +55,9 @@ namespace OofemLink.Services.Import.ESA
 						break;
 					case Codes.CASE:
 						int[] loadCaseNumbers = value.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries).Select(token => ParseInt32(token)).ToArray();
-						for (int index = 0; index < loadCaseNumbers.Length; index += 1)
+						foreach(var loadCaseNumber in loadCaseNumbers.Except(loadCasesToIgnore))
 						{
-							simulation.TimeSteps.Add(new TimeStep { Number = loadCaseNumbers[index] });
+							simulation.TimeSteps.Add(new TimeStep { Number = loadCaseNumber });
 						}
 						break;
 					//case Codes.TYPE:

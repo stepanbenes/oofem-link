@@ -37,7 +37,7 @@ namespace OofemLink.Services.Import.ESA
 		{
 			logger.LogInformation("Starting import...");
 
-			var simulation = new ProFileParser(location, taskName, loggerFactory).Parse();
+			var simulation = new ProFileParser(location, taskName, loggerFactory).Parse(loadCasesToIgnore: new[] { 9998, 9999 });
 
 			ModelDimensions dimensions;
 			var model = new GeoFileParser(location, taskName, loggerFactory).Parse(out dimensions);
