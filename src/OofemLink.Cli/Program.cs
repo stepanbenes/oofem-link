@@ -235,7 +235,9 @@ namespace OofemLink.Cli
 
 		private static void drawHelloImage()
 		{
-			Console.WriteLine(
+			using (new ConsoleBrush(ConsoleColor.Blue))
+			{
+				Console.WriteLine(
 @"
          ,:.             .,,        ,::::::::::`      .:;,                      
       ;;;;;;;;        .;;;;;;;.     ;;;;;;;;;;;     ;;;;;;;;     .;           ;:
@@ -255,6 +257,7 @@ namespace OofemLink.Cli
     `::,             ,::`      .;;;;;;,           .::.       ;;;;;;;;;;;;;;     
 "
 				);
+			}
 		}
 
 		#endregion
