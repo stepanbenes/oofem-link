@@ -14,7 +14,7 @@ using static System.FormattableString;
 
 namespace OofemLink.Services.Import.ESA
 {
-	class IstFileParser : EsaFileParserBase
+	class IstFileParser : AttributeFileParserBase
 	{
 		Dictionary<int, ModelAttribute> materialMap/*, supportsMap*/;
 
@@ -32,7 +32,7 @@ namespace OofemLink.Services.Import.ESA
 
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
-				string line = streamReader.ReadLine(); // read Directory path
+				string line = streamReader.ReadLine(); // ignore first line: Directory path
 				while ((line = streamReader.ReadLine()) != null)
 				{
 					if (line == "")
@@ -40,37 +40,32 @@ namespace OofemLink.Services.Import.ESA
 					if (line.Length != 160)
 						throw new FormatException("Wrong IST file format. Each row (except the first) is expected to have exactly 160 characters.");
 
-					// druh_polozky, dimenze, typ_veliciny, smer, material_#, podlozi_#, typ_vyberu, cislo, x, y, z, hodnota
-					string[] tokens = line.Substring(0, 80).Split(chunkSize: 10).Select(chunk => chunk.TrimStart()).ToArray();
-					Debug.Assert(tokens.Length == 8);
-					double?[] values = line.Substring(startIndex: 80).Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
-					Debug.Assert(values.Length == 4);
-					// TODO: pass values to parsing methods
-					switch (tokens[0])
+					LineTokens lineTokens = ParseLine(line);
+
+					switch (lineTokens.ItemType)
 					{
 						case Codes.MAT:
 							var materialAttribute = parseMaterialSection(streamReader,
-									dimensionType: tokens[1],
-									quantityType: tokens[2],
-									number: ParseInt32(tokens[7])
+									dimensionType: lineTokens.DimensionType,
+									quantityType: lineTokens.QuantityType,
+									number: lineTokens.Number.Value
 								);
 							materialMap.Add(materialAttribute.LocalNumber, materialAttribute); // LocalNumber should be unique for each AttributeType
 							break;
 						case Codes.PHYS:
 							parsePhysicalDataSection(streamReader,
-									dimensionType: tokens[1],
-									quantityType: tokens[2],
-									specificParameterName: tokens[3],
-									materialId: TryParseInt32(tokens[4]),
-									subgradeId: TryParseInt32(tokens[5]),
-									selectionType: tokens[6],
-									number: ParseInt32(tokens[7])
+									dimensionType: lineTokens.DimensionType,
+									quantityType: lineTokens.QuantityType,
+									materialId: lineTokens.MaterialId,
+									subgradeId: lineTokens.SubgradeId,
+									selectionType: lineTokens.SelectionType,
+									number: lineTokens.Number.Value
 								);
 							break;
 						//case Codes.FIX:
 						//	throw new NotImplementedException();
 						default:
-							Logger.LogWarning("Ignoring token '{0}'", tokens[0]);
+							Logger.LogWarning("Ignoring token '{0}'", lineTokens.ItemType);
 							break;
 					}
 				}
@@ -97,7 +92,7 @@ namespace OofemLink.Services.Import.ESA
 								double?[] line2_values = line2.Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
 
 								return createAttributeFromBeamCrossSectionCharacteristics(number,
-										Ix: line1_values[3] ?? 0.0, // TODO: is it ok to replace missing values with zeroes?
+										Ix: line1_values[3] ?? 0.0, // TODO: is it ok to replace missing values with zeroes? Or should throw exception if some important parameter is missing?
 										Iy: line1_values[4] ?? 0.0,
 										Iz: line1_values[5] ?? 0.0,
 										E: line1_values[6] ?? 0.0,
@@ -169,7 +164,7 @@ namespace OofemLink.Services.Import.ESA
 
 		#region Parsing attribute-macro mapping
 
-		private void parsePhysicalDataSection(StreamReader streamReader, string dimensionType, string quantityType, string specificParameterName, int? materialId, int? subgradeId, string selectionType, int number)
+		private void parsePhysicalDataSection(StreamReader streamReader, string dimensionType, string quantityType, int? materialId, int? subgradeId, string selectionType, int number)
 		{
 			switch (dimensionType)
 			{
@@ -211,7 +206,7 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
-		#region Keywords
+		#region File codes
 
 		private static class Codes
 		{

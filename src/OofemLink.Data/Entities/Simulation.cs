@@ -23,8 +23,6 @@ namespace OofemLink.Data.Entities
 		public ModelDimensions DimensionFlags { get; set; }
 		public bool ZAxisUp { get; set; }
 
-		// TODO: add reference to entity SolverParameters or AnalysisParams or something completely different...
-
 		public virtual ICollection<TimeStep> TimeSteps { get; set; } = new List<TimeStep>();
 	}
 }

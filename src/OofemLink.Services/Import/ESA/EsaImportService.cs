@@ -140,14 +140,27 @@ namespace OofemLink.Services.Import.ESA
 
 		private void importAttributesToModel(Model model, IEnumerable<int> loadCasesNumbers)
 		{
+			// IST file parsing
 			var istParser = new IstFileParser(location, taskName, loggerFactory);
-			int count = addAttributesToModel(model, startAttributeId: 1, attributes: istParser.Parse());
+			var cs_mat_bc_attributes = istParser.Parse().ToList();
+			int attributesTotal = addAttributesToModel(model, startAttributeId: 1, attributes: cs_mat_bc_attributes);
 
+			int max_bc_LocalNumber = cs_mat_bc_attributes
+										.Where(a => a.Type == AttributeType.BoundaryCondition)
+										.Select(a => a.LocalNumber)
+										.DefaultIfEmpty()
+										.Max();
 			// Ixxxx files parsing
 			foreach (int loadCaseNumber in loadCasesNumbers)
 			{
 				var ixxxxFileParser = new IxxxxFileParser(loadCaseNumber, location, taskName, loggerFactory);
-				count += addAttributesToModel(model, startAttributeId: count, attributes: ixxxxFileParser.Parse());
+				var lc_attributes = ixxxxFileParser.Parse().ToList();
+				foreach (var loadCondition in lc_attributes)
+				{
+					loadCondition.LocalNumber = ++max_bc_LocalNumber;
+				}
+
+				attributesTotal += addAttributesToModel(model, startAttributeId: attributesTotal + 1, attributes: lc_attributes);
 			}
 		}
 
