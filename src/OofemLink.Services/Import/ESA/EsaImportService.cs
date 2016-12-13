@@ -46,7 +46,7 @@ namespace OofemLink.Services.Import.ESA
 
 			linkModelAndMeshTogether(model, mesh);
 
-			importAttributesToModel(model, loadCasesNumbers: simulation.TimeSteps.Select(ts => ts.Number));
+			importAttributesToModel(model, simulation.TimeSteps);
 
 			simulation.DimensionFlags = dimensions;
 			simulation.Model = model;
@@ -138,28 +138,31 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private void importAttributesToModel(Model model, IEnumerable<int> loadCasesNumbers)
+		private void importAttributesToModel(Model model, IEnumerable<TimeStep> timeSteps)
 		{
 			// IST file parsing
 			var istParser = new IstFileParser(location, taskName, loggerFactory);
 			var cs_mat_bc_attributes = istParser.Parse().ToList();
 			int attributesTotal = addAttributesToModel(model, startAttributeId: 1, attributes: cs_mat_bc_attributes);
 
-			int max_bc_LocalNumber = cs_mat_bc_attributes
-										.Where(a => a.Type == AttributeType.BoundaryCondition)
-										.Select(a => a.LocalNumber)
-										.DefaultIfEmpty()
-										.Max();
 			// Ixxxx files parsing
-			foreach (int loadCaseNumber in loadCasesNumbers)
+			int timeFunctionId = 1;
+			foreach (var timeStep in timeSteps)
 			{
+				var timeFunction = new TimeFunction
+				{
+					Id = timeFunctionId++,
+					Type = TimeFunctionType.PiecewiseLinear,
+					Values = { new TimeFunctionValue { TimeStep = timeStep, Value = 1.0 } }
+				};
+				model.TimeFunctions.Add(timeFunction);
+				int loadCaseNumber = timeStep.Number;
 				var ixxxxFileParser = new IxxxxFileParser(loadCaseNumber, location, taskName, loggerFactory);
 				var lc_attributes = ixxxxFileParser.Parse().ToList();
-				foreach (var loadCondition in lc_attributes)
+				foreach (var loadCase in lc_attributes)
 				{
-					loadCondition.LocalNumber = ++max_bc_LocalNumber;
+					loadCase.TimeFunction = timeFunction;
 				}
-
 				attributesTotal += addAttributesToModel(model, startAttributeId: attributesTotal + 1, attributes: lc_attributes);
 			}
 		}

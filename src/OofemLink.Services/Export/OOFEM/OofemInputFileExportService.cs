@@ -64,22 +64,35 @@ namespace OofemLink.Services.Export.OOFEM
 			if (model.Meshes.Count > 1)
 				throw new NotSupportedException($"Multiple meshes for single model are not yet supported (model {model.Id}).");
 
-			var mesh = model.Meshes.Single();
+			List<Node> nodes;
+			List<Element> elements;
+			List<ModelAttribute> crossSections;
+			List<ModelAttribute> materials;
 
-			var nodesQuery = from node in dataContext.Nodes
-							 where node.MeshId == mesh.Id
-							 select node;
-			var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
-								where element.MeshId == mesh.Id
-								select element;
-			var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
+			{
+				var mesh = model.Meshes.Single();
+
+				var nodesQuery = from node in dataContext.Nodes
+								 where node.MeshId == mesh.Id
+								 select node;
+				var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
+									where element.MeshId == mesh.Id
+									select element;
+				var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
+										 where attribute.ModelId == model.Id
+										 where attribute.Type == AttributeType.CrossSection
+										 select attribute;
+				var materialsQuery = from attribute in dataContext.Attributes
 									 where attribute.ModelId == model.Id
-									 where attribute.Type == AttributeType.CrossSection
+									 where attribute.Type == AttributeType.Material
 									 select attribute;
-			var materialsQuery = from attribute in dataContext.Attributes
-								 where attribute.ModelId == model.Id
-								 where attribute.Type == AttributeType.Material
-								 select attribute;
+
+				nodes = nodesQuery.ToList();
+				elements = elementsQuery.ToList();
+				crossSections = crossSectionsQuery.ToList();
+				materials = materialsQuery.ToList();
+			}
+
 			// =========================================================================================
 
 			// Output file name
@@ -109,23 +122,21 @@ namespace OofemLink.Services.Export.OOFEM
 
 			// number of dofmanagers(generalization of nodes), number of elements, n of corssections, n of materials, boundary conditions, initial conditions, load time functions, and sets
 			input.AddRecordCounts(
-					dofManagerCount: nodesQuery.Count(),
-					elementCount: elementsQuery.Count(),
-					crossSectionCount: crossSectionsQuery.Count(),
-					materialCount: materialsQuery.Count()
+					dofManagerCount: nodes.Count,
+					elementCount: elements.Count,
+					crossSectionCount: crossSections.Count,
+					materialCount: materials.Count
 					// TODO: complete record counts
 				);
 
 			addDebugComment(input, "NODES");
-			
-			foreach (var node in nodesQuery)
+			foreach (var node in nodes)
 			{
 				input.AddNode(node.Id).WithCoordinates(node.X, node.Y, node.Z);
 			}
 
 			addDebugComment(input, "ELEMENTS");
-			
-			foreach (var element in elementsQuery)
+			foreach (var element in elements)
 			{
 				var nodeIds = (from elementNode in element.ElementNodes
 							   orderby elementNode.Rank
@@ -152,20 +163,28 @@ namespace OofemLink.Services.Export.OOFEM
 
 			var sets = new List<Set>();
 
-			addDebugComment(input, "CROSS-SECTIONS");
-			var crossSections = crossSectionsQuery.ToArray();
-			foreach (var crossSection in crossSections)
+			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
+			for (int index = 0; index < materials.Count; index++)
 			{
-				input.AddCrossSection(crossSection.Name, crossSection.LocalNumber)
+				attributeIdToMaterialIdMap.Add(materials[index].Id, index + 1);
+			}
+
+			addDebugComment(input, "CROSS-SECTIONS");
+			
+			for (int i = 0; i < crossSections.Count; i++)
+			{
+				var crossSection = crossSections[i];
+				var material = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttribute; // TODO: handle cases with non-single referenced materials
+				input.AddCrossSection(crossSection.Name, id: i + 1)
 					 .WithParameters(crossSection.Parameters)
-					 .HasMaterial(materialId: crossSection.ChildAttributes.Single().ChildAttribute.LocalNumber) // TODO: handle cases with non-single referenced materials
+					 .HasMaterial(materialId: attributeIdToMaterialIdMap[material.Id])
 					 .AppliesToSet(getOrCreateSetForAttribute(crossSection, sets).Id);
 			}
 
 			addDebugComment(input, "MATERIALS");
-			foreach (var material in materialsQuery)
+			foreach(var material in materials)
 			{
-				input.AddMaterial(material.Name, material.LocalNumber).WithParameters(material.Parameters);
+				input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameters(material.Parameters);
 			}
 
 			addDebugComment(input, "SETS");

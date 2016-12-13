@@ -36,6 +36,7 @@ namespace OofemLink.Data
 				.IsRequired(true);
 
 			modelBuilder.Entity<TimeFunction>().HasKey(tf => new { tf.ModelId, tf.Id });
+			modelBuilder.Entity<TimeFunction>().HasOne(tf => tf.Model).WithMany(m => m.TimeFunctions).HasForeignKey(tf => tf.ModelId);
 
 			modelBuilder.Entity<TimeFunctionValue>().HasKey(v => new { v.ModelId, v.TimeFunctionId, v.TimeStepId });
 			modelBuilder.Entity<TimeFunctionValue>().HasOne(v => v.Model).WithMany().HasForeignKey(v => v.ModelId).OnDelete(DeleteBehavior.Restrict);
@@ -107,6 +108,7 @@ namespace OofemLink.Data
 			// ATTRIBUTES
 			modelBuilder.Entity<ModelAttribute>().HasKey(a => new { a.ModelId, a.Id });
 			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.Model).WithMany(m => m.Attributes).HasForeignKey(a => a.ModelId);
+			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId }).IsRequired(false);
 
 			modelBuilder.Entity<AttributeComposition>().HasKey(c => new { c.ModelId, c.ParentAttributeId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Model).WithMany().HasForeignKey(c => c.ModelId).OnDelete(DeleteBehavior.Restrict);
@@ -118,7 +120,6 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Macro).WithMany(m => m.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Vertex).WithMany(v => v.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.VertexId });
-			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Attribute).WithMany(a => a.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().ToTable("VertexAttributes");
 
@@ -126,7 +127,6 @@ namespace OofemLink.Data
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Macro).WithMany(m => m.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Curve).WithMany(c => c.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.CurveId });
-			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Attribute).WithMany(a => a.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().ToTable("CurveAttributes");
 
@@ -134,7 +134,6 @@ namespace OofemLink.Data
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Macro).WithMany(m => m.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Surface).WithMany(s => s.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.SurfaceId });
-			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Attribute).WithMany(a => a.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().ToTable("SurfaceAttributes");
 
@@ -142,7 +141,6 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Macro).WithMany(m => m.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Volume).WithMany(v => v.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.VolumeId });
-			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Attribute).WithMany(a => a.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().ToTable("VolumeAttributes");
 

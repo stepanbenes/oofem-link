@@ -27,9 +27,7 @@ namespace OofemLink.Services.Import.ESA
 		public IEnumerable<ModelAttribute> Parse()
 		{
 			LogStart();
-
 			materialMap = new Dictionary<int, ModelAttribute>();
-
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
 				string line = streamReader.ReadLine(); // ignore first line: Directory path
@@ -50,7 +48,8 @@ namespace OofemLink.Services.Import.ESA
 									quantityType: lineTokens.QuantityType,
 									number: lineTokens.Number.Value
 								);
-							materialMap.Add(materialAttribute.LocalNumber, materialAttribute); // LocalNumber should be unique for each AttributeType
+							materialMap.Add(materialAttribute.LocalNumber.Value, materialAttribute);
+							yield return materialAttribute;
 							break;
 						case Codes.PHYS:
 							parsePhysicalDataSection(streamReader,
@@ -70,8 +69,6 @@ namespace OofemLink.Services.Import.ESA
 					}
 				}
 			}
-
-			return materialMap.Values; // TODO: concat with supportsMap etc.
 		}
 
 		#region Parsing materials

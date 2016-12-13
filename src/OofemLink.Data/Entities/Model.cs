@@ -20,5 +20,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<Macro> Macros { get; set; } = new List<Macro>();
 
 		public virtual ICollection<ModelAttribute> Attributes { get; set; } = new List<ModelAttribute>();
+
+		public virtual ICollection<TimeFunction> TimeFunctions { get; set; } = new List<TimeFunction>();
 	}
 }
