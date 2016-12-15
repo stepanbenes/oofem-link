@@ -31,6 +31,8 @@ namespace OofemLink.Services.Import.ESA
 		{
 			LogStart();
 
+			var lineBuffer = new Queue<LineTokens>();
+
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
 				string line = streamReader.ReadLine(); // ignore first line ("LCx")
@@ -41,38 +43,101 @@ namespace OofemLink.Services.Import.ESA
 					if (line.Length != 160)
 						throw new FormatException($"Wrong {Extension} file format. Each row (except the first) is expected to have exactly 160 characters.");
 
-					LineTokens lineTokens = ParseLine(line);
+					LineTokens currentLineTokens = ParseLineTokens(line);
 
-					switch (lineTokens.ItemType)
+					if (currentLineTokens.ItemType != "" && lineBuffer.Count > 0)
 					{
-						case Codes.MULT:
-							{
-								double loadCaseCoefficient = ParseFloat64(lineTokens[3]);
-								
-								// TODO: handle loadCaseCoefficient
-
-							}
-							break;
-						case Codes.OWN:
-							{
-								yield return parseDeadWeightAttribute(direction: lineTokens[1], coefficient: ParseFloat64(lineTokens[3]));
-							}
-							break;
-						default:
-							Logger.LogWarning("Ignoring token '{0}'", lineTokens.ItemType);
-							break;
+						foreach (var attribute in parseSection(lineBuffer))
+							yield return attribute;
+						Debug.Assert(lineBuffer.Count == 0);
 					}
-
-					// TODO: generate time function for each load step and add it to attribute-macro mappings
-
+					lineBuffer.Enqueue(currentLineTokens);
 				}
 			}
+
+			foreach (var attribute in parseSection(lineBuffer)) // process rest of file
+				yield return attribute;
+
+			Debug.Assert(lineBuffer.Count == 0);
 		}
 
 		#region Private methods
 
-		private ModelAttribute parseDeadWeightAttribute(string direction, double coefficient)
+		private IEnumerable<ModelAttribute> parseSection(Queue<LineTokens> lineBuffer)
 		{
+			Debug.Assert(lineBuffer.Count > 0);
+			LineTokens sectionHeader = lineBuffer.Peek();
+			switch (sectionHeader.ItemType)
+			{
+				case Codes.MULT:
+					{
+						lineBuffer.Dequeue();
+						double loadCaseCoefficient = ParseFloat64(sectionHeader[3]);
+
+						// TODO: handle loadCaseCoefficient
+						Debug.Assert(loadCaseCoefficient == 1);
+
+						while (lineBuffer.Count > 0)
+						{
+							string attributeDimension;
+							List<LineTokens> attributeLines = dequeueLinesForDimensionType(lineBuffer, out attributeDimension);
+							switch (attributeDimension)
+							{
+								case Codes.POIN:
+									yield return parsePointAttribute(attributeLines);
+									break;
+								case Codes.LIN:
+									yield return parseLineAttribute(attributeLines);
+									break;
+								case Codes.SURF:
+									yield return parseSurfaceAttribute(attributeLines);
+									break;
+								default:
+									throw new NotSupportedException($"Unknown dimension specifier '{attributeDimension}'");
+							}
+						}
+					}
+					break;
+				case Codes.OWN:
+					{
+						yield return parseDeadWeightAttribute(lineBuffer);
+					}
+					break;
+				default:
+					Logger.LogWarning("Ignoring token '{0}'", sectionHeader.ItemType);
+					lineBuffer.Clear();
+					break;
+			}
+
+			// TODO: generate time function for each load step and add it to attribute-macro mappings
+		}
+
+		private List<LineTokens> dequeueLinesForDimensionType(Queue<LineTokens> lineBuffer, out string dimensionType)
+		{
+			var lines = new List<LineTokens>();
+			dimensionType = null;
+			while (lineBuffer.Count > 0)
+			{
+				var line = lineBuffer.Peek();
+				if (dimensionType == null) // first iteration
+				{
+					dimensionType = line.DimensionType;
+				}
+				else if (dimensionType != line.DimensionType)
+				{
+					Debug.Assert(lines.Count > 0);
+					return lines;
+				}
+				lines.Add(lineBuffer.Dequeue());
+			}
+			return lines; // return remaining
+		}
+
+		private ModelAttribute parseDeadWeightAttribute(Queue<LineTokens> lineBuffer)
+		{
+			LineTokens sectionHeader = lineBuffer.Dequeue();
+			string direction = sectionHeader[1];
+			double coefficient = ParseFloat64(sectionHeader[3]);
 			double x = 0, y = 0, z = 0;
 			switch (direction)
 			{
@@ -96,7 +161,44 @@ namespace OofemLink.Services.Import.ESA
 				Parameters = Invariant($"components 6 {x} {y} {z} 0 0 0")
 			};
 
+			while (lineBuffer.Count > 0)
+			{
+				var line = lineBuffer.Dequeue();
+				// TODO: process parameters
+				Logger.LogWarning($"Ignoring line with values in section {Codes.OWN}");
+			}
+
 			return deadWeight;
+		}
+
+		private ModelAttribute parsePointAttribute(IReadOnlyList<LineTokens> lines)
+		{
+			if (lines.Count > 1)
+				throw new NotSupportedException("Too many lines for Point load definition");
+
+			var lineTokens = lines.Single();
+
+			switch (lineTokens.QuantityType)
+			{
+				case Codes.FORC:
+					throw new NotImplementedException();
+				case Codes.MOM:
+					throw new NotImplementedException();
+				default:
+					throw new NotSupportedException($"quantity type '{lineTokens.QuantityType}' is not supported");
+			}
+
+			throw new NotImplementedException();
+		}
+
+		private ModelAttribute parseLineAttribute(IReadOnlyList<LineTokens> lines)
+		{
+			throw new NotImplementedException();
+		}
+
+		private ModelAttribute parseSurfaceAttribute(IReadOnlyList<LineTokens> lines)
+		{
+			throw new NotImplementedException();
 		}
 
 		#endregion
@@ -109,6 +211,20 @@ namespace OofemLink.Services.Import.ESA
 			public const string MODEL = nameof(MODEL);
 			public const string MULT = nameof(MULT);
 			public const string OWN = nameof(OWN);
+
+			// Dimension types
+			public const string POIN = nameof(POIN);
+			public const string LIN = nameof(LIN);
+			public const string SURF = nameof(SURF);
+
+			// Quantity types
+			public const string FORC = nameof(FORC);
+			public const string MOM = nameof(MOM);
+
+			// Selection types
+			public const string MACR = nameof(MACR);
+			public const string LINE = nameof(LINE);
+			public const string NODE = nameof(NODE);
 
 			// DEAD WEIGHT DIRECTIONS
 			public const string XG = nameof(XG);

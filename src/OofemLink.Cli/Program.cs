@@ -229,7 +229,7 @@ namespace OofemLink.Cli
 			using (new ConsoleBrush(ConsoleColor.Cyan))
 				Console.Write(simulation.TaskName);
 			using (new ConsoleBrush(ConsoleColor.White))
-				Console.Write($" id: {simulation.Id}, state: {simulation.State}, dimensions: {simulation.DimensionFlags}, model-id: {simulation.ModelId}, z-axis up: {simulation.ZAxisUp}");
+				Console.Write($" id: {simulation.Id}, state: {simulation.State}, dimensions: {simulation.DimensionFlags}, model-id: {simulation.ModelId}, z-axis-up: {simulation.ZAxisUp}");
 			Console.WriteLine();
 		}
 

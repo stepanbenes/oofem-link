@@ -38,7 +38,7 @@ namespace OofemLink.Services.Import.ESA
 					if (line.Length != 160)
 						throw new FormatException("Wrong IST file format. Each row (except the first) is expected to have exactly 160 characters.");
 
-					LineTokens lineTokens = ParseLine(line);
+					LineTokens lineTokens = ParseLineTokens(line);
 
 					switch (lineTokens.ItemType)
 					{
@@ -82,11 +82,8 @@ namespace OofemLink.Services.Import.ESA
 					{
 						case Codes.SECT:
 							{
-								string line1 = streamReader.ReadLine();
-								double?[] line1_values = line1.Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
-								Debug.Assert(line1_values.Length == 8);
-								string line2 = streamReader.ReadLine();
-								double?[] line2_values = line2.Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
+								LineValues line1_values = ParseLineValues(streamReader.ReadLine());
+								LineValues line2_values = ParseLineValues(streamReader.ReadLine());
 
 								return createAttributeFromBeamCrossSectionCharacteristics(number,
 										Ix: line1_values[3] ?? 0.0, // TODO: is it ok to replace missing values with zeroes? Or should throw exception if some important parameter is missing?
@@ -172,11 +169,10 @@ namespace OofemLink.Services.Import.ESA
 							{
 								if (selectionType != Codes.MACR)
 									throw new InvalidDataException($"Physical data {Codes.BEAM} {Codes.MAT} can be applied only to {Codes.MACR} selection");
-								string line1 = streamReader.ReadLine();
-								string geometryEntitySelectionName = line1.Substring(startIndex: 60, length: 10).TrimStart();
-								if (geometryEntitySelectionName != Codes.LINE)
-									throw new InvalidDataException($"Selection type '{geometryEntitySelectionName}' was not expected. '{Codes.LINE}' was expected instead.");
-								int lineId = ParseInt32(line1.Substring(startIndex: 70, length: 10).TrimStart());
+								LineTokens lineTokens = ParseLineTokens(streamReader.ReadLine());
+								if (lineTokens.SelectionType != Codes.LINE)
+									throw new InvalidDataException($"Selection type '{lineTokens.SelectionType}' was not expected. '{Codes.LINE}' was expected instead.");
+								int lineId = lineTokens.Number.Value;
 								var curveAttribute = new CurveAttribute
 								{
 									MacroId = number,

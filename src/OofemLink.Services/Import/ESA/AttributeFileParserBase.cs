@@ -20,7 +20,6 @@ namespace OofemLink.Services.Import.ESA
 
 			public LineTokens(string[] tokens)
 			{
-				Debug.Assert(tokens.Length == 12);
 				this.tokens = tokens;
 			}
 
@@ -40,16 +39,36 @@ namespace OofemLink.Services.Import.ESA
 			public double? Value => TryParseFloat64(tokens[11]);
 		}
 
+		protected struct LineValues
+		{
+			readonly double?[] values;
+
+			public LineValues(double?[] values)
+			{
+				this.values = values;
+			}
+
+			public double? this[int index] => values[index];
+		}
+
 		protected AttributeFileParserBase(string location, string taskName, ILoggerFactory loggerFactory)
 			: base(location, taskName, loggerFactory)
 		{ }
 
-		protected LineTokens ParseLine(string line)
+		protected LineTokens ParseLineTokens(string line)
 		{
 			var firstPart = line.Substring(0, 80).Split(chunkSize: 10);
 			var secondPart = line.Substring(startIndex: 80).Split(chunkSize: 20);
 			string[] tokens = firstPart.Concat(secondPart).Select(chunk => chunk.TrimStart()).ToArray();
+			Debug.Assert(tokens.Length == 12);
 			return new LineTokens(tokens);
+		}
+
+		protected LineValues ParseLineValues(string line)
+		{
+			double?[] values = line.Split(chunkSize: 20).Select(chunk => TryParseFloat64(chunk.TrimStart())).ToArray();
+			Debug.Assert(values.Length == 8);
+			return new LineValues(values);
 		}
 	}
 }
