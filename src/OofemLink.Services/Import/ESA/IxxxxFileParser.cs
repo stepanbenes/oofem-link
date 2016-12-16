@@ -123,7 +123,7 @@ namespace OofemLink.Services.Import.ESA
 				{
 					dimensionType = line.DimensionType;
 				}
-				else if (dimensionType != line.DimensionType)
+				else if (line.DimensionType != "")
 				{
 					Debug.Assert(lines.Count > 0);
 					return lines;
@@ -181,19 +181,124 @@ namespace OofemLink.Services.Import.ESA
 			switch (lineTokens.QuantityType)
 			{
 				case Codes.FORC:
-					throw new NotImplementedException();
+					{
+						int dofId;
+						switch (lineTokens.Direction)
+						{
+							case Codes.X:
+								dofId = 1;
+								break;
+							case Codes.Y:
+								dofId = 2;
+								break;
+							case Codes.Z:
+								dofId = 3;
+								break;
+							case Codes.XG: case Codes.YG: case Codes.ZG:
+								throw new NotImplementedException($"direction '{lineTokens.Direction}' is not implemented yet");
+							default:
+								throw new NotSupportedException($"direction '{lineTokens.Direction}' is not supported");
+						}
+						double value = lineTokens.Value.Value;
+						var pointLoadAttribute = new ModelAttribute
+						{
+							Type = AttributeType.BoundaryCondition,
+							Name = BoundaryConditionNames.NodalLoad,
+							Parameters = Invariant($"components 1 {value / 1000.0 /*convert N to kN*/} dofs 1 {dofId}")
+						};
+						switch (lineTokens.SelectionType)
+						{
+							case Codes.NODE:
+								{
+									int vertexId = lineTokens.Number.Value;
+									pointLoadAttribute.VertexAttributes.Add(new VertexAttribute { VertexId = vertexId });
+								}
+								break;								
+							default:
+								throw new NotSupportedException($"selection type '{lineTokens.SelectionType}' is not supported");
+						}
+						return pointLoadAttribute;
+					}
 				case Codes.MOM:
-					throw new NotImplementedException();
+					throw new NotImplementedException("Moment load is not implemented");
 				default:
 					throw new NotSupportedException($"quantity type '{lineTokens.QuantityType}' is not supported");
 			}
-
-			throw new NotImplementedException();
 		}
 
 		private ModelAttribute parseLineAttribute(IReadOnlyList<LineTokens> lines)
 		{
-			throw new NotImplementedException();
+			if (lines.Count > 2)
+				throw new NotSupportedException("Too many lines for Line load definition");
+
+			var firstLine = lines[0];
+
+			switch (firstLine.QuantityType)
+			{
+				case Codes.FORC:
+					{
+						// The load can be defined in global coordinate system (csType = 0, default) or in entity - specific local coordinate system (csType = 1).
+						int csType;
+						int dofId;
+						switch (firstLine.Direction)
+						{
+							case Codes.XG:
+								csType = 0;
+								dofId = 1;
+								break;
+							case Codes.YG:
+								csType = 0;
+								dofId = 2;
+								break;
+							case Codes.ZG:
+								csType = 0;
+								dofId = 3;
+								break;
+							case Codes.XE:
+								csType = 1;
+								dofId = 1;
+								break;
+							case Codes.YE:
+								csType = 1;
+								dofId = 2;
+								break;
+							case Codes.ZE:
+								csType = 1;
+								dofId = 3;
+								break;
+							default:
+								throw new NotSupportedException($"direction '{firstLine.Direction}' is not supported");
+						}
+						double value = firstLine.Value.Value;
+						var lineLoadAttribute = new ModelAttribute
+						{
+							Type = AttributeType.BoundaryCondition,
+							Name = BoundaryConditionNames.ConstantEdgeLoad,
+							Parameters = Invariant($"loadType 3 components 1 {value / 1000.0 /*convert N to kN*/} dofs 1 {dofId} csType {csType}")
+						};
+						switch (firstLine.SelectionType)
+						{
+							case Codes.MACR:
+								{
+									int macroId = firstLine.Number.Value;
+									var secondLine = lines[1];
+									if (secondLine.SelectionType == Codes.LINE)
+									{
+										int lineId = secondLine.Number.Value;
+										lineLoadAttribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = lineId });
+									}
+									else
+										throw new FormatException($"'{Codes.LINE}' code expected instead of '{secondLine.SelectionType}'");
+								}
+								break;
+							default:
+								throw new NotSupportedException($"selection type '{firstLine.SelectionType}' is not supported");
+						}
+						return lineLoadAttribute;
+					}
+				default:
+					throw new NotSupportedException($"quantity type '{firstLine.QuantityType}' is not supported");
+			}
 		}
 
 		private ModelAttribute parseSurfaceAttribute(IReadOnlyList<LineTokens> lines)
@@ -226,10 +331,22 @@ namespace OofemLink.Services.Import.ESA
 			public const string LINE = nameof(LINE);
 			public const string NODE = nameof(NODE);
 
-			// DEAD WEIGHT DIRECTIONS
+			// Directions
+			public const string X = nameof(X);
+			public const string Y = nameof(Y);
+			public const string Z = nameof(Z);
 			public const string XG = nameof(XG);
 			public const string YG = nameof(YG);
 			public const string ZG = nameof(ZG);
+			public const string XL = nameof(XL);
+			public const string YL = nameof(YL);
+			public const string ZL = nameof(ZL);
+			public const string XPG = nameof(XPG);
+			public const string YPG = nameof(YPG);
+			public const string ZPG = nameof(ZPG);
+			public const string XE = nameof(XE);
+			public const string YE = nameof(YE);
+			public const string ZE = nameof(ZE);
 		}
 
 		#endregion

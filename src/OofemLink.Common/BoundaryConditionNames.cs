@@ -9,5 +9,7 @@ namespace OofemLink.Common
     {
 		public const string BoundaryCondition = nameof(BoundaryCondition);
 		public const string DeadWeight = nameof(DeadWeight);
+		public const string NodalLoad = nameof(NodalLoad);
+		public const string ConstantEdgeLoad = nameof(ConstantEdgeLoad);
 	}
 }

@@ -37,18 +37,19 @@ namespace OofemLink.Services.Import.ESA
 			public double? Y => TryParseFloat64(tokens[9]);
 			public double? Z => TryParseFloat64(tokens[10]);
 			public double? Value => TryParseFloat64(tokens[11]);
+
+			public override string ToString() => string.Join(" ", tokens.Select(token => token == "" ? "_" : token));
 		}
 
 		protected struct LineValues
 		{
 			readonly double?[] values;
-
 			public LineValues(double?[] values)
 			{
 				this.values = values;
 			}
-
 			public double? this[int index] => values[index];
+			public override string ToString() => string.Join(" ", values.Select(value => value.HasValue ? value.ToString() : "_"));
 		}
 
 		protected AttributeFileParserBase(string location, string taskName, ILoggerFactory loggerFactory)

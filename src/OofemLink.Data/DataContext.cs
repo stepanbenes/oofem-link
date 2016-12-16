@@ -112,13 +112,12 @@ namespace OofemLink.Data
 
 			modelBuilder.Entity<AttributeComposition>().HasKey(c => new { c.ModelId, c.ParentAttributeId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Model).WithMany().HasForeignKey(c => c.ModelId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ParentAttribute).WithMany(a => a.ParentAttributes).HasForeignKey(c => new { c.ModelId, c.ParentAttributeId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ChildAttribute).WithMany(a => a.ChildAttributes).HasForeignKey(c => new { c.ModelId, c.ChildAttributeId });
+			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ParentAttribute).WithMany(a => a.ChildAttributes).HasForeignKey(c => new { c.ModelId, c.ParentAttributeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ChildAttribute).WithMany(a => a.ParentAttributes).HasForeignKey(c => new { c.ModelId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().ToTable("AttributeCompositions");
 
-			modelBuilder.Entity<VertexAttribute>().HasKey(a => new { a.ModelId, a.MacroId, a.VertexId, a.AttributeId });
+			modelBuilder.Entity<VertexAttribute>().HasKey(a => new { a.ModelId, a.VertexId, a.AttributeId });
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Macro).WithMany(m => m.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Vertex).WithMany(v => v.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.VertexId });
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Attribute).WithMany(a => a.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.AttributeId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().ToTable("VertexAttributes");
