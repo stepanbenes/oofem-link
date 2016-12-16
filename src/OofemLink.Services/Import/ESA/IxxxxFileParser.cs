@@ -204,7 +204,7 @@ namespace OofemLink.Services.Import.ESA
 						{
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.NodalLoad,
-							Parameters = Invariant($"components 1 {value / 1000.0 /*convert N to kN*/} dofs 1 {dofId}")
+							Parameters = Invariant($"components 1 {value} dofs 1 {dofId}")
 						};
 						switch (lineTokens.SelectionType)
 						{
@@ -274,7 +274,7 @@ namespace OofemLink.Services.Import.ESA
 						{
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.ConstantEdgeLoad,
-							Parameters = Invariant($"loadType 3 components 1 {value / 1000.0 /*convert N to kN*/} dofs 1 {dofId} csType {csType}")
+							Parameters = Invariant($"loadType 3 components 1 {value} dofs 1 {dofId} csType {csType}")
 						};
 						switch (firstLine.SelectionType)
 						{

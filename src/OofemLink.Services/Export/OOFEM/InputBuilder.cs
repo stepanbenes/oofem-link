@@ -9,7 +9,7 @@ using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
 {
-	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder, ICrossSectionBuilder, IMaterialBuilder, ISetBuilder
+	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder, ICrossSectionBuilder, IMaterialBuilder, IBoundaryConditionBuilder, ISetBuilder
 	{
 		#region Fields, constructor
 
@@ -85,6 +85,13 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
+		public IBoundaryConditionBuilder AddBoundaryCondition(string name, int id)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{name} {id}");
+			return this;
+		}
+
 		public ISetBuilder AddSet(int id)
 		{
 			streamWriter.WriteLine();
@@ -137,6 +144,12 @@ namespace OofemLink.Services.Export.OOFEM
 		void IMaterialBuilder.WithParameters(string parameters)
 		{
 			streamWriter.Write(" " + parameters);
+		}
+
+		IBoundaryConditionBuilder IBoundaryConditionBuilder.WithParameters(string parameters)
+		{
+			streamWriter.Write(" " + parameters);
+			return this;
 		}
 
 		ISetBuilder ISetBuilder.ContainingNodes(IReadOnlyList<int> nodeIds)
@@ -192,6 +205,11 @@ namespace OofemLink.Services.Export.OOFEM
 	interface IMaterialBuilder
 	{
 		void WithParameters(string parameters);
+	}
+
+	interface IBoundaryConditionBuilder
+	{
+		IBoundaryConditionBuilder WithParameters(string parameters);
 	}
 
 	interface ISetBuilder

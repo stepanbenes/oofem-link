@@ -45,6 +45,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 		private void createOofemInput(InputBuilder input, int simulationId)
 		{
+			// load simulation from db
 			var simulation = dataContext.Simulations
 								.Include(s => s.Project)
 								.Include(s => s.TimeSteps)
@@ -68,7 +69,9 @@ namespace OofemLink.Services.Export.OOFEM
 			List<Element> elements;
 			List<ModelAttribute> crossSections;
 			List<ModelAttribute> materials;
+			List<ModelAttribute> boundaryConditions;
 
+			// load all model entities from db
 			{
 				var mesh = model.Meshes.Single();
 
@@ -86,11 +89,15 @@ namespace OofemLink.Services.Export.OOFEM
 									 where attribute.ModelId == model.Id
 									 where attribute.Type == AttributeType.Material
 									 select attribute;
-
+				var boundaryConditionsQuery = from attribute in dataContext.Attributes
+											  where attribute.ModelId == model.Id
+											  where attribute.Type == AttributeType.BoundaryCondition
+											  select attribute;
 				nodes = nodesQuery.ToList();
 				elements = elementsQuery.ToList();
 				crossSections = crossSectionsQuery.ToList();
 				materials = materialsQuery.ToList();
+				boundaryConditions = boundaryConditionsQuery.ToList();
 			}
 
 			// =========================================================================================
@@ -120,13 +127,15 @@ namespace OofemLink.Services.Export.OOFEM
 			// TODO: avoid hard-coded string
 			input.AddPlainText("OutputManager tstep_all dofman_all element_all");
 
-			// number of dofmanagers(generalization of nodes), number of elements, n of corssections, n of materials, boundary conditions, initial conditions, load time functions, and sets
+			// number of dofmanagers(generalization of nodes), number of elements, n of cross-sections, n of materials, boundary conditions, initial conditions, load time functions, and sets
 			input.AddRecordCounts(
 					dofManagerCount: nodes.Count,
 					elementCount: elements.Count,
 					crossSectionCount: crossSections.Count,
-					materialCount: materials.Count
-					// TODO: complete record counts
+					materialCount: materials.Count,
+					boundaryConditionCount: boundaryConditions.Count,
+					initialConditionCount: 0
+				// TODO: complete record counts
 				);
 
 			addDebugComment(input, "NODES");
@@ -170,21 +179,30 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "CROSS-SECTIONS");
-			
+
 			for (int i = 0; i < crossSections.Count; i++)
 			{
 				var crossSection = crossSections[i];
-				var material = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttribute; // TODO: handle cases with non-single referenced materials
+				int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
 				input.AddCrossSection(crossSection.Name, id: i + 1)
 					 .WithParameters(crossSection.Parameters)
-					 .HasMaterial(materialId: attributeIdToMaterialIdMap[material.Id])
+					 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
 					 .AppliesToSet(getOrCreateSetForAttribute(crossSection, sets).Id);
 			}
 
 			addDebugComment(input, "MATERIALS");
-			foreach(var material in materials)
+			foreach (var material in materials)
 			{
 				input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameters(material.Parameters);
+			}
+
+			addDebugComment(input, "BOUNDARY CONDITIONS");
+
+			// write Boundary Conditions (including Loads)
+			for (int i = 0; i < boundaryConditions.Count; i++)
+			{
+				var boundaryCondition = boundaryConditions[i];
+				input.AddBoundaryCondition(boundaryCondition.Name, id: i + 1).WithParameters(boundaryCondition.Parameters);
 			}
 
 			addDebugComment(input, "SETS");
