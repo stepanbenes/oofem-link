@@ -281,14 +281,27 @@ namespace OofemLink.Services.Import.ESA
 							case Codes.MACR:
 								{
 									int macroId = firstLine.Number.Value;
-									var secondLine = lines[1];
-									if (secondLine.SelectionType == Codes.LINE)
+									if (lines.Count == 1)
 									{
-										int lineId = secondLine.Number.Value;
-										lineLoadAttribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = lineId });
+										lineLoadAttribute.MacroAttributes.Add(new MacroAttribute { MacroId = macroId });
 									}
 									else
-										throw new FormatException($"'{Codes.LINE}' code expected instead of '{secondLine.SelectionType}'");
+									{
+										var secondLine = lines[1];
+										switch (secondLine.SelectionType)
+										{
+											case "":
+												lineLoadAttribute.MacroAttributes.Add(new MacroAttribute { MacroId = macroId });
+												break;
+											case Codes.LINE:
+												int lineId = secondLine.Number.Value;
+												lineLoadAttribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = lineId });
+												break;
+											default:
+												throw new NotSupportedException($"selection type '{secondLine.SelectionType}' is not supported");
+										}
+										// TODO: parse rest of lines
+									}
 								}
 								break;
 							default:

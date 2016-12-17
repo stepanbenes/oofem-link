@@ -7,11 +7,20 @@ namespace OofemLink.Data.Entities
 {
 	public abstract class AttributeGeometryMapping
 	{
+		public long Id { get; set; }
+
 		public int ModelId { get; set; }
 		public int AttributeId { get; set; }
 
 		public virtual Model Model { get; set; }
 		public virtual ModelAttribute Attribute { get; set; }
+
+		public int? MacroId { get; set; }
+		public virtual Macro Macro { get; set; }
+	}
+
+	public class MacroAttribute : AttributeGeometryMapping
+	{
 	}
 
 	public class VertexAttribute : AttributeGeometryMapping
@@ -22,25 +31,19 @@ namespace OofemLink.Data.Entities
 
 	public class CurveAttribute : AttributeGeometryMapping
 	{
-		public int MacroId { get; set; }
 		public int CurveId { get; set; }
 		public virtual Curve Curve { get; set; }
-		public virtual Macro Macro { get; set; }
 	}
 
 	public class SurfaceAttribute : AttributeGeometryMapping
 	{
-		public int MacroId { get; set; }
 		public int SurfaceId { get; set; }
 		public virtual Surface Surface { get; set; }
-		public virtual Macro Macro { get; set; }
 	}
 
 	public class VolumeAttribute : AttributeGeometryMapping
 	{
-		public int MacroId { get; set; }
 		public int VolumeId { get; set; }
 		public virtual Volume Volume { get; set; }
-		public virtual Macro Macro { get; set; }
 	}
 }

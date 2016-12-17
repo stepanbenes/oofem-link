@@ -28,6 +28,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<AttributeComposition> ParentAttributes { get; set; } = new List<AttributeComposition>();
 		public virtual ICollection<AttributeComposition> ChildAttributes { get; set; } = new List<AttributeComposition>();
 
+		public virtual ICollection<MacroAttribute> MacroAttributes { get; set; } = new List<MacroAttribute>();
 		public virtual ICollection<VertexAttribute> VertexAttributes { get; set; } = new List<VertexAttribute>();
 		public virtual ICollection<CurveAttribute> CurveAttributes { get; set; } = new List<CurveAttribute>();
 		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
