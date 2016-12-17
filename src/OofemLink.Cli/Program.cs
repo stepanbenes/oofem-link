@@ -74,7 +74,7 @@ namespace OofemLink.Cli
 		{
 			using (serviceProvider.CreateScope())
 			{
-				return await Parser.Default.ParseArguments<ListOptions, CreateOptions, ImportOptions, ExportOptions, RunOptions>(args)
+				return await Parser.Default.ParseArguments<ListOptions, CreateOptions, ImportOptions, ExportOptions, RunOptions, DeleteOptions>(args)
 					.WithParsed((CommandLineOptions options) => configureApp(options))
 					.MapResult(
 						(ListOptions options) => runListCommandAsync(options),
@@ -82,6 +82,7 @@ namespace OofemLink.Cli
 						(ImportOptions options) => runImportCommandAsync(options),
 						(ExportOptions options) => runExportCommandAsync(options),
 						(RunOptions options) => runRunCommandAsync(options),
+						(DeleteOptions options) => runDeleteCommandAsync(options),
 						errors => Task.FromResult(1));
 			}
 		}
@@ -204,6 +205,13 @@ namespace OofemLink.Cli
 			var executionService = serviceProvider.GetRequiredService<IExecutionService>();
 			var success = await executionService.ExecuteAsync(options.SimulationId);
 			return success ? 0 : 666;
+		}
+
+		private async Task<int> runDeleteCommandAsync(DeleteOptions options)
+		{
+			var projectService = serviceProvider.GetRequiredService<IProjectService>();
+			await projectService.DeleteAsync(options.ProjectId);
+			return 0;
 		}
 
 		#endregion

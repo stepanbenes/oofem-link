@@ -57,4 +57,15 @@ namespace OofemLink.Cli
 	class RunOptions : SimulationOptions
 	{
 	}
+
+	abstract class ProjectOptions : CommandLineOptions
+	{
+		[Option('p', "project", Required = true, HelpText = "Id of project")]
+		public int ProjectId { get; set; }
+	}
+
+	[Verb("delete", HelpText = "Delete project from OOFEM database")]
+	class DeleteOptions : ProjectOptions
+	{
+	}
 }

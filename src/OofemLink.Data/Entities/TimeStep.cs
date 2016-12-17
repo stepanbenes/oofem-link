@@ -15,5 +15,8 @@ namespace OofemLink.Data.Entities
 		public int Number { get; set; }
 
 		public double? Time { get; set; }
+
+		public int SimulationId { get; set; }
+		public Simulation Simulation { get; set; }
 	}
 }

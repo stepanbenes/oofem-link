@@ -27,7 +27,7 @@ namespace OofemLink.Services.DataAccess
 				string projectName = new ZBaseEncoder().Encode(Guid.NewGuid().ToByteArray()); // generate unique project name
 				simulation.Project = new Project { Name = projectName };
 			}
-			
+
 			Project existingProject = Context.Projects.Where(p => p.Name == simulation.Project.Name).SingleOrDefault();
 			if (existingProject != null)
 			{
@@ -68,8 +68,19 @@ namespace OofemLink.Services.DataAccess
 
 		public async Task DeleteAsync(int primaryKey)
 		{
-			var entityToDelete = new Project { Id = primaryKey };
-			Context.Projects.Remove(entityToDelete);
+			var modelsQuery = from simulation in Context.Simulations
+							  where simulation.ProjectId == primaryKey
+							  join model in Context.Models on simulation.ModelId equals model.Id
+							  select model;
+
+			var modelsToDelete = await modelsQuery.ToListAsync();
+			
+			// remove all related models
+			Context.Models.RemoveRange(modelsToDelete);
+
+			// remove project and its simulations
+			var projectToDelete = new Project { Id = primaryKey };
+			Context.Projects.Remove(projectToDelete);
 			await Context.SaveChangesAsync();
 		}
 	}
