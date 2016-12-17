@@ -20,6 +20,7 @@ namespace OofemLink.Data.Entities
 		public double Y { get; set; }
 		public double Z { get; set; }
 
+		public virtual ICollection<VertexNode> VertexNodes { get; set; } = new List<VertexNode>();
 		public virtual ICollection<VertexCurve> VertexCurves { get; set; } = new List<VertexCurve>();
 
 		public virtual ICollection<VertexAttribute> VertexAttributes { get; set; } = new List<VertexAttribute>();

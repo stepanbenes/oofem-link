@@ -12,5 +12,6 @@ namespace OofemLink.Data.Entities
 		public double Z { get; set; }
 
 		public virtual ICollection<ElementNode> ElementNodes { get; set; } = new List<ElementNode>();
+		public virtual ICollection<VertexNode> VertexNodes { get; set; } = new List<VertexNode>();
 	}
 }
