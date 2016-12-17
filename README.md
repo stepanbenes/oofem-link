@@ -36,6 +36,7 @@ Available database providers:
 * `import` - import simulation data to OOFEM database
 * `export` - build OOFEM input file from model in database
 * `run` - run simulation in OOFEM
+* `delete` - delete project from OOFEM database
 * `help` - display more information on a specific command
 * `version` - display version information
 

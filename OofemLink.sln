@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{601B5198-0083-498D-916F-9735CC116B49}"
 	ProjectSection(SolutionItems) = preProject
 		global.json = global.json
+		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "OofemLink.Cli", "src\OofemLink.Cli\OofemLink.Cli.xproj", "{35C17539-E1A4-48C3-89FB-14AE750F14D4}"
