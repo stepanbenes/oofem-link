@@ -89,9 +89,9 @@ namespace OofemLink.Services.Import.ESA
 		{
 			string mtoFileFullPath = Path.Combine(location, $"{taskName}.MTO");
 
-			// parse MTO file
-			var parser = new MtoFileParser(location, taskName, loggerFactory);
-			foreach (var macroElementsLink in parser.Parse())
+			// parse MTO file (Macro - Elements links)
+			var mtoFileParser = new MtoFileParser(location, taskName, loggerFactory);
+			foreach (var macroElementsLink in mtoFileParser.Parse())
 			{
 				var macro = model.Macros.SingleOrDefault(m => m.Id == macroElementsLink.MacroId);
 				if (macro == null)
@@ -135,6 +135,15 @@ namespace OofemLink.Services.Import.ESA
 						}
 						break;
 				}
+			}
+
+			// parse NUMESA file (Vertex - Node links)
+			var numesaFileParser = new NumesaFileParser(location, taskName, loggerFactory);
+			foreach (VertexNode vertexNode in numesaFileParser.ParseVertexNodes())
+			{
+				vertexNode.Model = model;
+				vertexNode.Mesh = mesh;
+				mesh.VertexNodes.Add(vertexNode);
 			}
 		}
 
