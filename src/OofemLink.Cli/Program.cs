@@ -182,7 +182,7 @@ namespace OofemLink.Cli
 		{
 			var location = options.Location ?? Directory.GetCurrentDirectory();
 			var projectService = serviceProvider.GetRequiredService<IProjectService>();
-			var importService = serviceProvider.GetRequiredService<IImportServiceFactory>().Create(options.Source, location, options.TaskName);
+			var importService = serviceProvider.GetRequiredService<IImportServiceFactory>().Create(options.Source, location, options.TaskName, options.ModelOnly);
 			projectService.ImportSimulation(importService);
 			return Task.FromResult(0);
 		}

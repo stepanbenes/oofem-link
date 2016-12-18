@@ -38,6 +38,9 @@ namespace OofemLink.Cli
 
 		[Option('l', "location", Required = false, HelpText = "Location of input data (current directory is default)")]
 		public string Location { get; set; }
+
+		[Option("modelOnly", Required = false, HelpText = "Import model only (exclude attributes)")]
+		public bool ModelOnly { get; set; }
 	}
 
 	abstract class SimulationOptions : CommandLineOptions

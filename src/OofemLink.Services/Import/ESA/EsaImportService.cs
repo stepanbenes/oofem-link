@@ -19,11 +19,13 @@ namespace OofemLink.Services.Import.ESA
 		readonly string location, taskName;
 		readonly ILoggerFactory loggerFactory;
 		readonly ILogger logger;
+		readonly bool importModelOnly;
 
-		public EsaImportService(string location, string taskName, ILoggerFactory loggerFactory)
+		public EsaImportService(string location, string taskName, ILoggerFactory loggerFactory, bool importModelOnly = false)
 		{
 			this.location = location;
 			this.taskName = taskName;
+			this.importModelOnly = importModelOnly;
 			this.loggerFactory = loggerFactory;
 			this.logger = loggerFactory.CreateLogger<EsaImportService>();
 		}
@@ -45,7 +47,10 @@ namespace OofemLink.Services.Import.ESA
 
 			linkModelAndMeshTogether(model, mesh);
 
-			importAttributesToModel(model, simulation.TimeSteps);
+			if (!importModelOnly)
+			{
+				importAttributesToModel(model, simulation.TimeSteps); // import model attributes
+			}
 
 			simulation.DimensionFlags = dimensions;
 			simulation.Model = model;
@@ -169,6 +174,7 @@ namespace OofemLink.Services.Import.ESA
 				foreach (var loadCase in lc_attributes)
 				{
 					loadCase.TimeFunction = timeFunction;
+					// TODO:
 				}
 				attributesTotal += addAttributesToModel(model, startAttributeId: attributesTotal + 1, attributes: lc_attributes);
 			}
