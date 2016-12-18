@@ -33,5 +33,15 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<CurveAttribute> CurveAttributes { get; set; } = new List<CurveAttribute>();
 		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
 		public virtual ICollection<VolumeAttribute> VolumeAttributes { get; set; } = new List<VolumeAttribute>();
+
+		public override int GetHashCode() => Id;
+
+		public override bool Equals(object obj)
+		{
+			var other = obj as ModelAttribute;
+			if (other == null)
+				return false;
+			return this.ModelId == other.ModelId && this.Id == other.Id;
+		}
 	}
 }

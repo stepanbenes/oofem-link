@@ -78,26 +78,34 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var mesh = model.Meshes.Single();
 
+				// TODO: [Optimization] are orderings necessary?
+
 				var nodesQuery = from node in dataContext.Nodes
 								 where node.MeshId == mesh.Id
+								 orderby node.Id
 								 select node;
 				var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
 									where element.MeshId == mesh.Id
+									orderby element.Id
 									select element;
 				var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
 										 where attribute.ModelId == model.Id
 										 where attribute.Type == AttributeType.CrossSection
+										 orderby attribute.Id
 										 select attribute;
 				var materialsQuery = from attribute in dataContext.Attributes
 									 where attribute.ModelId == model.Id
 									 where attribute.Type == AttributeType.Material
+									 orderby attribute.Id
 									 select attribute;
 				var boundaryConditionsQuery = from attribute in dataContext.Attributes
 											  where attribute.ModelId == model.Id
 											  where attribute.Type == AttributeType.BoundaryCondition
+											  orderby attribute.Id
 											  select attribute;
 				var timeFunctionsQuery = from timeFunction in dataContext.TimeFunctions.Include(tf => tf.Values)
 										 where timeFunction.ModelId == model.Id
+										 orderby timeFunction.Id
 										 select timeFunction;
 
 				nodes = nodesQuery.ToList();
@@ -178,7 +186,7 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
-			var sets = new List<Set>();
+			var attributeSetMap = createSetMapForAttributes(crossSections.Concat(boundaryConditions));
 
 			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
 			for (int index = 0; index < materials.Count; index++)
@@ -187,7 +195,6 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "CROSS-SECTIONS");
-
 			for (int i = 0; i < crossSections.Count; i++)
 			{
 				var crossSection = crossSections[i];
@@ -195,7 +202,7 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddCrossSection(crossSection.Name, id: i + 1)
 					 .WithParameters(crossSection.Parameters)
 					 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
-					 .AppliesToSet(getOrCreateSetForAttribute(crossSection, sets).Id);
+					 .AppliesToSet(attributeSetMap[crossSection].Id);
 			}
 
 			addDebugComment(input, "MATERIALS");
@@ -209,7 +216,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var bc = boundaryConditions[i];
 				// TODO: handle case when bc.TimeFunctionId is null (TimeFunction is not assigned)
-				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId.Value).WithParameters(bc.Parameters);
+				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId.Value).WithParameters(bc.Parameters).AppliesToSet(attributeSetMap[bc].Id);
 			}
 
 			addDebugComment(input, "LOAD TIME FUNCTIONS");
@@ -234,9 +241,9 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "SETS");
-			foreach (var set in sets)
+			foreach (var set in attributeSetMap.Values.Distinct().OrderBy(s => s.Id))
 			{
-				input.AddSet(set.Id).ContainingNodes(set.Nodes).ContainingElements(set.Elements);
+				input.AddSet(set.Id).ContainingNodes(set.Nodes).ContainingElements(set.Elements).ContainingElementEdges(set.ElementEdges);
 			}
 		}
 
@@ -249,18 +256,53 @@ namespace OofemLink.Services.Export.OOFEM
 			return resultQuery.ToList();
 		}
 
-		private Set getOrCreateSetForAttribute(ModelAttribute attribute, List<Set> sets)
+		private Dictionary<ModelAttribute, Set> createSetMapForAttributes(IEnumerable<ModelAttribute> attributes)
 		{
-			var q = from a in dataContext.Attributes
-					where a.ModelId == attribute.ModelId
-					where a.Id == attribute.Id
-					from curveAttribute in a.CurveAttributes
-					from curveElement in curveAttribute.Curve.CurveElements
-					orderby curveElement.ElementId
-					select curveElement.ElementId;
-			var set = new Set(id: sets.Count + 1).WithElements(q.ToArray());
-			sets.Add(set); // TODO: try to look in cache if it contains the same set
-			return set;
+			var map = new Dictionary<ModelAttribute, Set>();
+			int setId = 1;
+			foreach (var attribute in attributes)
+			{
+				var vertexQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
+								  where vertexAttribute.ModelId == attribute.ModelId
+								  where vertexAttribute.AttributeId == attribute.Id
+								  from vertexNode in vertexAttribute.Vertex.VertexNodes
+								  orderby vertexNode.NodeId
+								  select vertexNode.NodeId;
+				var elementEdgeQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
+									   where curveAttribute.ModelId == attribute.ModelId
+									   where curveAttribute.AttributeId == attribute.Id
+									   from macroCurve in curveAttribute.Macro.MacroCurves
+									   where macroCurve.CurveId == curveAttribute.CurveId
+									   from curveElement in macroCurve.Curve.CurveElements
+									   orderby curveElement.ElementId, curveElement.Rank
+									   select new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank);
+				var elementSurfaceQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
+										  where surfaceAttribute.ModelId == attribute.ModelId
+										  where surfaceAttribute.AttributeId == attribute.Id
+										  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
+										  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
+										  from surfaceElement in macroSurface.Surface.SurfaceElements
+										  orderby surfaceElement.ElementId, surfaceElement.Rank
+										  select new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank);
+				var elementVolumeQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
+										 where volumeAttribute.ModelId == attribute.ModelId
+										 where volumeAttribute.AttributeId == attribute.Id
+										 from volumeElement in volumeAttribute.Volume.VolumeElements
+										 orderby volumeElement.ElementId
+										 select volumeElement.ElementId;
+				
+				// TODO: group queries by attribute ids
+				// mising: MacroAttributes, Line-only attributes
+				// TODO: remove MacroAttribute entity, make MacroId non-nullable
+
+				var set = new Set(setId++)
+					.WithNodes(vertexQuery.ToArray())
+					.WithElements(elementVolumeQuery.ToArray())
+					.WithElementEdges(elementEdgeQuery.ToArray());
+
+				map.Add(attribute, set);
+			}
+			return map;
 		}
 
 		[Conditional("DEBUG")]

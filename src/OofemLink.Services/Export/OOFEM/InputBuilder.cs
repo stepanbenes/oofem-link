@@ -218,6 +218,15 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
+		ISetBuilder ISetBuilder.ContainingElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs)
+		{
+			if (elementEdgeIdPairs.Count > 0)
+			{
+				streamWriter.Write($" {Keyword.elementedges} {elementEdgeIdPairs.Count * 2} {string.Join(" ", elementEdgeIdPairs.Select(pair => $"{pair.Key} {pair.Value}"))}");
+			}
+			return this;
+		}
+
 		#endregion
 
 		#region Private methods
@@ -273,5 +282,6 @@ namespace OofemLink.Services.Export.OOFEM
 	{
 		ISetBuilder ContainingNodes(IReadOnlyList<int> nodeIds);
 		ISetBuilder ContainingElements(IReadOnlyList<int> elementIds);
+		ISetBuilder ContainingElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs);
 	}
 }
