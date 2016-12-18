@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OofemLink.Data.Entities;
-using OofemLink.Common.Extensions;
+using OofemLink.Common.OofemNames;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common;
 using static System.FormattableString;

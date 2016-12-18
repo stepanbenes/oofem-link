@@ -5,7 +5,9 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using OofemLink.Common.OofemNames;
 using OofemLink.Common.Enumerations;
+using OofemLink.Common.Extensions;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 
@@ -70,6 +72,7 @@ namespace OofemLink.Services.Export.OOFEM
 			List<ModelAttribute> crossSections;
 			List<ModelAttribute> materials;
 			List<ModelAttribute> boundaryConditions;
+			List<TimeFunction> timeFunctions;
 
 			// load all model entities from db
 			{
@@ -93,11 +96,16 @@ namespace OofemLink.Services.Export.OOFEM
 											  where attribute.ModelId == model.Id
 											  where attribute.Type == AttributeType.BoundaryCondition
 											  select attribute;
+				var timeFunctionsQuery = from timeFunction in dataContext.TimeFunctions.Include(tf => tf.Values)
+										 where timeFunction.ModelId == model.Id
+										 select timeFunction;
+
 				nodes = nodesQuery.ToList();
 				elements = elementsQuery.ToList();
 				crossSections = crossSectionsQuery.ToList();
 				materials = materialsQuery.ToList();
 				boundaryConditions = boundaryConditionsQuery.ToList();
+				timeFunctions = timeFunctionsQuery.ToList();
 			}
 
 			// =========================================================================================
@@ -197,12 +205,32 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "BOUNDARY CONDITIONS");
-
-			// write Boundary Conditions (including Loads)
-			for (int i = 0; i < boundaryConditions.Count; i++)
+			for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
 			{
-				var boundaryCondition = boundaryConditions[i];
-				input.AddBoundaryCondition(boundaryCondition.Name, id: i + 1).WithParameters(boundaryCondition.Parameters);
+				var bc = boundaryConditions[i];
+				// TODO: handle case when bc.TimeFunctionId is null (TimeFunction is not assigned)
+				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId.Value).WithParameters(bc.Parameters);
+			}
+
+			addDebugComment(input, "LOAD TIME FUNCTIONS");
+			foreach (var timeFunction in timeFunctions)
+			{
+				var timeFunctionBuilder = input.AddTimeFunction(timeFunction.Name, timeFunction.Id);
+				switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
+				{
+					case TimeFunctionNames.ConstantFunction:
+						timeFunctionBuilder.WithValue(((ConstantFunction)timeFunction).ConstantValue);
+						break;
+					case TimeFunctionNames.PeakFunction:
+						var tfValue = timeFunction.Values.Single();
+						timeFunctionBuilder.InTime(tfValue.TimeStep.Time ?? tfValue.TimeStep.Number).WithValue(tfValue.Value);
+						break;
+					case TimeFunctionNames.PiecewiseLinFunction:
+						timeFunctionBuilder.WithTimeValuePairs(createTimeStepFunctionValuePairs(simulation, timeFunction));
+						break;
+					default:
+						throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
+				}
 			}
 
 			addDebugComment(input, "SETS");
@@ -210,6 +238,15 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				input.AddSet(set.Id).ContainingNodes(set.Nodes).ContainingElements(set.Elements);
 			}
+		}
+
+		private List<KeyValuePair<double, double>> createTimeStepFunctionValuePairs(Simulation simulation, TimeFunction timeFunction)
+		{
+			var valueMap = timeFunction.Values.ToDictionary(v => v.TimeStepId, v => v.Value);
+			var resultQuery = from timeStep in simulation.TimeSteps
+							  orderby timeStep.Time ?? timeStep.Number // The particular time values in t array should be sorted according to time scale
+							  select new KeyValuePair<double, double>(timeStep.Time ?? timeStep.Number, valueMap.GetValueOrDefault(timeStep.Id));
+			return resultQuery.ToList();
 		}
 
 		private Set getOrCreateSetForAttribute(ModelAttribute attribute, List<Set> sets)

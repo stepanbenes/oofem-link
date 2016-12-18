@@ -7,8 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OofemLink.Common.Enumerations;
-using OofemLink.Common.Extensions;
-using OofemLink.Data;
+using OofemLink.Common.OofemNames;
 using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.Import.ESA
@@ -158,10 +157,9 @@ namespace OofemLink.Services.Import.ESA
 			int timeFunctionId = 1;
 			foreach (var timeStep in timeSteps)
 			{
-				var timeFunction = new TimeFunction
+				var timeFunction = new PiecewiseLinFunction
 				{
 					Id = timeFunctionId++,
-					Type = TimeFunctionType.PiecewiseLinear,
 					Values = { new TimeFunctionValue { TimeStep = timeStep, Value = 1.0 } }
 				};
 				model.TimeFunctions.Add(timeFunction);

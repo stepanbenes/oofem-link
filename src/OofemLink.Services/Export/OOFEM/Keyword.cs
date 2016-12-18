@@ -25,5 +25,8 @@ namespace OofemLink.Services.Export.OOFEM
 		public const string nic = nameof(nic);
 		public const string nltf = nameof(nltf);
 		public const string nset = nameof(nset);
+
+		public const string loadTimeFunction = nameof(loadTimeFunction);
+		public const string nPoints = nameof(nPoints);
 	}
 }

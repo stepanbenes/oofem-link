@@ -33,6 +33,9 @@ namespace OofemLink.Data
 
 			modelBuilder.Entity<TimeFunction>().HasKey(tf => new { tf.ModelId, tf.Id });
 			modelBuilder.Entity<TimeFunction>().HasOne(tf => tf.Model).WithMany(m => m.TimeFunctions).HasForeignKey(tf => tf.ModelId);
+			modelBuilder.Entity<ConstantFunction>(); // let the data model know about existence of concrete implementations of TimeFunction abstract base class
+			modelBuilder.Entity<PeakFunction>();
+			modelBuilder.Entity<PiecewiseLinFunction>();
 
 			modelBuilder.Entity<TimeFunctionValue>().HasKey(v => new { v.ModelId, v.TimeFunctionId, v.TimeStepId });
 			modelBuilder.Entity<TimeFunctionValue>().HasOne(v => v.Model).WithMany().HasForeignKey(v => v.ModelId).OnDelete(DeleteBehavior.Restrict);

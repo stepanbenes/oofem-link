@@ -6,10 +6,18 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
 using static System.FormattableString;
+using System.Globalization;
 
 namespace OofemLink.Services.Export.OOFEM
 {
-	class InputBuilder : IDisposable, INodeRecordBuilder, IElementRecordBuilder, ICrossSectionBuilder, IMaterialBuilder, IBoundaryConditionBuilder, ISetBuilder
+	class InputBuilder : IDisposable,
+		INodeRecordBuilder,
+		IElementRecordBuilder,
+		ICrossSectionBuilder,
+		IMaterialBuilder,
+		IBoundaryConditionBuilder,
+		ITimeFunctionBuilder,
+		ISetBuilder
 	{
 		#region Fields, constructor
 
@@ -92,6 +100,13 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
+		public ITimeFunctionBuilder AddTimeFunction(string name, int id)
+		{
+			streamWriter.WriteLine();
+			streamWriter.Write($"{name} {id}");
+			return this;
+		}
+
 		public ISetBuilder AddSet(int id)
 		{
 			streamWriter.WriteLine();
@@ -103,6 +118,7 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			if (streamWriter != null)
 			{
+				streamWriter.WriteLine(); // add line break at the end
 				streamWriter.Dispose();
 			}
 		}
@@ -146,9 +162,41 @@ namespace OofemLink.Services.Export.OOFEM
 			streamWriter.Write(" " + parameters);
 		}
 
+		IBoundaryConditionBuilder IBoundaryConditionBuilder.InTime(int timeFunctionId)
+		{
+			streamWriter.Write($" {Keyword.loadTimeFunction} {timeFunctionId}");
+			return this;
+		}
+
 		IBoundaryConditionBuilder IBoundaryConditionBuilder.WithParameters(string parameters)
 		{
 			streamWriter.Write(" " + parameters);
+			return this;
+		}
+
+		IBoundaryConditionBuilder IBoundaryConditionBuilder.AppliesToSet(int setId)
+		{
+			streamWriter.Write($" {Keyword.set} {setId}");
+			return this;
+		}
+
+		ITimeFunctionBuilder ITimeFunctionBuilder.InTime(double time)
+		{
+			streamWriter.Write(Invariant($" t {time}"));
+			return this;
+		}
+
+		ITimeFunctionBuilder ITimeFunctionBuilder.WithValue(double value)
+		{
+			streamWriter.Write(Invariant($" f(t) {value}"));
+			return this;
+		}
+
+		ITimeFunctionBuilder ITimeFunctionBuilder.WithTimeValuePairs(IReadOnlyList<KeyValuePair<double, double>> timeValuePairs)
+		{
+			string times = string.Join(" ", timeValuePairs.Select(pair => pair.Key.ToString(CultureInfo.InvariantCulture)));
+			string values = string.Join(" ", timeValuePairs.Select(pair => pair.Value.ToString(CultureInfo.InvariantCulture)));
+			streamWriter.Write($" {Keyword.nPoints} {timeValuePairs.Count} t {times} f(t) {values}");
 			return this;
 		}
 
@@ -209,7 +257,16 @@ namespace OofemLink.Services.Export.OOFEM
 
 	interface IBoundaryConditionBuilder
 	{
+		IBoundaryConditionBuilder InTime(int timeFunctionId);
 		IBoundaryConditionBuilder WithParameters(string parameters);
+		IBoundaryConditionBuilder AppliesToSet(int setId);
+	}
+
+	interface ITimeFunctionBuilder
+	{
+		ITimeFunctionBuilder InTime(double time);
+		ITimeFunctionBuilder WithValue(double value);
+		ITimeFunctionBuilder WithTimeValuePairs(IReadOnlyList<KeyValuePair<double, double>> timeValuePairs);
 	}
 
 	interface ISetBuilder
