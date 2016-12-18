@@ -19,7 +19,5 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<MacroInternalCurve> MacroInternalCurves { get; set; } = new List<MacroInternalCurve>();
 		public virtual ICollection<MacroInternalVertex> MacroInternalVertices { get; set; } = new List<MacroInternalVertex>();
 		public virtual ICollection<MacroOpeningCurve> MacroOpeningCurves { get; set; } = new List<MacroOpeningCurve>();
-
-		public virtual ICollection<MacroAttribute> MacroAttributes { get; set; } = new List<MacroAttribute>();
 	}
 }

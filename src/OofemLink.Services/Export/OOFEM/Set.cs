@@ -12,6 +12,7 @@ namespace OofemLink.Services.Export.OOFEM
 			Id = id;
 			Nodes = Array.Empty<int>();
 			Elements = Array.Empty<int>();
+			ElementEdges = Array.Empty<KeyValuePair<int, short>>();
 		}
 
 		private Set(int id, IReadOnlyList<int> nodes, IReadOnlyList<int> elements, IReadOnlyList<KeyValuePair<int, short>> elementEdges)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -14,13 +15,12 @@ namespace OofemLink.Data.Entities
 
 		public virtual Model Model { get; set; }
 		public virtual ModelAttribute Attribute { get; set; }
-
-		public int? MacroId { get; set; }
-		public virtual Macro Macro { get; set; }
 	}
 
-	public class MacroAttribute : AttributeGeometryMapping
+	[NotMapped]
+	public class MacroAttribute
 	{
+		public int MacroId { get; set; }
 	}
 
 	public class VertexAttribute : AttributeGeometryMapping
@@ -33,17 +33,23 @@ namespace OofemLink.Data.Entities
 	{
 		public int CurveId { get; set; }
 		public virtual Curve Curve { get; set; }
+		public int MacroId { get; set; }
+		public virtual Macro Macro { get; set; }
 	}
 
 	public class SurfaceAttribute : AttributeGeometryMapping
 	{
 		public int SurfaceId { get; set; }
 		public virtual Surface Surface { get; set; }
+		public int MacroId { get; set; }
+		public virtual Macro Macro { get; set; }
 	}
 
 	public class VolumeAttribute : AttributeGeometryMapping
 	{
 		public int VolumeId { get; set; }
 		public virtual Volume Volume { get; set; }
+		public int MacroId { get; set; }
+		public virtual Macro Macro { get; set; }
 	}
 }

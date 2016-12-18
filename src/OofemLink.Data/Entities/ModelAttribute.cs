@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Threading.Tasks;
 using OofemLink.Common.Enumerations;
@@ -28,11 +29,21 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<AttributeComposition> ParentAttributes { get; set; } = new List<AttributeComposition>();
 		public virtual ICollection<AttributeComposition> ChildAttributes { get; set; } = new List<AttributeComposition>();
 
-		public virtual ICollection<MacroAttribute> MacroAttributes { get; set; } = new List<MacroAttribute>();
 		public virtual ICollection<VertexAttribute> VertexAttributes { get; set; } = new List<VertexAttribute>();
 		public virtual ICollection<CurveAttribute> CurveAttributes { get; set; } = new List<CurveAttribute>();
 		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
 		public virtual ICollection<VolumeAttribute> VolumeAttributes { get; set; } = new List<VolumeAttribute>();
+
+		#region NotMapped helper properties
+
+		[NotMapped]
+		public virtual ICollection<MacroAttribute> MacroAttributes { get; set; } = new List<MacroAttribute>();
+		[NotMapped]
+		public bool AppliesToAllMacros { get; set; }
+
+		#endregion
+
+		#region GetHashCode & Equals
 
 		public override int GetHashCode() => Id;
 
@@ -43,5 +54,7 @@ namespace OofemLink.Data.Entities
 				return false;
 			return this.ModelId == other.ModelId && this.Id == other.Id;
 		}
+
+		#endregion
 	}
 }

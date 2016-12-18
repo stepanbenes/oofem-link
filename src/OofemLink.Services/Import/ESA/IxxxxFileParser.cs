@@ -168,6 +168,11 @@ namespace OofemLink.Services.Import.ESA
 				Logger.LogWarning($"Ignoring line with values in section {Codes.OWN}");
 			}
 
+			if (deadWeight.MacroAttributes.Count == 0)
+			{
+				deadWeight.AppliesToAllMacros = true;
+			}
+
 			return deadWeight;
 		}
 
@@ -194,7 +199,9 @@ namespace OofemLink.Services.Import.ESA
 							case Codes.Z:
 								dofId = 3;
 								break;
-							case Codes.XG: case Codes.YG: case Codes.ZG:
+							case Codes.XG:
+							case Codes.YG:
+							case Codes.ZG:
 								throw new NotImplementedException($"direction '{lineTokens.Direction}' is not implemented yet");
 							default:
 								throw new NotSupportedException($"direction '{lineTokens.Direction}' is not supported");
@@ -213,7 +220,7 @@ namespace OofemLink.Services.Import.ESA
 									int vertexId = lineTokens.Number.Value;
 									pointLoadAttribute.VertexAttributes.Add(new VertexAttribute { VertexId = vertexId });
 								}
-								break;								
+								break;
 							default:
 								throw new NotSupportedException($"selection type '{lineTokens.SelectionType}' is not supported");
 						}
@@ -281,26 +288,23 @@ namespace OofemLink.Services.Import.ESA
 							case Codes.MACR:
 								{
 									int macroId = firstLine.Number.Value;
-									if (lines.Count == 1)
+									int? lineId = null;
+									if (lines.Count > 1)
 									{
-										lineLoadAttribute.MacroAttributes.Add(new MacroAttribute { MacroId = macroId });
+										var secondLine = lines[1];
+										if (secondLine.SelectionType == Codes.LINE)
+										{
+											lineId = secondLine.Number.Value;
+										}
+										// TODO: parse rest of lines
+									}
+									if (lineId.HasValue)
+									{
+										lineLoadAttribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = lineId.Value });
 									}
 									else
 									{
-										var secondLine = lines[1];
-										switch (secondLine.SelectionType)
-										{
-											case "":
-												lineLoadAttribute.MacroAttributes.Add(new MacroAttribute { MacroId = macroId });
-												break;
-											case Codes.LINE:
-												int lineId = secondLine.Number.Value;
-												lineLoadAttribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = lineId });
-												break;
-											default:
-												throw new NotSupportedException($"selection type '{secondLine.SelectionType}' is not supported");
-										}
-										// TODO: parse rest of lines
+										lineLoadAttribute.MacroAttributes.Add(new MacroAttribute { MacroId = macroId });
 									}
 								}
 								break;

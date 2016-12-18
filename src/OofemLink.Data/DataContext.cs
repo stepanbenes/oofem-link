@@ -115,34 +115,28 @@ namespace OofemLink.Data
 			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.ChildAttribute).WithMany(a => a.ParentAttributes).HasForeignKey(c => new { c.ModelId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().ToTable("AttributeCompositions");
 
-			//modelBuilder.Entity<AttributeGeometryMapping>().ToTable("AttributeMappings");
-
-			modelBuilder.Entity<MacroAttribute>().HasOne(m => m.Attribute).WithMany(a => a.MacroAttributes).HasForeignKey(m => new { m.ModelId, m.AttributeId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<MacroAttribute>().HasOne(m => m.Macro).WithMany(a => a.MacroAttributes).HasForeignKey(m => new { m.ModelId, m.MacroId }).IsRequired(true).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<MacroAttribute>().ToTable("MacroAttributes");
 
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().HasOne(a => a.Vertex).WithMany(v => v.VertexAttributes).HasForeignKey(a => new { a.ModelId, a.VertexId });
 			modelBuilder.Entity<VertexAttribute>().HasOne(m => m.Attribute).WithMany(a => a.VertexAttributes).HasForeignKey(m => new { m.ModelId, m.AttributeId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VertexAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VertexAttribute>().ToTable("VertexAttributes");
 
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().HasOne(a => a.Curve).WithMany(c => c.CurveAttributes).HasForeignKey(a => new { a.ModelId, a.CurveId });
 			modelBuilder.Entity<CurveAttribute>().HasOne(m => m.Attribute).WithMany(a => a.CurveAttributes).HasForeignKey(m => new { m.ModelId, m.AttributeId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<CurveAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<CurveAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<CurveAttribute>().ToTable("CurveAttributes");
 
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(a => a.Surface).WithMany(s => s.SurfaceAttributes).HasForeignKey(a => new { a.ModelId, a.SurfaceId });
 			modelBuilder.Entity<SurfaceAttribute>().HasOne(m => m.Attribute).WithMany(a => a.SurfaceAttributes).HasForeignKey(m => new { m.ModelId, m.AttributeId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<SurfaceAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<SurfaceAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<SurfaceAttribute>().ToTable("SurfaceAttributes");
 
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Model).WithMany().HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().HasOne(a => a.Volume).WithMany(v => v.VolumeAttributes).HasForeignKey(a => new { a.ModelId, a.VolumeId });
 			modelBuilder.Entity<VolumeAttribute>().HasOne(m => m.Attribute).WithMany(a => a.VolumeAttributes).HasForeignKey(m => new { m.ModelId, m.AttributeId }).OnDelete(DeleteBehavior.Restrict);
-			modelBuilder.Entity<VolumeAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<VolumeAttribute>().HasOne(m => m.Macro).WithMany().HasForeignKey(m => new { m.ModelId, m.MacroId }).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeAttribute>().ToTable("VolumeAttributes");
 
 			// MESH

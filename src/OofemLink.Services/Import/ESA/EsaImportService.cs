@@ -156,7 +156,7 @@ namespace OofemLink.Services.Import.ESA
 			// IST file parsing
 			var istParser = new IstFileParser(location, taskName, loggerFactory);
 			var cs_mat_bc_attributes = istParser.Parse().ToList();
-			int attributesTotal = addAttributesToModel(model, startAttributeId: 1, attributes: cs_mat_bc_attributes);
+			int attributesTotal = addAttributesToModel(cs_mat_bc_attributes, model, startAttributeId: 1);
 
 			// Ixxxx files parsing
 			int timeFunctionId = 1;
@@ -174,24 +174,113 @@ namespace OofemLink.Services.Import.ESA
 				foreach (var loadCase in lc_attributes)
 				{
 					loadCase.TimeFunction = timeFunction;
-					// TODO:
 				}
-				attributesTotal += addAttributesToModel(model, startAttributeId: attributesTotal + 1, attributes: lc_attributes);
+				attributesTotal += addAttributesToModel(lc_attributes, model, startAttributeId: attributesTotal + 1);
 			}
 		}
 
-		private int addAttributesToModel(Model model, int startAttributeId, IEnumerable<ModelAttribute> attributes)
+		private int addAttributesToModel(IEnumerable<ModelAttribute> attributes, Model model, int startAttributeId)
 		{
 			int id = startAttributeId;
 			foreach (var attribute in attributes)
 			{
 				attribute.Id = id;
+				fillMissingMacroGeometryMappingsForAttribute(attribute, model);
 				model.Attributes.Add(attribute);
 				id += 1;
-				int addedCount = addAttributesToModel(model, id, attribute.ChildAttributes.Select(c => c.ChildAttribute));
+				int addedCount = addAttributesToModel(attribute.ChildAttributes.Select(c => c.ChildAttribute), model, id);
 				id += addedCount;
 			}
 			return id - startAttributeId; // returns count of attributes that were added
+		}
+
+		private void fillMissingMacroGeometryMappingsForAttribute(ModelAttribute attribute, Model model)
+		{
+			// check if macro applies to whole model (e.g. DeadWeight attribute)
+			if (attribute.AppliesToAllMacros)
+			{
+				attribute.MacroAttributes = model.Macros.Select(m => new MacroAttribute { MacroId = m.Id }).ToList(); // create dummy macro-attributes for all macros in model
+			}
+
+			// temporary Macro-Attributes that points to macros only (not to geometry entities) - they need to be redirected to corresponding geometry entities
+			foreach (var macroAttribute in attribute.MacroAttributes)
+			{
+				Debug.Assert(macroAttribute.MacroId != 0);
+				foreach (var ca in from macro in model.Macros
+								   from macroCurve in macro.MacroCurves
+								   where macroCurve.MacroId == macroAttribute.MacroId
+								   select new CurveAttribute { MacroId = macroCurve.MacroId, CurveId = macroCurve.CurveId })
+				{
+					attribute.CurveAttributes.Add(ca);
+				}
+				foreach (var sa in from macro in model.Macros
+								   from macroSurface in macro.MacroSurfaces
+								   where macroSurface.MacroId == macroAttribute.MacroId
+								   select new SurfaceAttribute { MacroId = macroSurface.MacroId, SurfaceId = macroSurface.SurfaceId })
+				{
+					attribute.SurfaceAttributes.Add(sa);
+				}
+				foreach (var va in from macro in model.Macros
+								   from macroVolume in macro.MacroVolumes
+								   where macroVolume.MacroId == macroAttribute.MacroId
+								   select new VolumeAttribute { MacroId = macroVolume.MacroId, VolumeId = macroVolume.VolumeId })
+				{
+					attribute.VolumeAttributes.Add(va);
+				}
+			}
+
+			attribute.MacroAttributes.Clear();
+
+			// Curve-Attributes with missing MacroId or CurveId
+			foreach (var curveAttribute in attribute.CurveAttributes.ToList())
+			{
+				Debug.Assert(curveAttribute.CurveId != 0);
+				if (curveAttribute.MacroId == 0)
+				{
+					attribute.CurveAttributes.Remove(curveAttribute);
+					foreach (var ca in from macro in model.Macros
+									   from macroCurve in macro.MacroCurves
+									   where macroCurve.CurveId == curveAttribute.CurveId
+									   select new CurveAttribute { MacroId = macroCurve.MacroId, CurveId = macroCurve.CurveId })
+					{
+						attribute.CurveAttributes.Add(ca);
+					}
+				}
+			}
+
+			// Surface-Attributes with missing MacroId or SurfaceId
+			foreach (var surfaceAttribute in attribute.SurfaceAttributes.ToList())
+			{
+				Debug.Assert(surfaceAttribute.SurfaceId != 0);
+				if (surfaceAttribute.MacroId == 0)
+				{
+					attribute.SurfaceAttributes.Remove(surfaceAttribute);
+					foreach (var sa in from macro in model.Macros
+									   from macroSurface in macro.MacroSurfaces
+									   where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
+									   select new SurfaceAttribute { MacroId = macroSurface.MacroId, SurfaceId = macroSurface.SurfaceId })
+					{
+						attribute.SurfaceAttributes.Add(sa);
+					}
+				}
+			}
+
+			// Volume-Attributes with missing MacroId or VolumeId
+			foreach (var volumeAttribute in attribute.VolumeAttributes.ToList())
+			{
+				Debug.Assert(volumeAttribute.VolumeId != 0);
+				if (volumeAttribute.MacroId == 0)
+				{
+					attribute.VolumeAttributes.Remove(volumeAttribute);
+					foreach (var va in from macro in model.Macros
+									   from macroVolume in macro.MacroVolumes
+									   where macroVolume.VolumeId == volumeAttribute.VolumeId
+									   select new VolumeAttribute { MacroId = macroVolume.MacroId, VolumeId = macroVolume.VolumeId })
+					{
+						attribute.VolumeAttributes.Add(va);
+					}
+				}
+			}
 		}
 
 		#endregion
