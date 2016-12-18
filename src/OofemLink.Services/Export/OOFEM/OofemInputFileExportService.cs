@@ -116,6 +116,9 @@ namespace OofemLink.Services.Export.OOFEM
 				timeFunctions = timeFunctionsQuery.ToList();
 			}
 
+			Dictionary<ModelAttribute, Set> attributeSetMap = createSetMapForAttributes(crossSections.Concat(boundaryConditions));
+			List<Set> sets = attributeSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
+
 			// =========================================================================================
 
 			// Output file name
@@ -150,8 +153,9 @@ namespace OofemLink.Services.Export.OOFEM
 					crossSectionCount: crossSections.Count,
 					materialCount: materials.Count,
 					boundaryConditionCount: boundaryConditions.Count,
-					initialConditionCount: 0
-				// TODO: complete record counts
+					initialConditionCount: 0, /**/
+					timeFunctionCount: timeFunctions.Count,
+					setCount: sets.Count
 				);
 
 			addDebugComment(input, "NODES");
@@ -185,8 +189,6 @@ namespace OofemLink.Services.Export.OOFEM
 						throw new NotSupportedException($"Element type {element.Type} is not supported.");
 				}
 			}
-
-			var attributeSetMap = createSetMapForAttributes(crossSections.Concat(boundaryConditions));
 
 			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
 			for (int index = 0; index < materials.Count; index++)
@@ -241,7 +243,7 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			addDebugComment(input, "SETS");
-			foreach (var set in attributeSetMap.Values.Distinct().OrderBy(s => s.Id))
+			foreach (var set in sets)
 			{
 				input.AddSet(set.Id).ContainingNodes(set.Nodes).ContainingElements(set.Elements).ContainingElementEdges(set.ElementEdges);
 			}
