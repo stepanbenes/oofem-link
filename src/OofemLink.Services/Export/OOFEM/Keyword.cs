@@ -14,6 +14,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public const string set = nameof(set);
 		public const string elements = nameof(elements);
 		public const string elementedges = nameof(elementedges);
+		public const string elementboundaries = nameof(elementboundaries);
 		public const string allElements = nameof(allElements);
 
 		public const string nsteps = nameof(nsteps);

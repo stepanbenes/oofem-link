@@ -17,6 +17,8 @@ namespace OofemLink.Data.Entities
 
 		public AttributeType Type { get; set; }
 
+		public AttributeTarget Target { get; set; }
+
 		[Required]
 		public string Name { get; set; }
 

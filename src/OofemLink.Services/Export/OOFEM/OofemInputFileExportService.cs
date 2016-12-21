@@ -108,6 +108,7 @@ namespace OofemLink.Services.Export.OOFEM
 										 orderby timeFunction.Id
 										 select timeFunction;
 
+				// materialize queries
 				nodes = nodesQuery.ToList();
 				elements = elementsQuery.ToList();
 				crossSections = crossSectionsQuery.ToList();
@@ -116,7 +117,7 @@ namespace OofemLink.Services.Export.OOFEM
 				timeFunctions = timeFunctionsQuery.ToList();
 			}
 
-			Dictionary<ModelAttribute, Set> attributeSetMap = createSetMapForAttributes(crossSections, boundaryConditions);
+			Dictionary<ModelAttribute, Set> attributeSetMap = createSetMapForAttributes(crossSections.Concat(boundaryConditions));
 			List<Set> sets = attributeSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			// =========================================================================================
@@ -153,7 +154,7 @@ namespace OofemLink.Services.Export.OOFEM
 					crossSectionCount: crossSections.Count,
 					materialCount: materials.Count,
 					boundaryConditionCount: boundaryConditions.Count,
-					initialConditionCount: 0, /**/
+					initialConditionCount: 0, /*no initial conditions for time-independent analysis (statics)*/
 					timeFunctionCount: timeFunctions.Count,
 					setCount: sets.Count
 				);
@@ -245,7 +246,11 @@ namespace OofemLink.Services.Export.OOFEM
 			addDebugComment(input, "SETS");
 			foreach (var set in sets)
 			{
-				input.AddSet(set.Id).WithNodes(set.Nodes).WithElements(set.Elements).WithElementEdges(set.ElementEdges);
+				input.AddSet(set.Id)
+					.WithNodes(set.Nodes)
+					.WithElements(set.Elements)
+					.WithElementEdges(set.ElementEdges)
+					.WithElementSurfaces(set.ElementSurfaces);
 			}
 		}
 
@@ -258,75 +263,86 @@ namespace OofemLink.Services.Export.OOFEM
 			return resultQuery.ToList();
 		}
 
-		private Dictionary<ModelAttribute, Set> createSetMapForAttributes(IEnumerable<ModelAttribute> crossSections, IEnumerable<ModelAttribute> boundaryConditions)
+		private Dictionary<ModelAttribute, Set> createSetMapForAttributes(IEnumerable<ModelAttribute> attributes)
 		{
-			// TODO: group queries by attribute ids - avoid foreach loops
+			// TODO: group queries by attribute ids - avoid foreach loop
 
 			var map = new Dictionary<ModelAttribute, Set>();
 			int setId = 1;
-			foreach (var csAttribute in crossSections)
+			foreach (var attribute in attributes)
 			{
-				var elements1dQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
-									  where curveAttribute.ModelId == csAttribute.ModelId
-									  where curveAttribute.AttributeId == csAttribute.Id
-									  from macroCurve in curveAttribute.Macro.MacroCurves
-									  where macroCurve.CurveId == curveAttribute.CurveId
-									  from curveElement in macroCurve.Curve.CurveElements
-									  select curveElement.ElementId;
-				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
-									  where surfaceAttribute.ModelId == csAttribute.ModelId
-									  where surfaceAttribute.AttributeId == csAttribute.Id
-									  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
-									  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
-									  from surfaceElement in macroSurface.Surface.SurfaceElements
-									  select surfaceElement.ElementId;
-				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
-									  where volumeAttribute.ModelId == csAttribute.ModelId
-									  where volumeAttribute.AttributeId == csAttribute.Id
-									  from volumeElement in volumeAttribute.Volume.VolumeElements
-									  select volumeElement.ElementId;
-				var elementIds = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery).OrderBy(id => id).ToArray();
-				var set = new Set(setId++).WithElements(elementIds);
+				Set set;
+				switch (attribute.Target)
+				{
+					case AttributeTarget.Undefined:
+						throw new InvalidOperationException($"Attribute target is not defined. Name: '{attribute.Name}', id: {attribute.Id}");
+					case AttributeTarget.Node:
+						{
+							var vertexQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
+											  where vertexAttribute.ModelId == attribute.ModelId
+											  where vertexAttribute.AttributeId == attribute.Id
+											  from vertexNode in vertexAttribute.Vertex.VertexNodes
+											  orderby vertexNode.NodeId
+											  select vertexNode.NodeId;
+							set = new Set(setId++).WithNodes(vertexQuery.ToArray());
+						}
+						break;
+					case AttributeTarget.Edge:
+						{
+							var elementEdgeQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
+												   where curveAttribute.ModelId == attribute.ModelId
+												   where curveAttribute.AttributeId == attribute.Id
+												   from macroCurve in curveAttribute.Macro.MacroCurves
+												   where macroCurve.CurveId == curveAttribute.CurveId
+												   from curveElement in macroCurve.Curve.CurveElements
+												   orderby curveElement.ElementId, curveElement.Rank
+												   select new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank);
+							set = new Set(setId++).WithElementEdges(elementEdgeQuery.ToArray());
+						}
+						break;
+					case AttributeTarget.Surface:
+						{
+							var elementSurfaceQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
+													  where surfaceAttribute.ModelId == attribute.ModelId
+													  where surfaceAttribute.AttributeId == attribute.Id
+													  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
+													  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
+													  from surfaceElement in macroSurface.Surface.SurfaceElements
+													  orderby surfaceElement.ElementId, surfaceElement.Rank
+													  select new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank);
+							set = new Set(setId++).WithElementSurfaces(elementSurfaceQuery.ToArray());
+						}
+						break;
+					case AttributeTarget.Volume:
+						{
+							var elements1dQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
+												  where curveAttribute.ModelId == attribute.ModelId
+												  where curveAttribute.AttributeId == attribute.Id
+												  from macroCurve in curveAttribute.Macro.MacroCurves
+												  where macroCurve.CurveId == curveAttribute.CurveId
+												  from curveElement in macroCurve.Curve.CurveElements
+												  select curveElement.ElementId;
+							var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
+												  where surfaceAttribute.ModelId == attribute.ModelId
+												  where surfaceAttribute.AttributeId == attribute.Id
+												  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
+												  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
+												  from surfaceElement in macroSurface.Surface.SurfaceElements
+												  select surfaceElement.ElementId;
+							var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
+												  where volumeAttribute.ModelId == attribute.ModelId
+												  where volumeAttribute.AttributeId == attribute.Id
+												  from volumeElement in volumeAttribute.Volume.VolumeElements
+												  select volumeElement.ElementId;
+							var elementIds = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery).OrderBy(id => id).ToArray();
+							set = new Set(setId++).WithElements(elementIds);
+						}
+						break;
+					default:
+						throw new NotSupportedException($"Attribute target '{attribute.Target}' is not supported.  Name: '{attribute.Name}', id: {attribute.Id}");
+				}
 
-				map.Add(csAttribute, set);
-			}
-
-			foreach (var bcAttribute in boundaryConditions)
-			{
-				var vertexQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
-								  where vertexAttribute.ModelId == bcAttribute.ModelId
-								  where vertexAttribute.AttributeId == bcAttribute.Id
-								  from vertexNode in vertexAttribute.Vertex.VertexNodes
-								  orderby vertexNode.NodeId
-								  select vertexNode.NodeId;
-				var elementEdgeQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
-									   where curveAttribute.ModelId == bcAttribute.ModelId
-									   where curveAttribute.AttributeId == bcAttribute.Id
-									   from macroCurve in curveAttribute.Macro.MacroCurves
-									   where macroCurve.CurveId == curveAttribute.CurveId
-									   from curveElement in macroCurve.Curve.CurveElements
-									   orderby curveElement.ElementId, curveElement.Rank
-									   select new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank);
-				var elementSurfaceQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
-										  where surfaceAttribute.ModelId == bcAttribute.ModelId
-										  where surfaceAttribute.AttributeId == bcAttribute.Id
-										  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
-										  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
-										  from surfaceElement in macroSurface.Surface.SurfaceElements
-										  orderby surfaceElement.ElementId, surfaceElement.Rank
-										  select new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank);
-				var elementVolumeQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
-										 where volumeAttribute.ModelId == bcAttribute.ModelId
-										 where volumeAttribute.AttributeId == bcAttribute.Id
-										 from volumeElement in volumeAttribute.Volume.VolumeElements
-										 orderby volumeElement.ElementId
-										 select volumeElement.ElementId;
-				var set = new Set(setId++)
-					.WithNodes(vertexQuery.ToArray())
-					.WithElements(elementVolumeQuery.ToArray())
-					.WithElementEdges(elementEdgeQuery.ToArray());
-
-				map.Add(bcAttribute, set);
+				map.Add(attribute, set);
 			}
 
 			return map;

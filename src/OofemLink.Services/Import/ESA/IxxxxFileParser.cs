@@ -160,6 +160,7 @@ namespace OofemLink.Services.Import.ESA
 			{
 				Type = AttributeType.BoundaryCondition,
 				Name = BoundaryConditionNames.DeadWeight,
+				Target = AttributeTarget.Volume, // dead weight is applied to element volume
 				Parameters = Invariant($"components 6 {x} {y} {z} 0 0 0")
 			};
 
@@ -210,6 +211,7 @@ namespace OofemLink.Services.Import.ESA
 						{
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.NodalLoad,
+							Target = AttributeTarget.Node,
 							Parameters = Invariant($"components 1 {value} dofs 1 {dofId}")
 						};
 						switch (lineTokens.SelectionType)
@@ -280,6 +282,7 @@ namespace OofemLink.Services.Import.ESA
 						{
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.ConstantEdgeLoad,
+							Target = AttributeTarget.Edge,
 							Parameters = Invariant($"loadType 3 components 1 {value} dofs 1 {dofId} csType {csType}")
 						};
 						switch (firstLine.SelectionType)

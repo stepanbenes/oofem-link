@@ -137,6 +137,7 @@ namespace OofemLink.Services.Import.ESA
 				Type = AttributeType.CrossSection,
 				LocalNumber = number,
 				Name = CrossSectionNames.SimpleCS,
+				Target = AttributeTarget.Volume, // cross-section is applied to element volume
 				Parameters = Invariant($"area {area} Iy {Iy} Iz {Iz} Ik {Ix} beamShearCoeff {beamShearCoeff}")
 			};
 
@@ -145,6 +146,7 @@ namespace OofemLink.Services.Import.ESA
 				Type = AttributeType.Material,
 				LocalNumber = number,
 				Name = MaterialNames.IsoLE,
+				Target = AttributeTarget.Volume, // material is applied to element volume
 				Parameters = Invariant($"d {gamma / PhysicalConstants.g} E {E} n {E / G / 2 - 1} tAlpha {tAlpha}")
 			};
 

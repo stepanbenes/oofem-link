@@ -233,6 +233,15 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
+		ISetBuilder ISetBuilder.WithElementSurfaces(IReadOnlyList<KeyValuePair<int, short>> elementSurfaceIdPairs)
+		{
+			if (elementSurfaceIdPairs.Count > 0)
+			{
+				streamWriter.Write($" {Keyword.elementboundaries} {elementSurfaceIdPairs.Count * 2} {string.Join(" ", elementSurfaceIdPairs.Select(pair => $"{pair.Key} {pair.Value}"))}");
+			}
+			return this;
+		}
+
 		#endregion
 
 		#region Private methods
@@ -290,5 +299,6 @@ namespace OofemLink.Services.Export.OOFEM
 		ISetBuilder WithNodes(IReadOnlyList<int> nodeIds);
 		ISetBuilder WithElements(IReadOnlyList<int> elementIds);
 		ISetBuilder WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs);
+		ISetBuilder WithElementSurfaces(IReadOnlyList<KeyValuePair<int, short>> elementSurfaceIdPairs);
 	}
 }
