@@ -16,8 +16,6 @@ namespace OofemLink.Services.Import.ESA
 {
 	class IstFileParser : AttributeFileParserBase
 	{
-		Dictionary<int, ModelAttribute> materialMap/*, supportsMap*/;
-
 		public IstFileParser(string location, string taskName, ILoggerFactory loggerFactory)
 			: base(location, taskName, loggerFactory)
 		{ }
@@ -27,7 +25,10 @@ namespace OofemLink.Services.Import.ESA
 		public IEnumerable<ModelAttribute> Parse()
 		{
 			LogStart();
-			materialMap = new Dictionary<int, ModelAttribute>();
+
+			var attributes = new List<ModelAttribute>();
+			var materialMap = new Dictionary<int, ModelAttribute>();
+
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
 				string line = streamReader.ReadLine(); // ignore first line: Directory path
@@ -49,10 +50,10 @@ namespace OofemLink.Services.Import.ESA
 									number: lineTokens.Number.Value
 								);
 							materialMap.Add(materialAttribute.LocalNumber.Value, materialAttribute);
-							yield return materialAttribute;
+							attributes.Add(materialAttribute);
 							break;
 						case Codes.PHYS:
-							parsePhysicalDataSection(streamReader,
+							parsePhysicalDataSection(streamReader, materialMap,
 									dimensionType: lineTokens.DimensionType,
 									quantityType: lineTokens.QuantityType,
 									materialId: lineTokens.MaterialId,
@@ -69,6 +70,8 @@ namespace OofemLink.Services.Import.ESA
 					}
 				}
 			}
+
+			return attributes;
 		}
 
 		#region Parsing materials
@@ -158,7 +161,7 @@ namespace OofemLink.Services.Import.ESA
 
 		#region Parsing attribute-macro mapping
 
-		private void parsePhysicalDataSection(StreamReader streamReader, string dimensionType, string quantityType, int? materialId, int? subgradeId, string selectionType, int number)
+		private void parsePhysicalDataSection(StreamReader streamReader, Dictionary<int, ModelAttribute> materialMap, string dimensionType, string quantityType, int? materialId, int? subgradeId, string selectionType, int number)
 		{
 			switch (dimensionType)
 			{
@@ -208,6 +211,8 @@ namespace OofemLink.Services.Import.ESA
 			public const string MAT = nameof(MAT);
 			public const string PHYS = nameof(PHYS);
 			public const string FIX = nameof(FIX);
+			public const string SUPR = nameof(SUPR);
+			public const string CON = nameof(CON);
 			public const string LCS = nameof(LCS);
 			public const string SPR = nameof(SPR);
 			public const string REL = nameof(REL);
@@ -221,6 +226,7 @@ namespace OofemLink.Services.Import.ESA
 			public const string FLAT = nameof(FLAT);
 
 			// quantity types
+			public const string ROT = nameof(ROT);
 			public const string SECT = nameof(SECT);
 			public const string STIF = nameof(STIF);
 			public const string ISO = nameof(ISO);

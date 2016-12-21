@@ -175,15 +175,15 @@ namespace OofemLink.Services.Export.OOFEM
 				{
 					case CellType.LineLinear:
 						Debug.Assert(nodeIds.Length == 2);
-						input.AddElement("beam3d", element.Id).HavingNodes(nodeIds);
+						input.AddElement("beam3d", element.Id).WithNodes(nodeIds); //.WithParameters("zaxis 3 0 0 1"); // TODO: grab zAxis parameter from attributes, apply this if none is found
 						break;
 					case CellType.TriangleLinear:
 						Debug.Assert(nodeIds.Length == 3);
-						input.AddElement("mitc4shell", element.Id).HavingNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
+						input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
 						break;
 					case CellType.QuadLinear:
 						Debug.Assert(nodeIds.Length == 4);
-						input.AddElement("mitc4shell", element.Id).HavingNodes(nodeIds);
+						input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds);
 						break;
 					default:
 						throw new NotSupportedException($"Element type {element.Type} is not supported.");
@@ -245,7 +245,7 @@ namespace OofemLink.Services.Export.OOFEM
 			addDebugComment(input, "SETS");
 			foreach (var set in sets)
 			{
-				input.AddSet(set.Id).ContainingNodes(set.Nodes).ContainingElements(set.Elements).ContainingElementEdges(set.ElementEdges);
+				input.AddSet(set.Id).WithNodes(set.Nodes).WithElements(set.Elements).WithElementEdges(set.ElementEdges);
 			}
 		}
 

@@ -133,9 +133,15 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		IElementRecordBuilder IElementRecordBuilder.HavingNodes(params int[] nodeIds)
+		IElementRecordBuilder IElementRecordBuilder.WithNodes(params int[] nodeIds)
 		{
 			streamWriter.Write($" {Keyword.nodes} {nodeIds.Length} {string.Join(" ", nodeIds)}");
+			return this;
+		}
+
+		ICrossSectionBuilder IElementRecordBuilder.WithParameters(string parameters)
+		{
+			streamWriter.Write(" " + parameters);
 			return this;
 		}
 
@@ -200,7 +206,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.ContainingNodes(IReadOnlyList<int> nodeIds)
+		ISetBuilder ISetBuilder.WithNodes(IReadOnlyList<int> nodeIds)
 		{
 			if (nodeIds.Count > 0)
 			{
@@ -209,7 +215,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.ContainingElements(IReadOnlyList<int> elementIds)
+		ISetBuilder ISetBuilder.WithElements(IReadOnlyList<int> elementIds)
 		{
 			if (elementIds.Count > 0)
 			{
@@ -218,7 +224,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.ContainingElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs)
+		ISetBuilder ISetBuilder.WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs)
 		{
 			if (elementEdgeIdPairs.Count > 0)
 			{
@@ -249,7 +255,8 @@ namespace OofemLink.Services.Export.OOFEM
 
 	interface IElementRecordBuilder
 	{
-		IElementRecordBuilder HavingNodes(params int[] nodeIds);
+		IElementRecordBuilder WithNodes(params int[] nodeIds);
+		ICrossSectionBuilder WithParameters(string parameters);
 	}
 
 	interface ICrossSectionBuilder
@@ -280,8 +287,8 @@ namespace OofemLink.Services.Export.OOFEM
 
 	interface ISetBuilder
 	{
-		ISetBuilder ContainingNodes(IReadOnlyList<int> nodeIds);
-		ISetBuilder ContainingElements(IReadOnlyList<int> elementIds);
-		ISetBuilder ContainingElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs);
+		ISetBuilder WithNodes(IReadOnlyList<int> nodeIds);
+		ISetBuilder WithElements(IReadOnlyList<int> elementIds);
+		ISetBuilder WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs);
 	}
 }
