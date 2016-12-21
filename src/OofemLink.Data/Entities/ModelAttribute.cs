@@ -34,15 +34,6 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
 		public virtual ICollection<VolumeAttribute> VolumeAttributes { get; set; } = new List<VolumeAttribute>();
 
-		#region NotMapped helper properties
-
-		[NotMapped]
-		public virtual ICollection<MacroAttribute> MacroAttributes { get; set; } = new List<MacroAttribute>();
-		[NotMapped]
-		public bool AppliesToAllMacros { get; set; }
-
-		#endregion
-
 		#region GetHashCode & Equals
 
 		public override int GetHashCode() => Id;

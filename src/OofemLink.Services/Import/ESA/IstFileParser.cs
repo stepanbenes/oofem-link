@@ -16,9 +16,13 @@ namespace OofemLink.Services.Import.ESA
 {
 	class IstFileParser : AttributeFileParserBase
 	{
-		public IstFileParser(string location, string taskName, ILoggerFactory loggerFactory)
+		readonly AttributeMapper attributeMapper;
+
+		public IstFileParser(AttributeMapper attributeMapper, string location, string taskName, ILoggerFactory loggerFactory)
 			: base(location, taskName, loggerFactory)
-		{ }
+		{
+			this.attributeMapper = attributeMapper;
+		}
 
 		public override string Extension => "IST";
 
@@ -176,13 +180,8 @@ namespace OofemLink.Services.Import.ESA
 								if (lineTokens.SelectionType != Codes.LINE)
 									throw new InvalidDataException($"Selection type '{lineTokens.SelectionType}' was not expected. '{Codes.LINE}' was expected instead.");
 								int lineId = lineTokens.Number.Value;
-								var curveAttribute = new CurveAttribute
-								{
-									MacroId = number,
-									CurveId = lineId,
-								};
 								var materialAttribute = materialMap[materialId.Value];
-								materialAttribute.CurveAttributes.Add(curveAttribute);
+								attributeMapper.MapToCurve(materialAttribute, curveId: lineId, macroId: number);
 							}
 							break;
 						case Codes.VARL:

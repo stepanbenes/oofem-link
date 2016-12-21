@@ -17,12 +17,6 @@ namespace OofemLink.Data.Entities
 		public virtual ModelAttribute Attribute { get; set; }
 	}
 
-	[NotMapped]
-	public class MacroAttribute
-	{
-		public int MacroId { get; set; }
-	}
-
 	public class VertexAttribute : AttributeGeometryMapping
 	{
 		public int VertexId { get; set; }

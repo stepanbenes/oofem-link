@@ -16,13 +16,15 @@ namespace OofemLink.Services.Import.ESA
 	class IxxxxFileParser : AttributeFileParserBase
 	{
 		readonly int loadCaseNumber;
+		readonly AttributeMapper attributeMapper;
 
-		public IxxxxFileParser(int loadCaseNumber, string location, string taskName, ILoggerFactory loggerFactory)
+		public IxxxxFileParser(int loadCaseNumber, AttributeMapper attributeMapper, string location, string taskName, ILoggerFactory loggerFactory)
 			: base(location, taskName, loggerFactory)
 		{
 			if (loadCaseNumber < 1 || loadCaseNumber > 9999)
 				throw new ArgumentOutOfRangeException(nameof(loadCaseNumber), "Argument must be in range <1, 9999>");
 			this.loadCaseNumber = loadCaseNumber;
+			this.attributeMapper = attributeMapper;
 		}
 
 		public override string Extension => $"I{loadCaseNumber:D4}";
@@ -168,11 +170,8 @@ namespace OofemLink.Services.Import.ESA
 				Logger.LogWarning($"Ignoring line with values in section {Codes.OWN}");
 			}
 
-			if (deadWeight.MacroAttributes.Count == 0)
-			{
-				deadWeight.AppliesToAllMacros = true;
-			}
-
+			attributeMapper.MapToAllMacros(deadWeight);
+			
 			return deadWeight;
 		}
 
@@ -218,7 +217,7 @@ namespace OofemLink.Services.Import.ESA
 							case Codes.NODE:
 								{
 									int vertexId = lineTokens.Number.Value;
-									pointLoadAttribute.VertexAttributes.Add(new VertexAttribute { VertexId = vertexId });
+									attributeMapper.MapToVertex(pointLoadAttribute, vertexId);
 								}
 								break;
 							default:
@@ -300,11 +299,11 @@ namespace OofemLink.Services.Import.ESA
 									}
 									if (lineId.HasValue)
 									{
-										lineLoadAttribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = lineId.Value });
+										attributeMapper.MapToCurve(lineLoadAttribute, lineId.Value, macroId);
 									}
 									else
 									{
-										lineLoadAttribute.MacroAttributes.Add(new MacroAttribute { MacroId = macroId });
+										attributeMapper.MapToMacro(lineLoadAttribute, macroId);
 									}
 								}
 								break;
