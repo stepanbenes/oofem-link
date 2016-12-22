@@ -17,16 +17,17 @@ namespace OofemLink.Services.Export.OOFEM
 	{
 		#region Fields, constructor
 
-		readonly string fileFullPath;
+		readonly string inputFileFullPath, outputFileFullPath;
 		readonly DataContext dataContext;
 
-		public OofemInputFileExportService(DataContext dataContext, string fileFullPath)
+		public OofemInputFileExportService(DataContext dataContext, string inputFileFullPath, string outputFileDirectory = null)
 		{
 			this.dataContext = dataContext;
-			if (!string.IsNullOrEmpty(fileFullPath))
-				this.fileFullPath = fileFullPath;
-			else
-				this.fileFullPath = "oofem.in";
+			Debug.Assert(!string.IsNullOrEmpty(inputFileFullPath));
+			this.inputFileFullPath = inputFileFullPath;
+			if (string.IsNullOrEmpty(outputFileDirectory))
+				outputFileDirectory = Path.GetDirectoryName(inputFileFullPath);
+			this.outputFileFullPath = Path.Combine(outputFileDirectory, Path.ChangeExtension(Path.GetFileName(inputFileFullPath), "out"));
 		}
 
 		#endregion
@@ -35,7 +36,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public void ExportSimulation(int simulationId)
 		{
-			using (var input = new InputBuilder(fileFullPath))
+			using (var input = new InputBuilder(inputFileFullPath))
 			{
 				createOofemInput(input, simulationId);
 			}
@@ -123,7 +124,6 @@ namespace OofemLink.Services.Export.OOFEM
 			// =========================================================================================
 
 			// Output file name
-			string outputFileFullPath = Path.GetTempFileName(); // TODO: allow output file path to be configurable
 			input.AddPlainText(outputFileFullPath);
 			// Description
 			input.AddPlainText($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");

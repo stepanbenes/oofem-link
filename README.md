@@ -21,7 +21,12 @@ Place configuration file with name _appsettings.json_ to folder that contains ap
 {
     "DatabaseProvider": "Sqlite",
     "ConnectionStrings": {
-        "oofem_db": "Filename=C:/temp/oofem.db"
+        "oofem_db": "Filename=C:/.../oofem.db"
+    },
+	"Execution": {
+        "OofemExecutableFilePath": "C:/.../oofem.exe",
+		"DefaultInputLocation": "C:/.../",
+		"DefaultOutputLocation": "C:/.../"
     }
 }
 ```

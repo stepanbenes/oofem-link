@@ -8,5 +8,7 @@ namespace OofemLink.Services.Execution
     public class ExecutionOptions
     {
 		public string OofemExecutableFilePath { get; set; }
-    }
+		public string DefaultInputLocation { get; set; }
+		public string DefaultOutputLocation { get; set; }
+	}
 }

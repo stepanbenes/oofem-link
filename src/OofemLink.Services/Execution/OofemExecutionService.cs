@@ -57,8 +57,7 @@ namespace OofemLink.Services.Execution
 			Process process = new Process();
 			process.StartInfo = new ProcessStartInfo(options.OofemExecutableFilePath, $"-f {inputFileFullPath}" /* -qo {logFile} -qe {errorFile}"*/)
 			{
-				UseShellExecute = false,
-				RedirectStandardOutput = true
+				UseShellExecute = false
 			};
 			process.EnableRaisingEvents = true;
 
@@ -99,8 +98,17 @@ namespace OofemLink.Services.Execution
 
 		private string prepareInputFile(int simulationId)
 		{
-			string inputFileFullPath = Path.GetTempFileName();
-			var oofemExportService = new OofemInputFileExportService(dataContext, inputFileFullPath);
+			string inputFileFullPath;
+			string outputFileDirectory;
+			if (!string.IsNullOrEmpty(options.DefaultInputLocation))
+				inputFileFullPath = Path.Combine(options.DefaultInputLocation, "oofem.in");
+			else
+				inputFileFullPath = Path.GetTempFileName();
+			if (!string.IsNullOrEmpty(options.DefaultOutputLocation))
+				outputFileDirectory = options.DefaultOutputLocation;
+			else
+				outputFileDirectory = Path.GetTempPath();
+			var oofemExportService = new OofemInputFileExportService(dataContext, inputFileFullPath, outputFileDirectory);
 			oofemExportService.ExportSimulation(simulationId);
 			return inputFileFullPath;
 		}
