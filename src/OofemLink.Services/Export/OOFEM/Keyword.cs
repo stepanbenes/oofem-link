@@ -17,6 +17,8 @@ namespace OofemLink.Services.Export.OOFEM
 		public const string elementboundaries = nameof(elementboundaries);
 		public const string allElements = nameof(allElements);
 
+		public const string zaxis = nameof(zaxis);
+
 		public const string nsteps = nameof(nsteps);
 		public const string nmodules = nameof(nmodules);
 		public const string domain = nameof(domain);

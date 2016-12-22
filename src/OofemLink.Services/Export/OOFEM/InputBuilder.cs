@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Reflection;
 using static System.FormattableString;
 using System.Globalization;
+using System.Diagnostics;
 
 namespace OofemLink.Services.Export.OOFEM
 {
@@ -139,9 +140,10 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ICrossSectionBuilder IElementRecordBuilder.WithParameters(string parameters)
+		IElementRecordBuilder IElementRecordBuilder.WithZAxis(double[] zAxisDirection)
 		{
-			streamWriter.Write(" " + parameters);
+			Debug.Assert(zAxisDirection.Length == 3);
+			streamWriter.Write($" {Keyword.zaxis} {zAxisDirection.Length} {string.Join(" ", zAxisDirection.Select(x => x.ToString(CultureInfo.InvariantCulture)))}");
 			return this;
 		}
 
@@ -202,7 +204,7 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			string times = string.Join(" ", timeValuePairs.Select(pair => pair.Key.ToString(CultureInfo.InvariantCulture)));
 			string values = string.Join(" ", timeValuePairs.Select(pair => pair.Value.ToString(CultureInfo.InvariantCulture)));
-			streamWriter.Write($" {Keyword.nPoints} {timeValuePairs.Count} t {times} f(t) {values}");
+			streamWriter.Write($" {Keyword.nPoints} {timeValuePairs.Count} t {timeValuePairs.Count} {times} f(t) {timeValuePairs.Count} {values}");
 			return this;
 		}
 
@@ -265,7 +267,7 @@ namespace OofemLink.Services.Export.OOFEM
 	interface IElementRecordBuilder
 	{
 		IElementRecordBuilder WithNodes(params int[] nodeIds);
-		ICrossSectionBuilder WithParameters(string parameters);
+		IElementRecordBuilder WithZAxis(double[] zAxisDirection);
 	}
 
 	interface ICrossSectionBuilder

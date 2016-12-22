@@ -176,7 +176,7 @@ namespace OofemLink.Services.Export.OOFEM
 				{
 					case CellType.LineLinear:
 						Debug.Assert(nodeIds.Length == 2);
-						input.AddElement("beam3d", element.Id).WithNodes(nodeIds); //.WithParameters("zaxis 3 0 0 1"); // TODO: grab zAxis parameter from attributes, apply this if none is found
+						input.AddElement("beam3d", element.Id).WithNodes(nodeIds).WithZAxis(getDefaultZAxisVectorForBeam3d(simulation)); // TODO: grab zAxis parameter from attributes, apply this if none is found
 						break;
 					case CellType.TriangleLinear:
 						Debug.Assert(nodeIds.Length == 3);
@@ -250,6 +250,22 @@ namespace OofemLink.Services.Export.OOFEM
 					.WithElements(set.Elements)
 					.WithElementEdges(set.ElementEdges)
 					.WithElementSurfaces(set.ElementSurfaces);
+			}
+		}
+
+		private double[] getDefaultZAxisVectorForBeam3d(Simulation simulation)
+		{
+			switch (simulation.DimensionFlags)
+			{
+				case ModelDimensions.XY:
+				case ModelDimensions.XYZ:
+					return new double[] { 0, 0, simulation.ZAxisUp ? 1 : -1 };
+				case ModelDimensions.XZ:
+					return new double[] { 0, simulation.ZAxisUp ? 1 : -1, 0 };
+				case ModelDimensions.YZ:
+					return new double[] { simulation.ZAxisUp ? 1 : -1, 0, 0 };
+				default:
+					throw new InvalidOperationException($"Unexpected dimension of simulation '{simulation.DimensionFlags}'");
 			}
 		}
 
