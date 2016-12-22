@@ -9,7 +9,7 @@ namespace OofemLink.Cli
 {
 	abstract class CommandLineOptions
 	{
-		[Option(Required = false, HelpText = "Prints all messages to standard output.")]
+		[Option(Required = false, HelpText = "Show detailed information for debugging")]
 		public bool Verbose { get; set; }
 	}
 
@@ -30,14 +30,14 @@ namespace OofemLink.Cli
 	{
 		public const string DefaultTaskName = @"$001$064";
 
-		[Value(index: 0, Required = false, MetaName = "Task-name", Default = DefaultTaskName, HelpText = "Name of task to import")]
+		[Option('l', "location", Required = true, HelpText = "Location of input data")]
+		public string Location { get; set; }
+
+		[Option("taskName", Required = false, Default = DefaultTaskName, HelpText = "Name of task to import")]
 		public string TaskName { get; set; }
 
 		[Option('s', "source", Required = false, Default = ImportSource.Default, HelpText = "Source of model data to import")]
 		public ImportSource Source { get; set; }
-
-		[Option('l', "location", Required = false, HelpText = "Location of input data (current directory is default)")]
-		public string Location { get; set; }
 
 		[Option("modelOnly", Required = false, HelpText = "Import model only (exclude attributes)")]
 		public bool ModelOnly { get; set; }
