@@ -155,27 +155,38 @@ namespace OofemLink.Services.Import.ESA
 		{
 			var attributeMapper = new AttributeMapper(model);
 
+			int timeFunctionId = 1;
+			var constantTimeFunction = new ConstantFunction
+			{
+				Id = timeFunctionId++,
+				ConstantValue = 1
+			};
+			model.TimeFunctions.Add(constantTimeFunction);
+
 			// IST file parsing
 			var istParser = new IstFileParser(attributeMapper, location, taskName, loggerFactory);
 			var cs_mat_bc_attributes = istParser.Parse().ToList();
+			foreach (var attribute in cs_mat_bc_attributes)
+			{
+				assignTimeFunctionToAttributeAndItsChildren(attribute, constantTimeFunction);
+			}
 			int attributesTotal = addAttributesToModel(cs_mat_bc_attributes, model, startAttributeId: 1);
 
 			// Ixxxx files parsing
-			int timeFunctionId = 1;
 			foreach (var timeStep in timeSteps)
 			{
-				var timeFunction = new PiecewiseLinFunction
+				var timeFunctionForCurrentStep = new PiecewiseLinFunction
 				{
 					Id = timeFunctionId++,
 					Values = { new TimeFunctionValue { TimeStep = timeStep, Value = 1.0 } }
 				};
-				model.TimeFunctions.Add(timeFunction);
+				model.TimeFunctions.Add(timeFunctionForCurrentStep);
 				int loadCaseNumber = timeStep.Number;
 				var ixxxxFileParser = new IxxxxFileParser(loadCaseNumber, attributeMapper, location, taskName, loggerFactory);
 				var lc_attributes = ixxxxFileParser.Parse().ToList();
 				foreach (var loadCase in lc_attributes)
 				{
-					loadCase.TimeFunction = timeFunction;
+					assignTimeFunctionToAttributeAndItsChildren(loadCase, timeFunctionForCurrentStep);
 				}
 				attributesTotal += addAttributesToModel(lc_attributes, model, startAttributeId: attributesTotal + 1);
 			}
@@ -193,6 +204,15 @@ namespace OofemLink.Services.Import.ESA
 				id += addedCount;
 			}
 			return id - startAttributeId; // returns count of attributes that were added
+		}
+
+		private void assignTimeFunctionToAttributeAndItsChildren(ModelAttribute attribute, TimeFunction timeFunction)
+		{
+			attribute.TimeFunction = timeFunction;
+			foreach (var attributeComposition in attribute.ChildAttributes)
+			{
+				assignTimeFunctionToAttributeAndItsChildren(attributeComposition.ChildAttribute, timeFunction);
+			}
 		}
 
 		#endregion

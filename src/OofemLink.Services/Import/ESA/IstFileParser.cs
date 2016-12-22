@@ -32,6 +32,7 @@ namespace OofemLink.Services.Import.ESA
 
 			var attributes = new List<ModelAttribute>();
 			var materialMap = new Dictionary<int, ModelAttribute>();
+			var pointFixRecords = new List<PointFixRecord>();
 
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
@@ -41,7 +42,7 @@ namespace OofemLink.Services.Import.ESA
 					if (line == "")
 						continue;
 					if (line.Length != 160)
-						throw new FormatException("Wrong IST file format. Each row (except the first) is expected to have exactly 160 characters.");
+						throw new FormatException($"Wrong {Extension} file format. Each row (except the first) is expected to have exactly 160 characters.");
 
 					LineTokens lineTokens = ParseLineTokens(line);
 
@@ -66,13 +67,31 @@ namespace OofemLink.Services.Import.ESA
 									number: lineTokens.Number.Value
 								);
 							break;
-						//case Codes.FIX:
-						//	throw new NotImplementedException();
+						case Codes.FIX:
+							pointFixRecords.AddRange(parseFixSection(lineTokens.DimensionType, lineTokens.QuantityType, lineTokens.Direction, lineTokens.SelectionType, lineTokens.Number.Value));
+							break;
 						default:
 							Logger.LogWarning("Ignoring token '{0}'", lineTokens.ItemType);
 							break;
 					}
 				}
+			}
+
+			var pointFixGroups = from fixRecord in pointFixRecords
+								 group fixRecord by fixRecord.VertexId into g
+								 select g;
+			foreach (var pointFixGroup in pointFixGroups)
+			{
+				var fs = pointFixGroup.ToList();
+				var bc = new ModelAttribute
+				{
+					Type = AttributeType.BoundaryCondition,
+					Name = BoundaryConditionNames.BoundaryCondition,
+					Target = AttributeTarget.Node,
+					Parameters = Invariant($"values {fs.Count} {string.Join(" ", Enumerable.Repeat(0, fs.Count))} dofs {fs.Count} {string.Join(" ", fs.Select(f => f.DofId))}")
+				};
+				attributeMapper.MapToVertex(bc, pointFixGroup.Key);
+				attributes.Add(bc);
 			}
 
 			return attributes;
@@ -203,6 +222,55 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
+		#region Parsing supports
+
+		private static IEnumerable<PointFixRecord> parseFixSection(string dimensionType, string quantityType, string direction, string selectionType, int number)
+		{
+			int dofId;
+			switch (direction)
+			{
+				case Codes.X:
+					dofId = 1;
+					break;
+				case Codes.Y:
+					dofId = 2;
+					break;
+				case Codes.Z:
+					dofId = 3;
+					break;
+				default:
+					throw new NotSupportedException($"direction '{direction}' is not supported");
+			}
+			switch (quantityType)
+			{
+				case Codes.DISP:
+					dofId += 0;
+					break;
+				case Codes.ROT:
+					dofId += 3;
+					break;
+				default:
+					throw new NotSupportedException($"quantity type '{quantityType}' is not supported");
+			}
+			switch (dimensionType)
+			{
+				case Codes.POIN:
+					if (selectionType != Codes.NODE)
+						throw new InvalidDataException($"Selection type '{Codes.NODE}' was expected instead of '{selectionType}'");
+					return new[] { new PointFixRecord(dofId, number) };
+				case Codes.LIN:
+					if (selectionType != Codes.LINE)
+						throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{selectionType}'");
+
+					throw new NotImplementedException(); // TODO: return array of two records - one for each node of the line
+
+				default:
+					throw new NotSupportedException($"dimension type '{dimensionType}' is not supported");
+			}
+		}
+
+		#endregion
+
 		#region File codes
 
 		private static class Codes
@@ -219,6 +287,7 @@ namespace OofemLink.Services.Import.ESA
 			public const string REL = nameof(REL);
 
 			// dimension types
+			public const string POIN = nameof(POIN);
 			public const string SURF = nameof(SURF);
 			public const string LIN = nameof(LIN);
 			public const string BEAM = nameof(BEAM);
@@ -227,6 +296,7 @@ namespace OofemLink.Services.Import.ESA
 			public const string FLAT = nameof(FLAT);
 
 			// quantity types
+			public const string DISP = nameof(DISP);
 			public const string ROT = nameof(ROT);
 			public const string SECT = nameof(SECT);
 			public const string STIF = nameof(STIF);
@@ -234,9 +304,30 @@ namespace OofemLink.Services.Import.ESA
 			public const string ORT = nameof(ORT);
 			public const string VARL = nameof(VARL);
 
+			// directions
+			public const string X = nameof(X);
+			public const string Y = nameof(Y);
+			public const string Z = nameof(Z);
+
 			// selection types
 			public const string MACR = nameof(MACR);
 			public const string LINE = nameof(LINE);
+			public const string NODE = nameof(NODE);
+		}
+
+		#endregion
+
+		#region FixInfo struct
+
+		private struct PointFixRecord
+		{
+			public PointFixRecord(int dofId, int targetId)
+			{
+				DofId = dofId;
+				VertexId = targetId;
+			}
+			public int DofId { get; }
+			public int VertexId { get; }
 		}
 
 		#endregion

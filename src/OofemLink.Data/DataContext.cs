@@ -106,8 +106,8 @@ namespace OofemLink.Data
 
 			// ATTRIBUTES
 			modelBuilder.Entity<ModelAttribute>().HasKey(a => new { a.ModelId, a.Id });
-			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.Model).WithMany(m => m.Attributes).HasForeignKey(a => a.ModelId);
-			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId }).IsRequired(false);
+			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.Model).WithMany(m => m.Attributes).HasForeignKey(a => a.ModelId).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<ModelAttribute>().HasOne(a => a.TimeFunction).WithMany().HasForeignKey(a => new { a.ModelId, a.TimeFunctionId });
 
 			modelBuilder.Entity<AttributeComposition>().HasKey(c => new { c.ModelId, c.ParentAttributeId, c.ChildAttributeId });
 			modelBuilder.Entity<AttributeComposition>().HasOne(c => c.Model).WithMany().HasForeignKey(c => c.ModelId).OnDelete(DeleteBehavior.Restrict);

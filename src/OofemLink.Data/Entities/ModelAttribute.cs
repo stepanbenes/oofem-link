@@ -24,7 +24,7 @@ namespace OofemLink.Data.Entities
 
 		public string Parameters { get; set; }
 
-		public int? TimeFunctionId { get; set; }
+		public int TimeFunctionId { get; set; }
 
 		public virtual TimeFunction TimeFunction { get; set; }
 
@@ -36,7 +36,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<SurfaceAttribute> SurfaceAttributes { get; set; } = new List<SurfaceAttribute>();
 		public virtual ICollection<VolumeAttribute> VolumeAttributes { get; set; } = new List<VolumeAttribute>();
 
-		#region GetHashCode & Equals
+		#region Overrides
 
 		public override int GetHashCode() => Id;
 
@@ -47,6 +47,8 @@ namespace OofemLink.Data.Entities
 				return false;
 			return this.ModelId == other.ModelId && this.Id == other.Id;
 		}
+
+		public override string ToString() => $"[{Type} attribute (id {Id})] {Name} {Parameters}";
 
 		#endregion
 	}

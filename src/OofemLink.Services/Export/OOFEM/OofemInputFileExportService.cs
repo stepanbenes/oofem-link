@@ -117,8 +117,8 @@ namespace OofemLink.Services.Export.OOFEM
 				timeFunctions = timeFunctionsQuery.ToList();
 			}
 
-			Dictionary<ModelAttribute, Set> attributeSetMap = createSetMapForModelAttributes(model.Id);
-			List<Set> sets = attributeSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
+			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id);
+			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			// =========================================================================================
 
@@ -205,7 +205,7 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddCrossSection(crossSection.Name, id: i + 1)
 					 .WithParameters(crossSection.Parameters)
 					 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
-					 .AppliesToSet(attributeSetMap[crossSection].Id);
+					 .AppliesToSet(attributeIdSetMap[crossSection.Id].Id);
 			}
 
 			addDebugComment(input, "MATERIALS");
@@ -218,8 +218,7 @@ namespace OofemLink.Services.Export.OOFEM
 			for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
 			{
 				var bc = boundaryConditions[i];
-				// TODO: handle case when bc.TimeFunctionId is null (TimeFunction is not assigned)
-				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId.Value).WithParameters(bc.Parameters).AppliesToSet(attributeSetMap[bc].Id);
+				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId).WithParameters(bc.Parameters).AppliesToSet(attributeIdSetMap[bc.Id].Id);
 			}
 
 			addDebugComment(input, "LOAD TIME FUNCTIONS");
@@ -263,11 +262,11 @@ namespace OofemLink.Services.Export.OOFEM
 			return resultQuery.ToList();
 		}
 
-		private Dictionary<ModelAttribute, Set> createSetMapForModelAttributes(int modelId)
+		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId)
 		{
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
 
-			var map = new Dictionary<ModelAttribute, Set>();
+			var map = new Dictionary<int, Set>();
 			int setId = 1;
 
 			// AttributeTarget.Node:
@@ -277,13 +276,12 @@ namespace OofemLink.Services.Export.OOFEM
 							where vertexAttribute.Attribute.Target == AttributeTarget.Node
 							from vertexNode in vertexAttribute.Vertex.VertexNodes
 							orderby vertexNode.NodeId
-							group vertexNode.NodeId by vertexAttribute.Attribute into g
-							select g;
+							group vertexNode.NodeId by vertexAttribute.AttributeId;
 				foreach (var group in query)
 				{
-					ModelAttribute attribute = group.Key;
+					int attributeId = group.Key;
 					Set set = new Set(setId++).WithNodes(group.ToArray());
-					map.Add(attribute, set);
+					map.Add(attributeId, set);
 				}
 			}
 
@@ -296,13 +294,12 @@ namespace OofemLink.Services.Export.OOFEM
 							where macroCurve.CurveId == curveAttribute.CurveId
 							from curveElement in macroCurve.Curve.CurveElements
 							orderby curveElement.ElementId, curveElement.Rank
-							group new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank) by curveAttribute.Attribute into g
-							select g;
+							group new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank) by curveAttribute.AttributeId;
 				foreach (var group in query)
 				{
-					ModelAttribute attribute = group.Key;
+					int attributeId = group.Key;
 					Set set = new Set(setId++).WithElementEdges(group.ToArray());
-					map.Add(attribute, set);
+					map.Add(attributeId, set);
 				}
 			}
 
@@ -315,13 +312,12 @@ namespace OofemLink.Services.Export.OOFEM
 							where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
 							from surfaceElement in macroSurface.Surface.SurfaceElements
 							orderby surfaceElement.ElementId, surfaceElement.Rank
-							group new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank) by surfaceAttribute.Attribute into g
-							select g;
+							group new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank) by surfaceAttribute.AttributeId;
 				foreach (var group in query)
 				{
-					ModelAttribute attribute = group.Key;
+					int attributeId = group.Key;
 					Set set = new Set(setId++).WithElementSurfaces(group.ToArray());
-					map.Add(attribute, set);
+					map.Add(attributeId, set);
 				}
 			}
 
@@ -333,29 +329,26 @@ namespace OofemLink.Services.Export.OOFEM
 									  from macroCurve in curveAttribute.Macro.MacroCurves
 									  where macroCurve.CurveId == curveAttribute.CurveId
 									  from curveElement in macroCurve.Curve.CurveElements
-									  group curveElement.ElementId by curveAttribute.Attribute into g
-									  select g;
+									  group curveElement.ElementId by curveAttribute.AttributeId;
 				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
 									  where surfaceAttribute.ModelId == modelId
 									  where surfaceAttribute.Attribute.Target == AttributeTarget.Volume
 									  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
 									  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
 									  from surfaceElement in macroSurface.Surface.SurfaceElements
-									  group surfaceElement.ElementId by surfaceAttribute.Attribute into g
-									  select g;
+									  group surfaceElement.ElementId by surfaceAttribute.AttributeId;
 				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
 									  where volumeAttribute.ModelId == modelId
 									  where volumeAttribute.Attribute.Target == AttributeTarget.Volume
 									  from volumeElement in volumeAttribute.Volume.VolumeElements
-									  group volumeElement.ElementId by volumeAttribute.Attribute into g
-									  select g;
+									  group volumeElement.ElementId by volumeAttribute.AttributeId;
 				var query = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
 
 				foreach (var group in query)
 				{
-					ModelAttribute attribute = group.Key;
+					int attributeId = group.Key;
 					Set set = new Set(setId++).WithElements(group.OrderBy(id => id).ToArray());
-					map.Add(attribute, set);
+					map.Add(attributeId, set);
 				}
 			}
 
