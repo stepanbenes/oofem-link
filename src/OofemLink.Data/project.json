@@ -1,5 +1,6 @@
 {
-    "version": "0.1.0-*",
+    "title": "OofemLink.Data",
+    "version": "0.2.0-*",
 
     "dependencies": {
         "AutoMapper": "5.2.0",
@@ -8,7 +9,7 @@
         "Microsoft.EntityFrameworkCore.Sqlite": "1.1.0",
         "Microsoft.EntityFrameworkCore.SqlServer": "1.1.0",
         "NETStandard.Library": "1.6.1",
-        "OofemLink.Common": "0.1.0-*"
+        "OofemLink.Common": "0.2.0-*"
     },
 
     "frameworks": {

@@ -2,7 +2,7 @@
     "title": "OOFEM-link CLI",
     "copyright": "Copyright (c) 2016-2017 OOFEM team",
     "description": "Command-line interface for OOFEM solver. File conversion engine, execution control, model and results database administration.",
-    "version": "0.1.0-*",
+    "version": "0.2.0-*",
     "authors": [ "OOFEM team" ],
     
     "buildOptions": {
@@ -18,8 +18,8 @@
             "type": "platform",
             "version": "1.1.0"
         },
-        "OofemLink.Services": "0.1.0-*",
-        "OofemLink.Common": "0.1.0-*",
+        "OofemLink.Services": "0.2.0-*",
+        "OofemLink.Common": "0.2.0-*",
         "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.0"
     },
 
