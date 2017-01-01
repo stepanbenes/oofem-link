@@ -112,7 +112,10 @@ namespace OofemLink.Services.Import.ESA
 								LineValues line2_values = ParseLineValues(streamReader.ReadLine());
 
 								return createAttributeFromBeamCrossSectionCharacteristics(number,
-										Ix: line1_values[3] ?? 0.0, // TODO: is it ok to replace missing values with zeroes? Or should throw exception if some important parameter is missing?
+										Ax: line1_values[0] ?? 0.0, // TODO: is it ok to replace missing values with zeroes? Or should throw exception if some important parameter is missing?
+										Ay: line1_values[1] ?? 0.0,
+										Az: line1_values[2] ?? 0.0,
+										Ix: line1_values[3] ?? 0.0,
 										Iy: line1_values[4] ?? 0.0,
 										Iz: line1_values[5] ?? 0.0,
 										E: line1_values[6] ?? 0.0,
@@ -146,9 +149,8 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private static ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
+		private static ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ax /*ignored*/, double Ay, double Az, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
 		{
-			const double beamShearCoeff = 1.0e18;
 			const double tAlpha = 0.0;
 
 			var crossSection = new ModelAttribute
@@ -157,7 +159,7 @@ namespace OofemLink.Services.Import.ESA
 				LocalNumber = number,
 				Name = CrossSectionNames.SimpleCS,
 				Target = AttributeTarget.Volume, // cross-section is applied to element volume
-				Parameters = Invariant($"area {area} Iy {Iy} Iz {Iz} Ik {Ix} beamShearCoeff {beamShearCoeff}")
+				Parameters = Invariant($"area {area} Iy {Iy} Iz {Iz} Ik {Ix} shearareay {Ay} shearareaz {Az}")
 			};
 
 			var material = new ModelAttribute
