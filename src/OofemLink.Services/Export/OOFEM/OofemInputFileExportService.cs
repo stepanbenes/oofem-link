@@ -68,6 +68,8 @@ namespace OofemLink.Services.Export.OOFEM
 			if (model.Meshes.Count > 1)
 				throw new NotSupportedException($"Multiple meshes for single model are not yet supported (model {model.Id}).");
 
+			var mesh = model.Meshes.Single();
+
 			List<Node> nodes;
 			List<Element> elements;
 			List<ModelAttribute> crossSections;
@@ -78,8 +80,6 @@ namespace OofemLink.Services.Export.OOFEM
 
 			// load all model entities from db
 			{
-				var mesh = model.Meshes.Single();
-
 				// TODO: [Optimization] are orderings necessary?
 
 				var nodesQuery = from node in dataContext.Nodes
@@ -126,7 +126,7 @@ namespace OofemLink.Services.Export.OOFEM
 				elementLcsMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple lcs attributes per element
 			}
 			
-			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id);
+			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			// =========================================================================================
@@ -292,10 +292,9 @@ namespace OofemLink.Services.Export.OOFEM
 			return resultQuery.ToList();
 		}
 
-		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId)
+		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId)
 		{
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
-			// TODO: filter by meshId - this does not work for multiple meshes per model
 
 			var map = new Dictionary<int, Set>();
 			int setId = 1;
@@ -306,6 +305,7 @@ namespace OofemLink.Services.Export.OOFEM
 							where vertexAttribute.ModelId == modelId
 							where vertexAttribute.Attribute.Target == AttributeTarget.Node
 							from vertexNode in vertexAttribute.Vertex.VertexNodes
+							where vertexNode.MeshId == meshId
 							orderby vertexNode.NodeId
 							group vertexNode.NodeId by vertexAttribute.AttributeId;
 				foreach (var group in query)
@@ -324,6 +324,7 @@ namespace OofemLink.Services.Export.OOFEM
 							from macroCurve in curveAttribute.Macro.MacroCurves
 							where macroCurve.CurveId == curveAttribute.CurveId
 							from curveElement in macroCurve.Curve.CurveElements
+							where curveElement.MeshId == meshId
 							orderby curveElement.ElementId, curveElement.Rank
 							group new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank) by curveAttribute.AttributeId;
 				foreach (var group in query)
@@ -342,6 +343,7 @@ namespace OofemLink.Services.Export.OOFEM
 							from macroSurface in surfaceAttribute.Macro.MacroSurfaces
 							where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
 							from surfaceElement in macroSurface.Surface.SurfaceElements
+							where surfaceElement.MeshId == meshId
 							orderby surfaceElement.ElementId, surfaceElement.Rank
 							group new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank) by surfaceAttribute.AttributeId;
 				foreach (var group in query)
@@ -360,6 +362,7 @@ namespace OofemLink.Services.Export.OOFEM
 									  from macroCurve in curveAttribute.Macro.MacroCurves
 									  where macroCurve.CurveId == curveAttribute.CurveId
 									  from curveElement in macroCurve.Curve.CurveElements
+									  where curveElement.MeshId == meshId
 									  group curveElement.ElementId by curveAttribute.AttributeId;
 				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
 									  where surfaceAttribute.ModelId == modelId
@@ -367,11 +370,13 @@ namespace OofemLink.Services.Export.OOFEM
 									  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
 									  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
 									  from surfaceElement in macroSurface.Surface.SurfaceElements
+									  where surfaceElement.MeshId == meshId
 									  group surfaceElement.ElementId by surfaceAttribute.AttributeId;
 				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
 									  where volumeAttribute.ModelId == modelId
 									  where volumeAttribute.Attribute.Target == AttributeTarget.Volume
 									  from volumeElement in volumeAttribute.Volume.VolumeElements
+									  where volumeElement.MeshId == meshId
 									  group volumeElement.ElementId by volumeAttribute.AttributeId;
 				var query = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
 
