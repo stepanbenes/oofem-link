@@ -36,18 +36,8 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public void ExportSimulation(int simulationId)
 		{
-			using (var input = new InputBuilder(inputFileFullPath))
-			{
-				createOofemInput(input, simulationId);
-			}
-		}
+			// TODO: refactor this method to DataAccess.ModelService class
 
-		#endregion
-
-		#region Private methods
-
-		private void createOofemInput(InputBuilder input, int simulationId)
-		{
 			// load simulation from db
 			var simulation = dataContext.Simulations
 								.Include(s => s.Project)
@@ -125,147 +115,153 @@ namespace OofemLink.Services.Export.OOFEM
 				timeFunctions = timeFunctionsQuery.ToList();
 				elementLcsMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple lcs attributes per element
 			}
-			
+
 			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			// =========================================================================================
-
-			// Output file name
-			input.AddPlainText(outputFileFullPath);
-			// Description
-			input.AddPlainText($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");
-
-			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
-			input.AddEngineeringModel(
-					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
-					numberOfTimeSteps: simulation.TimeSteps.Count,
-					numberOfExportModules: 1 /**/
-				);
-
-			// the export module is vtk
-			// TODO: this is hard-coded now, enable this to be configurable
-			input.AddPlainText("vtkxml tstep_all domain_all primvars 1 1");
-
-			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
-			// TODO: avoid hard-coded string
-			input.AddDomain("3dshell");
-
-			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
-			// TODO: avoid hard-coded string
-			input.AddPlainText("OutputManager tstep_all dofman_all element_all");
-
-			// number of dofmanagers(generalization of nodes), number of elements, n of cross-sections, n of materials, boundary conditions, initial conditions, load time functions, and sets
-			input.AddRecordCounts(
-					dofManagerCount: nodes.Count,
-					elementCount: elements.Count,
-					crossSectionCount: crossSections.Count,
-					materialCount: materials.Count,
-					boundaryConditionCount: boundaryConditions.Count,
-					initialConditionCount: 0, /*no initial conditions for time-independent analysis (statics)*/
-					timeFunctionCount: timeFunctions.Count,
-					setCount: sets.Count
-				);
-
-			addDebugComment(input, "NODES");
-			foreach (var node in nodes)
+			using (var input = new InputBuilder(inputFileFullPath))
 			{
-				input.AddNode(node.Id).WithCoordinates(node.X, node.Y, node.Z);
-			}
+				// Output file name
+				input.AddPlainText(outputFileFullPath);
+				// Description
+				input.AddPlainText($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");
 
-			addDebugComment(input, "ELEMENTS");
-			foreach (var element in elements)
-			{
-				var nodeIds = (from elementNode in element.ElementNodes
-							   orderby elementNode.Rank
-							   select elementNode.NodeId).ToArray();
+				// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+				input.AddEngineeringModel(
+						engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+						numberOfTimeSteps: simulation.TimeSteps.Count,
+						numberOfExportModules: 1 /**/
+					);
 
-				switch (element.Type)
+				// the export module is vtk
+				// TODO: this is hard-coded now, enable this to be configurable
+				input.AddPlainText("vtkxml tstep_all domain_all primvars 1 1");
+
+				// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
+				// TODO: avoid hard-coded string
+				input.AddDomain("3dshell");
+
+				// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
+				// TODO: avoid hard-coded string
+				input.AddPlainText("OutputManager tstep_all dofman_all element_all");
+
+				// number of dofmanagers(generalization of nodes), number of elements, n of cross-sections, n of materials, boundary conditions, initial conditions, load time functions, and sets
+				input.AddRecordCounts(
+						dofManagerCount: nodes.Count,
+						elementCount: elements.Count,
+						crossSectionCount: crossSections.Count,
+						materialCount: materials.Count,
+						boundaryConditionCount: boundaryConditions.Count,
+						initialConditionCount: 0, /*no initial conditions for time-independent analysis (statics)*/
+						timeFunctionCount: timeFunctions.Count,
+						setCount: sets.Count
+					);
+
+				addDebugComment(input, "NODES");
+				foreach (var node in nodes)
 				{
-					case CellType.LineLinear:
-						Debug.Assert(nodeIds.Length == 2);
-						ModelAttribute lcsAttribute;
-						string lcsParameter;
-						if (elementLcsMap.TryGetValue(element.Id, out lcsAttribute))
-							lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
-						else
-							lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-						input.AddElement("beam3d", element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
-						break;
-					case CellType.TriangleLinear:
-						Debug.Assert(nodeIds.Length == 3);
-						input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
-						break;
-					case CellType.QuadLinear:
-						Debug.Assert(nodeIds.Length == 4);
-						input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds);
-						break;
-					default:
-						throw new NotSupportedException($"Element type {element.Type} is not supported.");
+					input.AddNode(node.Id).WithCoordinates(node.X, node.Y, node.Z);
 				}
-			}
 
-			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
-			for (int index = 0; index < materials.Count; index++)
-			{
-				attributeIdToMaterialIdMap.Add(materials[index].Id, index + 1);
-			}
-
-			addDebugComment(input, "CROSS-SECTIONS");
-			for (int i = 0; i < crossSections.Count; i++)
-			{
-				var crossSection = crossSections[i];
-				int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
-				input.AddCrossSection(crossSection.Name, id: i + 1)
-					 .WithParameter(crossSection.Parameters)
-					 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
-					 .AppliesToSet(attributeIdSetMap[crossSection.Id].Id);
-			}
-
-			addDebugComment(input, "MATERIALS");
-			foreach (var material in materials)
-			{
-				input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameter(material.Parameters);
-			}
-
-			addDebugComment(input, "BOUNDARY CONDITIONS");
-			for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
-			{
-				var bc = boundaryConditions[i];
-				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId).WithParameter(bc.Parameters).AppliesToSet(attributeIdSetMap[bc.Id].Id);
-			}
-
-			addDebugComment(input, "LOAD TIME FUNCTIONS");
-			foreach (var timeFunction in timeFunctions)
-			{
-				var timeFunctionBuilder = input.AddTimeFunction(timeFunction.Name, timeFunction.Id);
-				switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
+				addDebugComment(input, "ELEMENTS");
+				foreach (var element in elements)
 				{
-					case TimeFunctionNames.ConstantFunction:
-						timeFunctionBuilder.WithValue(((ConstantFunction)timeFunction).ConstantValue);
-						break;
-					case TimeFunctionNames.PeakFunction:
-						var tfValue = timeFunction.Values.Single();
-						timeFunctionBuilder.InTime(tfValue.TimeStep.Time ?? tfValue.TimeStep.Number).WithValue(tfValue.Value);
-						break;
-					case TimeFunctionNames.PiecewiseLinFunction:
-						timeFunctionBuilder.WithTimeValuePairs(createTimeStepFunctionValuePairs(simulation, timeFunction));
-						break;
-					default:
-						throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
-				}
-			}
+					var nodeIds = (from elementNode in element.ElementNodes
+								   orderby elementNode.Rank
+								   select elementNode.NodeId).ToArray();
 
-			addDebugComment(input, "SETS");
-			foreach (var set in sets)
-			{
-				input.AddSet(set.Id)
-					.WithNodes(set.Nodes)
-					.WithElements(set.Elements)
-					.WithElementEdges(set.ElementEdges)
-					.WithElementSurfaces(set.ElementSurfaces);
+					switch (element.Type)
+					{
+						case CellType.LineLinear:
+							Debug.Assert(nodeIds.Length == 2);
+							ModelAttribute lcsAttribute;
+							string lcsParameter;
+							if (elementLcsMap.TryGetValue(element.Id, out lcsAttribute))
+								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+							else
+								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
+							input.AddElement("beam3d", element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
+							break;
+						case CellType.TriangleLinear:
+							Debug.Assert(nodeIds.Length == 3);
+							input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
+							break;
+						case CellType.QuadLinear:
+							Debug.Assert(nodeIds.Length == 4);
+							input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds);
+							break;
+						default:
+							throw new NotSupportedException($"Element type {element.Type} is not supported.");
+					}
+				}
+
+				var attributeIdToMaterialIdMap = new Dictionary<int, int>();
+				for (int index = 0; index < materials.Count; index++)
+				{
+					attributeIdToMaterialIdMap.Add(materials[index].Id, index + 1);
+				}
+
+				addDebugComment(input, "CROSS-SECTIONS");
+				for (int i = 0; i < crossSections.Count; i++)
+				{
+					var crossSection = crossSections[i];
+					int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
+					input.AddCrossSection(crossSection.Name, id: i + 1)
+						 .WithParameter(crossSection.Parameters)
+						 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
+						 .AppliesToSet(attributeIdSetMap[crossSection.Id].Id);
+				}
+
+				addDebugComment(input, "MATERIALS");
+				foreach (var material in materials)
+				{
+					input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameter(material.Parameters);
+				}
+
+				addDebugComment(input, "BOUNDARY CONDITIONS");
+				for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
+				{
+					var bc = boundaryConditions[i];
+					input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId).WithParameter(bc.Parameters).AppliesToSet(attributeIdSetMap[bc.Id].Id);
+				}
+
+				addDebugComment(input, "LOAD TIME FUNCTIONS");
+				foreach (var timeFunction in timeFunctions)
+				{
+					var timeFunctionBuilder = input.AddTimeFunction(timeFunction.Name, timeFunction.Id);
+					switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
+					{
+						case TimeFunctionNames.ConstantFunction:
+							timeFunctionBuilder.WithValue(((ConstantFunction)timeFunction).ConstantValue);
+							break;
+						case TimeFunctionNames.PeakFunction:
+							var tfValue = timeFunction.Values.Single();
+							timeFunctionBuilder.InTime(tfValue.TimeStep.Time ?? tfValue.TimeStep.Number).WithValue(tfValue.Value);
+							break;
+						case TimeFunctionNames.PiecewiseLinFunction:
+							timeFunctionBuilder.WithTimeValuePairs(createTimeStepFunctionValuePairs(simulation, timeFunction));
+							break;
+						default:
+							throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
+					}
+				}
+
+				addDebugComment(input, "SETS");
+				foreach (var set in sets)
+				{
+					input.AddSet(set.Id)
+						.WithNodes(set.Nodes)
+						.WithElements(set.Elements)
+						.WithElementEdges(set.ElementEdges)
+						.WithElementSurfaces(set.ElementSurfaces);
+				}
 			}
 		}
+
+		#endregion
+
+		#region Private methods
 
 		private string getDefaultZAxisParameterBeam3d(ModelDimensions dimensionFlags)
 		{
