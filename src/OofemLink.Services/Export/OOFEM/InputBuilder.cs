@@ -140,16 +140,15 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		IElementRecordBuilder IElementRecordBuilder.WithZAxis(double[] zAxisDirection)
+		IElementRecordBuilder IElementRecordBuilder.WithParameter(string parameter)
 		{
-			Debug.Assert(zAxisDirection.Length == 3);
-			streamWriter.Write($" {Keyword.zaxis} {zAxisDirection.Length} {string.Join(" ", zAxisDirection.Select(x => x.ToString(CultureInfo.InvariantCulture)))}");
+			streamWriter.Write(" " + parameter);
 			return this;
 		}
 
-		ICrossSectionBuilder ICrossSectionBuilder.WithParameters(string parameters)
+		ICrossSectionBuilder ICrossSectionBuilder.WithParameter(string parameter)
 		{
-			streamWriter.Write(" " + parameters);
+			streamWriter.Write(" " + parameter);
 			return this;
 		}
 
@@ -165,9 +164,9 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		void IMaterialBuilder.WithParameters(string parameters)
+		void IMaterialBuilder.WithParameter(string parameter)
 		{
-			streamWriter.Write(" " + parameters);
+			streamWriter.Write(" " + parameter);
 		}
 
 		IBoundaryConditionBuilder IBoundaryConditionBuilder.InTime(int timeFunctionId)
@@ -176,9 +175,9 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		IBoundaryConditionBuilder IBoundaryConditionBuilder.WithParameters(string parameters)
+		IBoundaryConditionBuilder IBoundaryConditionBuilder.WithParameter(string parameter)
 		{
-			streamWriter.Write(" " + parameters);
+			streamWriter.Write(" " + parameter);
 			return this;
 		}
 
@@ -267,25 +266,25 @@ namespace OofemLink.Services.Export.OOFEM
 	interface IElementRecordBuilder
 	{
 		IElementRecordBuilder WithNodes(params int[] nodeIds);
-		IElementRecordBuilder WithZAxis(double[] zAxisDirection);
+		IElementRecordBuilder WithParameter(string parameter);
 	}
 
 	interface ICrossSectionBuilder
 	{
-		ICrossSectionBuilder WithParameters(string parameters);
+		ICrossSectionBuilder WithParameter(string parameter);
 		ICrossSectionBuilder HasMaterial(int materialId);
 		ICrossSectionBuilder AppliesToSet(int setId);
 	}
 
 	interface IMaterialBuilder
 	{
-		void WithParameters(string parameters);
+		void WithParameter(string parameter);
 	}
 
 	interface IBoundaryConditionBuilder
 	{
 		IBoundaryConditionBuilder InTime(int timeFunctionId);
-		IBoundaryConditionBuilder WithParameters(string parameters);
+		IBoundaryConditionBuilder WithParameter(string parameter);
 		IBoundaryConditionBuilder AppliesToSet(int setId);
 	}
 

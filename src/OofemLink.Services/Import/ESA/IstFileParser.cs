@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using OofemLink.Common;
+using OofemLink.Common.MathPhys;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.OofemNames;
 using OofemLink.Data.Entities;
@@ -17,11 +17,13 @@ namespace OofemLink.Services.Import.ESA
 	class IstFileParser : AttributeFileParserBase
 	{
 		readonly AttributeMapper attributeMapper;
+		readonly CoordinateTransformService coordinateTransformService;
 
-		public IstFileParser(AttributeMapper attributeMapper, string location, string taskName, ILoggerFactory loggerFactory)
+		public IstFileParser(AttributeMapper attributeMapper, CoordinateTransformService coordinateTransformService, string location, string taskName, ILoggerFactory loggerFactory)
 			: base(location, taskName, loggerFactory)
 		{
 			this.attributeMapper = attributeMapper;
+			this.coordinateTransformService = coordinateTransformService;
 		}
 
 		public override string Extension => "IST";
@@ -68,7 +70,36 @@ namespace OofemLink.Services.Import.ESA
 								);
 							break;
 						case Codes.FIX:
-							pointFixRecords.AddRange(parseFixSection(lineTokens.DimensionType, lineTokens.QuantityType, lineTokens.Direction, lineTokens.SelectionType, lineTokens.Number.Value));
+							{
+								var fixRecords = parseFixSection(lineTokens.DimensionType, lineTokens.QuantityType, lineTokens.Direction, lineTokens.SelectionType, lineTokens.Number.Value);
+								pointFixRecords.AddRange(fixRecords);
+							}
+							break;
+						case Codes.LCS:
+							{
+								if (lineTokens.QuantityType == Codes.ROT)
+								{
+									switch (lineTokens.Direction)
+									{
+										case Codes.Y:
+										case Codes.Z:
+											var lcsAttribute = parseLocalCoordinateSystemForLine(
+																	direction: lineTokens.Direction,
+																	lcsType: lineTokens[4],
+																	selectionType: lineTokens.SelectionType,
+																	number: lineTokens.Number.Value,
+																	x: lineTokens.X.Value, y: lineTokens.Y.Value, z: lineTokens.Z.Value);
+											attributes.Add(lcsAttribute);
+											break;
+										case Codes.ALPHA:
+										case Codes.X:
+										default:
+											throw new NotSupportedException($"direction {lineTokens.Direction} is not supported in section {Codes.LCS}");
+									}
+								}
+								else
+									throw new NotSupportedException($"quantity type {lineTokens.QuantityType} is not supported in section {Codes.LCS}");
+							}
 							break;
 						default:
 							Logger.LogWarning("Ignoring token '{0}'", lineTokens.ItemType);
@@ -78,8 +109,7 @@ namespace OofemLink.Services.Import.ESA
 			}
 
 			var pointFixGroups = from fixRecord in pointFixRecords
-								 group fixRecord by fixRecord.VertexId into g
-								 select g;
+								 group fixRecord by fixRecord.VertexId;
 			foreach (var pointFixGroup in pointFixGroups)
 			{
 				var fs = pointFixGroup.ToList();
@@ -207,6 +237,9 @@ namespace OofemLink.Services.Import.ESA
 								attributeMapper.MapToCurve(materialAttribute, curveId: lineId, macroId: number);
 							}
 							break;
+						case Codes.ROT:
+							// ignore PHYS BEAM ROT, information should be duplicated in LCS section
+							break;
 						case Codes.VARL:
 							throw new NotImplementedException();
 						default:
@@ -273,6 +306,39 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
+		#region LCS parsing
+
+		private ModelAttribute parseLocalCoordinateSystemForLine(string direction, string lcsType, string selectionType, int number, double x, double y, double z)
+		{
+			Debug.Assert(direction == Codes.Y || direction == Codes.Z);
+			if (lcsType == Codes.GLOB)
+			{
+				if (selectionType == Codes.LINE)
+				{
+					Vector3d localCoordinates;
+					if (direction == Codes.Y)
+						localCoordinates = coordinateTransformService.CalculateLocalZAxisForLineFromGlobalYAxisTargetPoint(lineId: number, yTargetPoint: new Vector3d(x, y, z));
+					else
+						localCoordinates = coordinateTransformService.CalculateLocalZAxisForLineFromGlobalZAxisTargetPoint(lineId: number, zTargetPoint: new Vector3d(x, y, z));
+					var lcsAttribute = new ModelAttribute
+					{
+						Type = AttributeType.LocalCoordinateSystem,
+						Name = "zaxis",
+						Target = AttributeTarget.Volume,
+						Parameters = Invariant($"3 {localCoordinates.X} {localCoordinates.Y} {localCoordinates.Z}")
+					};
+					attributeMapper.MapToCurve(lcsAttribute, curveId: number);
+					return lcsAttribute;
+				}
+				else
+					throw new NotSupportedException($"Selection type '{selectionType}' is not supported in LCS section");
+			}
+			else
+				throw new NotSupportedException($"Lcs type '{lcsType}' is not supported in LCS section");
+		}
+
+		#endregion
+
 		#region File codes
 
 		private static class Codes
@@ -310,11 +376,14 @@ namespace OofemLink.Services.Import.ESA
 			public const string X = nameof(X);
 			public const string Y = nameof(Y);
 			public const string Z = nameof(Z);
+			public const string ALPHA = nameof(ALPHA);
 
 			// selection types
 			public const string MACR = nameof(MACR);
 			public const string LINE = nameof(LINE);
 			public const string NODE = nameof(NODE);
+
+			public const string GLOB = nameof(GLOB);
 		}
 
 		#endregion

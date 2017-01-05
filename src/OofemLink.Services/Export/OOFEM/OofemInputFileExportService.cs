@@ -74,6 +74,7 @@ namespace OofemLink.Services.Export.OOFEM
 			List<ModelAttribute> materials;
 			List<ModelAttribute> boundaryConditions;
 			List<TimeFunction> timeFunctions;
+			Dictionary<int, ModelAttribute> elementLcsMap;
 
 			// load all model entities from db
 			{
@@ -108,6 +109,12 @@ namespace OofemLink.Services.Export.OOFEM
 										 where timeFunction.ModelId == model.Id
 										 orderby timeFunction.Id
 										 select timeFunction;
+				var lcsQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
+							   where curveAttribute.ModelId == model.Id
+							   where curveAttribute.Attribute.Type == AttributeType.LocalCoordinateSystem
+							   from curveElement in curveAttribute.Curve.CurveElements
+							   where curveElement.MeshId == mesh.Id
+							   group curveAttribute.Attribute by curveElement.ElementId;
 
 				// materialize queries
 				nodes = nodesQuery.ToList();
@@ -116,8 +123,9 @@ namespace OofemLink.Services.Export.OOFEM
 				materials = materialsQuery.ToList();
 				boundaryConditions = boundaryConditionsQuery.ToList();
 				timeFunctions = timeFunctionsQuery.ToList();
+				elementLcsMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple lcs attributes per element
 			}
-
+			
 			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id);
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
@@ -176,7 +184,13 @@ namespace OofemLink.Services.Export.OOFEM
 				{
 					case CellType.LineLinear:
 						Debug.Assert(nodeIds.Length == 2);
-						input.AddElement("beam3d", element.Id).WithNodes(nodeIds).WithZAxis(getDefaultZAxisVectorForBeam3d(simulation)); // TODO: grab zAxis parameter from attributes, apply this if none is found
+						ModelAttribute lcsAttribute;
+						string lcsParameter;
+						if (elementLcsMap.TryGetValue(element.Id, out lcsAttribute))
+							lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+						else
+							lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
+						input.AddElement("beam3d", element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
 						break;
 					case CellType.TriangleLinear:
 						Debug.Assert(nodeIds.Length == 3);
@@ -203,7 +217,7 @@ namespace OofemLink.Services.Export.OOFEM
 				var crossSection = crossSections[i];
 				int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
 				input.AddCrossSection(crossSection.Name, id: i + 1)
-					 .WithParameters(crossSection.Parameters)
+					 .WithParameter(crossSection.Parameters)
 					 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
 					 .AppliesToSet(attributeIdSetMap[crossSection.Id].Id);
 			}
@@ -211,14 +225,14 @@ namespace OofemLink.Services.Export.OOFEM
 			addDebugComment(input, "MATERIALS");
 			foreach (var material in materials)
 			{
-				input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameters(material.Parameters);
+				input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameter(material.Parameters);
 			}
 
 			addDebugComment(input, "BOUNDARY CONDITIONS");
 			for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
 			{
 				var bc = boundaryConditions[i];
-				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId).WithParameters(bc.Parameters).AppliesToSet(attributeIdSetMap[bc.Id].Id);
+				input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId).WithParameter(bc.Parameters).AppliesToSet(attributeIdSetMap[bc.Id].Id);
 			}
 
 			addDebugComment(input, "LOAD TIME FUNCTIONS");
@@ -253,19 +267,19 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 		}
 
-		private double[] getDefaultZAxisVectorForBeam3d(Simulation simulation)
+		private string getDefaultZAxisParameterBeam3d(ModelDimensions dimensionFlags)
 		{
-			switch (simulation.DimensionFlags)
+			switch (dimensionFlags)
 			{
 				case ModelDimensions.XY:
 				case ModelDimensions.XYZ:
-					return new double[] { 0, 0, simulation.ZAxisUp ? 1 : -1 };
+					return $"{Keyword.zaxis} 3 0 0 1";
 				case ModelDimensions.XZ:
-					return new double[] { 0, simulation.ZAxisUp ? 1 : -1, 0 };
+					return $"{Keyword.zaxis} 3 0 1 0";
 				case ModelDimensions.YZ:
-					return new double[] { simulation.ZAxisUp ? 1 : -1, 0, 0 };
+					return $"{Keyword.zaxis} 3 1 0 0";
 				default:
-					throw new InvalidOperationException($"Unexpected dimension of simulation '{simulation.DimensionFlags}'");
+					throw new InvalidOperationException($"Unexpected dimension of simulation '{dimensionFlags}'");
 			}
 		}
 
@@ -281,6 +295,7 @@ namespace OofemLink.Services.Export.OOFEM
 		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId)
 		{
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
+			// TODO: filter by meshId - this does not work for multiple meshes per model
 
 			var map = new Dictionary<int, Set>();
 			int setId = 1;

@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using OofemLink.Data.Entities;
 using OofemLink.Common.OofemNames;
 using OofemLink.Common.Enumerations;
-using OofemLink.Common;
+using OofemLink.Common.MathPhys;
 using static System.FormattableString;
 
 namespace OofemLink.Services.Import.ESA

@@ -11,5 +11,6 @@ namespace OofemLink.Common.Enumerations
 		CrossSection,
 		BoundaryCondition,
 		InitialCondition,
+		LocalCoordinateSystem
     }
 }

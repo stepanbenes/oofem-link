@@ -154,6 +154,7 @@ namespace OofemLink.Services.Import.ESA
 		private void importAttributesToModel(Model model, IEnumerable<TimeStep> timeSteps)
 		{
 			var attributeMapper = new AttributeMapper(model);
+			var coordinateTransformService = new CoordinateTransformService(model);
 
 			int timeFunctionId = 1;
 			var constantTimeFunction = new ConstantFunction
@@ -164,7 +165,7 @@ namespace OofemLink.Services.Import.ESA
 			model.TimeFunctions.Add(constantTimeFunction);
 
 			// IST file parsing
-			var istParser = new IstFileParser(attributeMapper, location, taskName, loggerFactory);
+			var istParser = new IstFileParser(attributeMapper, coordinateTransformService, location, taskName, loggerFactory);
 			var cs_mat_bc_attributes = istParser.Parse().ToList();
 			foreach (var attribute in cs_mat_bc_attributes)
 			{
