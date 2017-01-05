@@ -141,12 +141,16 @@ namespace OofemLink.Services.Import.ESA
 				}
 			}
 
-			// parse NUMESA file (Vertex - Node links)
-			var numesaFileParser = new NumesaFileParser(location, taskName, loggerFactory);
-			foreach (VertexNode vertexNode in numesaFileParser.ParseVertexNodes())
+			// add Vertex-Node mapping
+			foreach (Vertex vertex in model.Vertices)
 			{
-				vertexNode.Model = model;
-				vertexNode.Mesh = mesh;
+				var vertexNode = new VertexNode
+				{
+					VertexId = vertex.Id,
+					NodeId = vertex.Id, // node id is same as vertex id!
+					Model = model,
+					Mesh = mesh
+				};
 				mesh.VertexNodes.Add(vertexNode);
 			}
 		}

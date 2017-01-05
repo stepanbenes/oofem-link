@@ -18,7 +18,7 @@ namespace OofemLink.Services.Import.ESA
 
 		public override string Extension => "NUMESA";
 
-		public IEnumerable<VertexNode> ParseVertexNodes()
+		public IEnumerable<NodeMap> ParseVertexNodes()
 		{
 			LogStart();
 
@@ -34,13 +34,24 @@ namespace OofemLink.Services.Import.ESA
 				{
 					Debug.Assert(match.Groups.Count == 3);
 
-					int nodeId = ParseInt32(match.Groups[1].Value);
-					int vertexId = ParseInt32(match.Groups[2].Value);
+					int femcoNodeId = ParseInt32(match.Groups[1].Value);
+					int esaNodeId = ParseInt32(match.Groups[2].Value);
 					
 					Debug.Assert(!match.NextMatch().Success);
 
-					yield return new VertexNode { VertexId = vertexId, NodeId = nodeId };
+					yield return new NodeMap(femcoNodeId, esaNodeId);
 				}
+			}
+		}
+
+		public struct NodeMap
+		{
+			public int FemcoNodeId { get; }
+			public int EsaNodeId { get; }
+			public NodeMap(int femcoNodeId, int esaNodeId)
+			{
+				FemcoNodeId = femcoNodeId;
+				EsaNodeId = esaNodeId;
 			}
 		}
 	}
