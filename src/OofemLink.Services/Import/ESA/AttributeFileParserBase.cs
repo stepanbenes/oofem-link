@@ -30,7 +30,7 @@ namespace OofemLink.Services.Import.ESA
 			public string QuantityType => tokens[2];
 			public string Direction => tokens[3];
 			public int? MaterialId => TryParseInt32(tokens[4]);
-			public int? SubgradeId => TryParseInt32(tokens[5]);
+			public int? SubsoilId => TryParseInt32(tokens[5]);
 			public string SelectionType => tokens[6];
 			public int? Number => TryParseInt32(tokens[7]);
 			public double? X => TryParseFloat64(tokens[8]);

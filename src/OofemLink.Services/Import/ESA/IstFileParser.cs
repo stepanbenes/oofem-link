@@ -64,7 +64,7 @@ namespace OofemLink.Services.Import.ESA
 									dimensionType: lineTokens.DimensionType,
 									quantityType: lineTokens.QuantityType,
 									materialId: lineTokens.MaterialId,
-									subgradeId: lineTokens.SubgradeId,
+									subsoilId: lineTokens.SubsoilId,
 									selectionType: lineTokens.SelectionType,
 									number: lineTokens.Number.Value
 								);
@@ -218,7 +218,7 @@ namespace OofemLink.Services.Import.ESA
 
 		#region Parsing attribute-macro mapping
 
-		private void parsePhysicalDataSection(StreamReader streamReader, Dictionary<int, ModelAttribute> materialMap, string dimensionType, string quantityType, int? materialId, int? subgradeId, string selectionType, int number)
+		private void parsePhysicalDataSection(StreamReader streamReader, Dictionary<int, ModelAttribute> materialMap, string dimensionType, string quantityType, int? materialId, int? subsoilId, string selectionType, int number)
 		{
 			switch (dimensionType)
 			{
