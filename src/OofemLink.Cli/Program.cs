@@ -189,11 +189,15 @@ namespace OofemLink.Cli
 
 		private Task<int> runExportCommandAsync(ExportOptions options)
 		{
-			string fileFullPath = null;
+			string fileFullPath;
 			if (!string.IsNullOrEmpty(options.FileName))
 			{
 				// make absolute path
 				fileFullPath = Path.IsPathRooted(options.FileName) ? options.FileName : Path.Combine(Directory.GetCurrentDirectory(), options.FileName);
+			}
+			else
+			{
+				fileFullPath = Path.Combine(Directory.GetCurrentDirectory(), "oofem.in"); // choose default file name in current directory
 			}
 			var exportService = serviceProvider.GetRequiredService<IExportServiceFactory>().Create(fileFullPath);
 			exportService.ExportSimulation(options.SimulationId);
