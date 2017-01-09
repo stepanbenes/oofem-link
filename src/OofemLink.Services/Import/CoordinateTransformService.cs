@@ -17,7 +17,7 @@ namespace OofemLink.Services.Import
 			this.model = model;
 		}
 
-		public Vector3d CalculateZAxisForLine(int lineId, double angle /*alpha*/)
+		public Vector3d CalculateZAxisForLineFromAngleAroundLocalXAxis(int lineId, double angle /*alpha*/)
 		{
 			throw new NotImplementedException();
 		}
