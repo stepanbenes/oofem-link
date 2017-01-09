@@ -181,15 +181,15 @@ namespace OofemLink.Services.Export.OOFEM
 								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
 							else
 								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-							input.AddElement("beam3d", element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
+							input.AddElement(ElementNames.beam3d, element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
 							break;
 						case CellType.TriangleLinear:
 							Debug.Assert(nodeIds.Length == 3);
-							input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
+							input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
 							break;
 						case CellType.QuadLinear:
 							Debug.Assert(nodeIds.Length == 4);
-							input.AddElement("mitc4shell", element.Id).WithNodes(nodeIds);
+							input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds);
 							break;
 						default:
 							throw new NotSupportedException($"Element type {element.Type} is not supported.");

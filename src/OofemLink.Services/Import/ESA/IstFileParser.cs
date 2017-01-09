@@ -34,7 +34,9 @@ namespace OofemLink.Services.Import.ESA
 
 			var attributes = new List<ModelAttribute>();
 			var materialMap = new Dictionary<int, ModelAttribute>();
-			var pointFixRecords = new List<PointFixRecord>();
+			var pointFixRecords = new List<FixRecord>();
+			var pointSpringRecords = new List<SpringRecord>();
+			var lineSpringRecords = new List<SpringRecord>();
 
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
@@ -70,9 +72,48 @@ namespace OofemLink.Services.Import.ESA
 								);
 							break;
 						case Codes.FIX:
+							switch (lineTokens.DimensionType)
 							{
-								var fixRecords = parseFixSection(lineTokens.DimensionType, lineTokens.QuantityType, lineTokens.Direction, lineTokens.SelectionType, lineTokens.Number.Value);
-								pointFixRecords.AddRange(fixRecords);
+								case Codes.POIN:
+									{
+										if (lineTokens.SelectionType != Codes.NODE)
+											throw new InvalidDataException($"Selection type '{Codes.NODE}' was expected instead of '{lineTokens.SelectionType}'");
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
+										pointFixRecords.Add(new FixRecord(dofId, targetId: lineTokens.Number.Value));
+									}
+									break;
+								case Codes.LIN:
+									{
+										if (lineTokens.SelectionType != Codes.LINE)
+											throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{lineTokens.SelectionType}'");
+
+										throw new NotImplementedException(); // TODO: add one PointFixRecord for each node of the line
+									}
+								default:
+									throw new NotSupportedException($"dimension type '{lineTokens.DimensionType}' is not supported");
+							}
+							break;
+						case Codes.SPR:
+							switch (lineTokens.DimensionType)
+							{
+								case Codes.POIN:
+									{
+										if (lineTokens.SelectionType != Codes.NODE)
+											throw new InvalidDataException($"Selection type '{Codes.NODE}' was expected instead of '{lineTokens.SelectionType}'");
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
+										pointSpringRecords.Add(new SpringRecord(dofId, targetId: lineTokens.Number.Value, value: lineTokens.Value.Value));
+									}
+									break;
+								case Codes.LIN:
+									{
+										if (lineTokens.SelectionType != Codes.LINE)
+											throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{lineTokens.SelectionType}'");
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
+										lineSpringRecords.Add(new SpringRecord(dofId, targetId: lineTokens.Number.Value, value: lineTokens.Value.Value));
+									}
+									break;
+								default:
+									throw new NotSupportedException($"dimension type '{lineTokens.DimensionType}' is not supported");
 							}
 							break;
 						case Codes.LCS:
@@ -108,20 +149,61 @@ namespace OofemLink.Services.Import.ESA
 				}
 			}
 
-			var pointFixGroups = from fixRecord in pointFixRecords
-								 group fixRecord by fixRecord.VertexId;
-			foreach (var pointFixGroup in pointFixGroups)
+			// group point supports
 			{
-				var fs = pointFixGroup.ToList();
-				var bc = new ModelAttribute
+				var pointFixGroups = from fixRecord in pointFixRecords
+									 group fixRecord by fixRecord.TargetId;
+				foreach (var pointFixGroup in pointFixGroups)
 				{
-					Type = AttributeType.BoundaryCondition,
-					Name = BoundaryConditionNames.BoundaryCondition,
-					Target = AttributeTarget.Node,
-					Parameters = Invariant($"values {fs.Count} {string.Join(" ", Enumerable.Repeat(0, fs.Count))} dofs {fs.Count} {string.Join(" ", fs.Select(f => f.DofId))}")
-				};
-				attributeMapper.MapToVertex(bc, pointFixGroup.Key);
-				attributes.Add(bc);
+					var fixes = pointFixGroup.OrderBy(f => f.DofId).ToList();
+					var bc = new ModelAttribute
+					{
+						Type = AttributeType.BoundaryCondition,
+						Name = BoundaryConditionNames.BoundaryCondition,
+						Target = AttributeTarget.Node,
+						Parameters = Invariant($"values {fixes.Count} {string.Join(" ", Enumerable.Repeat(0, fixes.Count))} dofs {fixes.Count} {string.Join(" ", fixes.Select(f => f.DofId.ToString(CultureInfo.InvariantCulture)))}")
+					};
+					attributeMapper.MapToVertex(bc, pointFixGroup.Key);
+					attributes.Add(bc);
+				}
+			}
+
+			// group nodal springs
+			{
+				var pointSpringGroups = from springRecord in pointSpringRecords
+										group springRecord by springRecord.TargetId;
+				foreach (var pointSpringGroup in pointSpringGroups)
+				{
+					var springs = pointSpringGroup.OrderBy(s => s.DofId).ToList();
+					var springAttribute = new ModelAttribute
+					{
+						Type = AttributeType.Spring,
+						Name = ElementNames.NodalSpring,
+						Target = AttributeTarget.Node,
+						Parameters = Invariant($"dofmask {springs.Count} {string.Join(" ", springs.Select(s => s.DofId.ToString(CultureInfo.InvariantCulture)))} k {springs.Count} {string.Join(" ", springs.Select(f => f.Value.ToString(CultureInfo.InvariantCulture)))}")
+					};
+					attributeMapper.MapToVertex(springAttribute, vertexId: pointSpringGroup.Key);
+					attributes.Add(springAttribute);
+				}
+			}
+
+			// handle line springs
+			{
+				var lineSpringGroups = from springRecord in lineSpringRecords
+									   group springRecord by springRecord.TargetId;
+				foreach (var lineSpringGroup in lineSpringGroups)
+				{
+					var springs = lineSpringGroup.OrderBy(s => s.DofId).ToList();
+					var springAttribute = new ModelAttribute
+					{
+						Type = AttributeType.Spring,
+						Name = ElementNames.linedistributedspring,
+						Target = AttributeTarget.Volume,
+						Parameters = Invariant($"dofs {springs.Count} {string.Join(" ", springs.Select(s => s.DofId.ToString(CultureInfo.InvariantCulture)))} k {springs.Count} {string.Join(" ", springs.Select(f => f.Value.ToString(CultureInfo.InvariantCulture)))}")
+					};
+					attributeMapper.MapToCurve(springAttribute, curveId: lineSpringGroup.Key);
+					attributes.Add(springAttribute);
+				}
 			}
 
 			return attributes;
@@ -257,9 +339,9 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
-		#region Parsing supports
+		#region Parsing supports & springs
 
-		private static IEnumerable<PointFixRecord> parseFixSection(string dimensionType, string quantityType, string direction, string selectionType, int number)
+		private static int parseDofId(string quantityType, string direction)
 		{
 			int dofId;
 			switch (direction)
@@ -287,21 +369,7 @@ namespace OofemLink.Services.Import.ESA
 				default:
 					throw new NotSupportedException($"quantity type '{quantityType}' is not supported");
 			}
-			switch (dimensionType)
-			{
-				case Codes.POIN:
-					if (selectionType != Codes.NODE)
-						throw new InvalidDataException($"Selection type '{Codes.NODE}' was expected instead of '{selectionType}'");
-					return new[] { new PointFixRecord(dofId, number) };
-				case Codes.LIN:
-					if (selectionType != Codes.LINE)
-						throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{selectionType}'");
-
-					throw new NotImplementedException(); // TODO: return array of two records - one for each node of the line
-
-				default:
-					throw new NotSupportedException($"dimension type '{dimensionType}' is not supported");
-			}
+			return dofId;
 		}
 
 		#endregion
@@ -388,17 +456,30 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
-		#region FixInfo struct
+		#region Helper structs
 
-		private struct PointFixRecord
+		private struct FixRecord
 		{
-			public PointFixRecord(int dofId, int targetId)
+			public FixRecord(int dofId, int targetId)
 			{
 				DofId = dofId;
-				VertexId = targetId;
+				TargetId = targetId;
 			}
 			public int DofId { get; }
-			public int VertexId { get; }
+			public int TargetId { get; }
+		}
+
+		private struct SpringRecord
+		{
+			public SpringRecord(int dofId, int targetId, double value)
+			{
+				DofId = dofId;
+				TargetId = targetId;
+				Value = value;
+			}
+			public int DofId { get; }
+			public int TargetId { get; }
+			public double Value { get; }
 		}
 
 		#endregion
