@@ -67,6 +67,7 @@ namespace OofemLink.Services.Export.OOFEM
 			List<ModelAttribute> boundaryConditions;
 			List<TimeFunction> timeFunctions;
 			Dictionary<int, ModelAttribute> elementLcsMap;
+			List<ModelAttribute> springs;
 
 			// load all model entities from db
 			{
@@ -105,6 +106,11 @@ namespace OofemLink.Services.Export.OOFEM
 							   from curveElement in curveAttribute.Curve.CurveElements
 							   where curveElement.MeshId == mesh.Id
 							   group curveAttribute.Attribute by curveElement.ElementId;
+				var springsQuery = from attribute in dataContext.Attributes
+										where attribute.ModelId == model.Id
+										where attribute.Type == AttributeType.Spring
+										orderby attribute.Id
+										select attribute;
 
 				// materialize queries
 				nodes = nodesQuery.ToList();
@@ -114,6 +120,7 @@ namespace OofemLink.Services.Export.OOFEM
 				boundaryConditions = boundaryConditionsQuery.ToList();
 				timeFunctions = timeFunctionsQuery.ToList();
 				elementLcsMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple lcs attributes per element
+				springs = springsQuery.ToList();
 			}
 
 			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
@@ -165,12 +172,13 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 
 				addDebugComment(input, "ELEMENTS");
+				int maxElementId = 0;/**/
 				foreach (var element in elements)
 				{
 					var nodeIds = (from elementNode in element.ElementNodes
 								   orderby elementNode.Rank
 								   select elementNode.NodeId).ToArray();
-
+					maxElementId = Math.Max(element.Id, maxElementId);
 					switch (element.Type)
 					{
 						case CellType.LineLinear:
@@ -193,6 +201,24 @@ namespace OofemLink.Services.Export.OOFEM
 							break;
 						default:
 							throw new NotSupportedException($"Element type {element.Type} is not supported.");
+					}
+				}
+
+				// TODO: increment total element count approprietly
+				// TODO: assign dummy cross-section to spring elements
+				addDebugComment(input, "SPRINGS");
+				foreach (var spring in springs)
+				{
+					var set = attributeIdSetMap[spring.Id];
+					foreach (var nodeId in set.Nodes)
+					{
+						input.AddElement(spring.Name, ++maxElementId).WithNodes(nodeId).WithParameter(spring.Parameters);
+					}
+					foreach (var edge in set.ElementEdges)
+					{
+						int node1Id, node2Id;
+						getNodesOfEdge(edge.Key, edge.Value, out node1Id, out node2Id);
+						input.AddElement(spring.Name, ++maxElementId).WithNodes(node1Id, node2Id).WithParameter(spring.Parameters);
 					}
 				}
 
@@ -262,6 +288,12 @@ namespace OofemLink.Services.Export.OOFEM
 		#endregion
 
 		#region Private methods
+
+		private void getNodesOfEdge(int elementId, short edgeRank, out int node1Id, out int node2Id)
+		{
+			// TODO: extract this method to ModelService, create special class EdgeDto
+			throw new NotImplementedException();
+		}
 
 		private string getDefaultZAxisParameterBeam3d(ModelDimensions dimensionFlags)
 		{
