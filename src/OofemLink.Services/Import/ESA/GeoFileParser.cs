@@ -29,13 +29,16 @@ namespace OofemLink.Services.Import.ESA
 				string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 				if (tokens.Length < 2)
 				{
-					throw new FormatException("Wrong GEO file format, line: " + line);
+					throw new FormatException($"Wrong {Extension} file format, line: " + line);
 				}
 
 				string value = tokens[1].Trim();
 
 				switch (tokens[0])
 				{
+					case Codes.NAME:
+						// ignore this line
+						break;
 					case Codes.PROG:
 						{
 							int progCode = ParseInt32(tokens[1]);
@@ -140,7 +143,6 @@ namespace OofemLink.Services.Import.ESA
 														throw new NotSupportedException($"Unsupported macro detail code '{tokens[2]}'");
 												}
 											}
-											index += 1;
 										}
 										modelBuilder.AddGeneralSurfaceMacro(macroId, boundaryLineIds, openingLineIds, internalLineIds, internalVertexIds);
 									}
