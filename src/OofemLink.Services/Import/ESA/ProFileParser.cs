@@ -27,7 +27,7 @@ namespace OofemLink.Services.Import.ESA
 				string[] tokens = line.Split('=');
 				if (tokens.Length != 2)
 				{
-					throw new FormatException("Wrong PRO file format, line: " + line);
+					throw new FormatException($"Wrong {Extension} file format, line: " + line);
 				}
 
 				string code = tokens[0].Trim();
