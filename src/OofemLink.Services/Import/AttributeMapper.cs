@@ -63,10 +63,40 @@ namespace OofemLink.Services.Import
 
 		public void MapToCurve(ModelAttribute attribute, int curveId)
 		{
+			// look in macro boundary curves
 			foreach (int macroId in from macro in model.Macros
 									from macroCurve in macro.MacroCurves
 									where macroCurve.CurveId == curveId
 									select macroCurve.MacroId)
+			{
+				MapToCurve(attribute, curveId, macroId);
+			}
+
+			// look in macro opening curves
+			foreach (int macroId in from macro in model.Macros
+									from macroCurve in macro.MacroOpeningCurves
+									where macroCurve.OpeningCurveId == curveId
+									select macroCurve.MacroId)
+			{
+				MapToCurve(attribute, curveId, macroId);
+			}
+
+			// look in macro internal curves
+			foreach (int macroId in from macro in model.Macros
+									from macroCurve in macro.MacroInternalCurves
+									where macroCurve.InternalCurveId == curveId
+									select macroCurve.MacroId)
+			{
+				MapToCurve(attribute, curveId, macroId);
+			}
+
+			// look in macro surfaces
+			foreach (int macroId in from macro in model.Macros
+									from macroSurface in macro.MacroSurfaces
+									join surface in model.Surfaces on macroSurface.SurfaceId equals surface.Id
+									from surfaceCurve in surface.SurfaceCurves
+									where surfaceCurve.CurveId == curveId
+									select macro.Id)
 			{
 				MapToCurve(attribute, curveId, macroId);
 			}

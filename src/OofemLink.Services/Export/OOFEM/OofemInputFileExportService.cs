@@ -66,7 +66,7 @@ namespace OofemLink.Services.Export.OOFEM
 			List<ModelAttribute> materials;
 			List<ModelAttribute> boundaryConditions;
 			List<TimeFunction> timeFunctions;
-			Dictionary<int, ModelAttribute> elementLcsMap;
+			Dictionary<KeyValuePair<int, short>, ModelAttribute> edgeLcsAttributeMap;
 			List<ModelAttribute> springs;
 
 			// load all model entities from db
@@ -105,12 +105,12 @@ namespace OofemLink.Services.Export.OOFEM
 							   where curveAttribute.Attribute.Type == AttributeType.LocalCoordinateSystem
 							   from curveElement in curveAttribute.Curve.CurveElements
 							   where curveElement.MeshId == mesh.Id
-							   group curveAttribute.Attribute by curveElement.ElementId;
+							   group curveAttribute.Attribute by new KeyValuePair<int, short>(curveElement.ElementId, curveElement.Rank);
 				var springsQuery = from attribute in dataContext.Attributes
-										where attribute.ModelId == model.Id
-										where attribute.Type == AttributeType.Spring
-										orderby attribute.Id
-										select attribute;
+								   where attribute.ModelId == model.Id
+								   where attribute.Type == AttributeType.Spring
+								   orderby attribute.Id
+								   select attribute;
 
 				// materialize queries
 				nodes = nodesQuery.ToList();
@@ -119,7 +119,7 @@ namespace OofemLink.Services.Export.OOFEM
 				materials = materialsQuery.ToList();
 				boundaryConditions = boundaryConditionsQuery.ToList();
 				timeFunctions = timeFunctionsQuery.ToList();
-				elementLcsMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple lcs attributes per element
+				edgeLcsAttributeMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple LCS attributes per edge
 				springs = springsQuery.ToList();
 			}
 
@@ -182,22 +182,29 @@ namespace OofemLink.Services.Export.OOFEM
 					switch (element.Type)
 					{
 						case CellType.LineLinear:
-							Debug.Assert(nodeIds.Length == 2);
-							ModelAttribute lcsAttribute;
-							string lcsParameter;
-							if (elementLcsMap.TryGetValue(element.Id, out lcsAttribute))
-								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
-							else
-								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-							input.AddElement(ElementNames.beam3d, element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
+							{
+								Debug.Assert(nodeIds.Length == 2);
+								ModelAttribute lcsAttribute;
+								string lcsParameter;
+								var edge = new KeyValuePair<int, short>(element.Id, 1); // there is only one edge for 1D element (has rank 1)
+								if (edgeLcsAttributeMap.TryGetValue(edge, out lcsAttribute))
+									lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+								else
+									lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
+								input.AddElement(ElementNames.beam3d, element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
+							}
 							break;
 						case CellType.TriangleLinear:
-							Debug.Assert(nodeIds.Length == 3);
-							input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
+							{
+								Debug.Assert(nodeIds.Length == 3);
+								input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
+							}
 							break;
 						case CellType.QuadLinear:
-							Debug.Assert(nodeIds.Length == 4);
-							input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds);
+							{
+								Debug.Assert(nodeIds.Length == 4);
+								input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds);
+							}
 							break;
 						default:
 							throw new NotSupportedException($"Element type {element.Type} is not supported.");
@@ -329,13 +336,22 @@ namespace OofemLink.Services.Export.OOFEM
 
 			// AttributeTarget.Node:
 			{
-				var query = from vertexAttribute in dataContext.Set<VertexAttribute>()
-							where vertexAttribute.ModelId == modelId
-							where vertexAttribute.Attribute.Target == AttributeTarget.Node
-							from vertexNode in vertexAttribute.Vertex.VertexNodes
-							where vertexNode.MeshId == meshId
-							orderby vertexNode.NodeId
-							group vertexNode.NodeId by vertexAttribute.AttributeId;
+				var vertexQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
+								  where vertexAttribute.ModelId == modelId
+								  where vertexAttribute.Attribute.Target == AttributeTarget.Node
+								  from vertexNode in vertexAttribute.Vertex.VertexNodes
+								  where vertexNode.MeshId == meshId
+								  orderby vertexNode.NodeId
+								  group vertexNode.NodeId by vertexAttribute.AttributeId;
+				var curveQuery = from curveAttribute in dataContext.Set<CurveAttribute>() // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
+								 where curveAttribute.ModelId == modelId
+								 where curveAttribute.Attribute.Target == AttributeTarget.Node
+								 from curveVertex in curveAttribute.Curve.CurveVertices
+								 from vertexNode in curveVertex.Vertex.VertexNodes
+								 where vertexNode.MeshId == meshId
+								 orderby vertexNode.NodeId
+								 group vertexNode.NodeId by curveAttribute.AttributeId;
+				var query = vertexQuery.Concat(curveQuery);
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
@@ -349,9 +365,7 @@ namespace OofemLink.Services.Export.OOFEM
 				var query = from curveAttribute in dataContext.Set<CurveAttribute>()
 							where curveAttribute.ModelId == modelId
 							where curveAttribute.Attribute.Target == AttributeTarget.Edge
-							from macroCurve in curveAttribute.Macro.MacroCurves
-							where macroCurve.CurveId == curveAttribute.CurveId
-							from curveElement in macroCurve.Curve.CurveElements
+							from curveElement in curveAttribute.Curve.CurveElements
 							where curveElement.MeshId == meshId
 							orderby curveElement.ElementId, curveElement.Rank
 							group new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank) by curveAttribute.AttributeId;
@@ -368,9 +382,7 @@ namespace OofemLink.Services.Export.OOFEM
 				var query = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
 							where surfaceAttribute.ModelId == modelId
 							where surfaceAttribute.Attribute.Target == AttributeTarget.Surface
-							from macroSurface in surfaceAttribute.Macro.MacroSurfaces
-							where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
-							from surfaceElement in macroSurface.Surface.SurfaceElements
+							from surfaceElement in surfaceAttribute.Surface.SurfaceElements
 							where surfaceElement.MeshId == meshId
 							orderby surfaceElement.ElementId, surfaceElement.Rank
 							group new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank) by surfaceAttribute.AttributeId;
@@ -387,17 +399,13 @@ namespace OofemLink.Services.Export.OOFEM
 				var elements1dQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
 									  where curveAttribute.ModelId == modelId
 									  where curveAttribute.Attribute.Target == AttributeTarget.Volume
-									  from macroCurve in curveAttribute.Macro.MacroCurves
-									  where macroCurve.CurveId == curveAttribute.CurveId
-									  from curveElement in macroCurve.Curve.CurveElements
+									  from curveElement in curveAttribute.Curve.CurveElements
 									  where curveElement.MeshId == meshId
 									  group curveElement.ElementId by curveAttribute.AttributeId;
 				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
 									  where surfaceAttribute.ModelId == modelId
 									  where surfaceAttribute.Attribute.Target == AttributeTarget.Volume
-									  from macroSurface in surfaceAttribute.Macro.MacroSurfaces
-									  where macroSurface.SurfaceId == surfaceAttribute.SurfaceId
-									  from surfaceElement in macroSurface.Surface.SurfaceElements
+									  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
 									  where surfaceElement.MeshId == meshId
 									  group surfaceElement.ElementId by surfaceAttribute.AttributeId;
 				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
