@@ -14,34 +14,24 @@ namespace OofemLink.Services.Export.OOFEM
 	abstract class HeaderRecord : InputRecord
 	{ }
 
-	abstract class TextRecord : InputRecord
-	{
-		public TextRecord(string text)
-		{
-			Text = text;
-		}
-		public string Text { get; }
-		public override string ToString() => Text;
-	}
-
 	class OutputFileRecord : HeaderRecord
 	{
-		public OutputFileRecord(string text)
+		public OutputFileRecord(string outputFileFullPath)
 		{
-			Text = text;
+			OutputFileFullPath = outputFileFullPath;
 		}
-		public string Text { get; }
-		public override string ToString() => Text;
+		public string OutputFileFullPath { get; }
+		public override string ToString() => OutputFileFullPath;
 	}
 
 	class DescriptionRecord : HeaderRecord
 	{
-		public DescriptionRecord(string text)
+		public DescriptionRecord(string description)
 		{
-			Text = text;
+			Description = description;
 		}
-		public string Text { get; }
-		public override string ToString() => Text;
+		public string Description { get; }
+		public override string ToString() => Description;
 	}
 
 	class EngineeringModelRecord : HeaderRecord
@@ -76,7 +66,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString() => $"{Keyword.domain} {DomainType}";
 	}
 
-	class OutputManagerRecord : InputRecord
+	class OutputManagerRecord : HeaderRecord
 	{
 		public override string ToString() => "OutputManager tstep_all dofman_all element_all"; // TODO: avoid hard-coded string
 	}
@@ -195,6 +185,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString()
 		{
 			var text = new StringBuilder();
+			text.Append($"{Name} {Id}");
 			if (time.HasValue)
 				text.Append(Invariant($" t {time.Value}"));
 			if (value.HasValue)
@@ -211,17 +202,15 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class SetRecord : InputRecord
 	{
-		public SetRecord(int id, Set set)
+		public SetRecord(Set set)
 		{
-			Id = id;
 			Set = set;
 		}
-		public int Id { get; }
 		public Set Set { get; }
 		public override string ToString()
 		{
 			var text = new StringBuilder();
-			text.Append($"{Keyword.set} {Id}");
+			text.Append($"{Keyword.set} {Set.Id}");
 			if (Set.Nodes.Count > 0)
 			{
 				text.Append($" {Keyword.nodes} {Set.Nodes.Count} {string.Join(" ", Set.Nodes)}");

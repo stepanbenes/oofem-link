@@ -11,6 +11,7 @@ using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
 {
+	[Obsolete]
 	class StreamInputBuilder : IDisposable,
 		INodeRecordBuilder,
 		IElementRecordBuilder,

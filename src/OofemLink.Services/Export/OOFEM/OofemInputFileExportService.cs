@@ -127,169 +127,152 @@ namespace OofemLink.Services.Export.OOFEM
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			// =========================================================================================
-			using (var input = new StreamInputBuilder(inputFileFullPath))
+
+			var input = new InputBuilder();
+
+			// OUTPUT FILE NAME
+			input.AddHeaderRecord(new OutputFileRecord(outputFileFullPath));
+			// DESCRIPTION
+			input.AddHeaderRecord(new DescriptionRecord($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}"));
+
+			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+			input.AddHeaderRecord(new EngineeringModelRecord(
+					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+					numberOfTimeSteps: simulation.TimeSteps.Count,
+					numberOfExportModules: 1 /**/
+				));
+
+			// the export module is vtk
+			input.AddHeaderRecord(new VtkXmlExportModuleRecord());
+
+			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
+			input.AddHeaderRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
+
+			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
+			input.AddHeaderRecord(new OutputManagerRecord());
+
+			// NODES
+			foreach (var node in nodes)
 			{
-				// Output file name
-				input.AddPlainText(outputFileFullPath);
-				// Description
-				input.AddPlainText($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}");
+				input.AddNodeRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
+			}
 
-				// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
-				input.AddEngineeringModel(
-						engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
-						numberOfTimeSteps: simulation.TimeSteps.Count,
-						numberOfExportModules: 1 /**/
-					);
-
-				// the export module is vtk
-				// TODO: this is hard-coded now, enable this to be configurable
-				input.AddPlainText("vtkxml tstep_all domain_all primvars 1 1");
-
-				// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
-				// TODO: avoid hard-coded string
-				input.AddDomain("3dshell");
-
-				// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
-				// TODO: avoid hard-coded string
-				input.AddPlainText("OutputManager tstep_all dofman_all element_all");
-
-				// number of dofmanagers(generalization of nodes), number of elements, n of cross-sections, n of materials, boundary conditions, initial conditions, load time functions, and sets
-				input.AddRecordCounts(
-						dofManagerCount: nodes.Count,
-						elementCount: elements.Count,
-						crossSectionCount: crossSections.Count,
-						materialCount: materials.Count,
-						boundaryConditionCount: boundaryConditions.Count,
-						initialConditionCount: 0, /*no initial conditions for time-independent analysis (statics)*/
-						timeFunctionCount: timeFunctions.Count,
-						setCount: sets.Count
-					);
-
-				addDebugComment(input, "NODES");
-				foreach (var node in nodes)
+			// ELEMENTS
+			int maxElementId = 0;
+			foreach (var element in elements)
+			{
+				var nodeIds = (from elementNode in element.ElementNodes
+							   orderby elementNode.Rank
+							   select elementNode.NodeId).ToArray();
+				maxElementId = Math.Max(element.Id, maxElementId);
+				ElementRecord elementRecord;
+				switch (element.Type)
 				{
-					input.AddNode(node.Id).WithCoordinates(node.X, node.Y, node.Z);
+					case CellType.LineLinear:
+						{
+							Debug.Assert(nodeIds.Length == 2);
+							ModelAttribute lcsAttribute;
+							string lcsParameter;
+							var edge = new KeyValuePair<int, short>(element.Id, 1); // there is only one edge for 1D element (has rank 1)
+							if (edgeLcsAttributeMap.TryGetValue(edge, out lcsAttribute))
+								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+							else
+								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
+							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, nodeIds, lcsParameter);
+						}
+						break;
+					case CellType.TriangleLinear:
+						{
+							Debug.Assert(nodeIds.Length == 3);
+							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, nodeIds: new[] { nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2] }); // last node is doubled
+						}
+						break;
+					case CellType.QuadLinear:
+						{
+							Debug.Assert(nodeIds.Length == 4);
+							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, nodeIds);
+						}
+						break;
+					default:
+						throw new NotSupportedException($"Element type {element.Type} is not supported.");
 				}
+				input.AddElementRecord(elementRecord);
+			}
 
-				addDebugComment(input, "ELEMENTS");
-				int maxElementId = 0;/**/
-				foreach (var element in elements)
+			// SPRINGS
+			// TODO: assign dummy cross-section to spring elements
+			foreach (var spring in springs)
+			{
+				var set = attributeIdSetMap[spring.Id];
+				foreach (var nodeId in set.Nodes)
 				{
-					var nodeIds = (from elementNode in element.ElementNodes
-								   orderby elementNode.Rank
-								   select elementNode.NodeId).ToArray();
-					maxElementId = Math.Max(element.Id, maxElementId);
-					switch (element.Type)
-					{
-						case CellType.LineLinear:
-							{
-								Debug.Assert(nodeIds.Length == 2);
-								ModelAttribute lcsAttribute;
-								string lcsParameter;
-								var edge = new KeyValuePair<int, short>(element.Id, 1); // there is only one edge for 1D element (has rank 1)
-								if (edgeLcsAttributeMap.TryGetValue(edge, out lcsAttribute))
-									lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
-								else
-									lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-								input.AddElement(ElementNames.beam3d, element.Id).WithNodes(nodeIds).WithParameter(lcsParameter);
-							}
-							break;
-						case CellType.TriangleLinear:
-							{
-								Debug.Assert(nodeIds.Length == 3);
-								input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2]); // last node is doubled
-							}
-							break;
-						case CellType.QuadLinear:
-							{
-								Debug.Assert(nodeIds.Length == 4);
-								input.AddElement(ElementNames.mitc4shell, element.Id).WithNodes(nodeIds);
-							}
-							break;
-						default:
-							throw new NotSupportedException($"Element type {element.Type} is not supported.");
-					}
+					input.AddElementRecord(new ElementRecord(spring.Name, id: ++maxElementId, nodeIds: new[] { nodeId }, parameters: spring.Parameters));
 				}
-
-				// TODO: increment total element count approprietly
-				// TODO: assign dummy cross-section to spring elements
-				addDebugComment(input, "SPRINGS");
-				foreach (var spring in springs)
+				foreach (var edge in set.ElementEdges)
 				{
-					var set = attributeIdSetMap[spring.Id];
-					foreach (var nodeId in set.Nodes)
-					{
-						input.AddElement(spring.Name, ++maxElementId).WithNodes(nodeId).WithParameter(spring.Parameters);
-					}
-					foreach (var edge in set.ElementEdges)
-					{
-						int node1Id, node2Id;
-						getNodesOfEdge(edge.Key, edge.Value, out node1Id, out node2Id);
-						input.AddElement(spring.Name, ++maxElementId).WithNodes(node1Id, node2Id).WithParameter(spring.Parameters);
-					}
-				}
-
-				var attributeIdToMaterialIdMap = new Dictionary<int, int>();
-				for (int index = 0; index < materials.Count; index++)
-				{
-					attributeIdToMaterialIdMap.Add(materials[index].Id, index + 1);
-				}
-
-				addDebugComment(input, "CROSS-SECTIONS");
-				for (int i = 0; i < crossSections.Count; i++)
-				{
-					var crossSection = crossSections[i];
-					int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
-					input.AddCrossSection(crossSection.Name, id: i + 1)
-						 .WithParameter(crossSection.Parameters)
-						 .HasMaterial(materialId: attributeIdToMaterialIdMap[childAttributeId])
-						 .AppliesToSet(attributeIdSetMap[crossSection.Id].Id);
-				}
-
-				addDebugComment(input, "MATERIALS");
-				foreach (var material in materials)
-				{
-					input.AddMaterial(material.Name, id: attributeIdToMaterialIdMap[material.Id]).WithParameter(material.Parameters);
-				}
-
-				addDebugComment(input, "BOUNDARY CONDITIONS");
-				for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
-				{
-					var bc = boundaryConditions[i];
-					input.AddBoundaryCondition(bc.Name, id: i + 1).InTime(bc.TimeFunctionId).WithParameter(bc.Parameters).AppliesToSet(attributeIdSetMap[bc.Id].Id);
-				}
-
-				addDebugComment(input, "LOAD TIME FUNCTIONS");
-				foreach (var timeFunction in timeFunctions)
-				{
-					var timeFunctionBuilder = input.AddTimeFunction(timeFunction.Name, timeFunction.Id);
-					switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
-					{
-						case TimeFunctionNames.ConstantFunction:
-							timeFunctionBuilder.WithValue(((ConstantFunction)timeFunction).ConstantValue);
-							break;
-						case TimeFunctionNames.PeakFunction:
-							var tfValue = timeFunction.Values.Single();
-							timeFunctionBuilder.InTime(tfValue.TimeStep.Time ?? tfValue.TimeStep.Number).WithValue(tfValue.Value);
-							break;
-						case TimeFunctionNames.PiecewiseLinFunction:
-							timeFunctionBuilder.WithTimeValuePairs(createTimeStepFunctionValuePairs(simulation, timeFunction));
-							break;
-						default:
-							throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
-					}
-				}
-
-				addDebugComment(input, "SETS");
-				foreach (var set in sets)
-				{
-					input.AddSet(set.Id)
-						.WithNodes(set.Nodes)
-						.WithElements(set.Elements)
-						.WithElementEdges(set.ElementEdges)
-						.WithElementSurfaces(set.ElementSurfaces);
+					int node1Id, node2Id;
+					getNodesOfEdge(edge.Key, edge.Value, out node1Id, out node2Id);
+					input.AddElementRecord(new ElementRecord(spring.Name, id: ++maxElementId, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters));
 				}
 			}
+
+			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
+			for (int index = 0; index < materials.Count; index++)
+			{
+				attributeIdToMaterialIdMap.Add(materials[index].Id, index + 1);
+			}
+
+			// CROSS-SECTIONS
+			for (int i = 0; i < crossSections.Count; i++)
+			{
+				var crossSection = crossSections[i];
+				int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
+				input.AddCrossSectionRecord(new CrossSectionRecord(crossSection.Name, id: i + 1, parameters: crossSection.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSection.Id].Id));
+			}
+
+			// MATERIALS
+			foreach (var material in materials)
+			{
+				input.AddMaterialRecord(new MaterialRecord(material.Name, id: attributeIdToMaterialIdMap[material.Id], parameters: material.Parameters));
+			}
+
+			// BOUNDARY CONDITIONS
+			for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
+			{
+				var bc = boundaryConditions[i];
+				input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bc.Name, id: i + 1, parameters: bc.Parameters, timeFunctionId: bc.TimeFunctionId, setId: attributeIdSetMap[bc.Id].Id));
+			}
+
+			// TIME FUNCTIONS
+			foreach (var timeFunction in timeFunctions)
+			{
+				TimeFunctionRecord timeFunctionRecord;
+				switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
+				{
+					case TimeFunctionNames.ConstantFunction:
+						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, value: ((ConstantFunction)timeFunction).ConstantValue);
+						break;
+					case TimeFunctionNames.PeakFunction:
+						var tfValue = timeFunction.Values.Single();
+						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, time: tfValue.TimeStep.Time ?? tfValue.TimeStep.Number, value: tfValue.Value);
+						break;
+					case TimeFunctionNames.PiecewiseLinFunction:
+						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, createTimeStepFunctionValuePairs(simulation, timeFunction));
+						break;
+					default:
+						throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
+				}
+				input.AddTimeFunctionRecord(timeFunctionRecord);
+			}
+
+			// SETS
+			foreach (var set in sets)
+			{
+				input.AddSetRecord(new SetRecord(set));
+			}
+
+			// create input file
+			input.WriteToFile(inputFileFullPath);
 		}
 
 		#endregion
@@ -425,12 +408,6 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			return map;
-		}
-
-		[Conditional("DEBUG")]
-		private static void addDebugComment(StreamInputBuilder input, string comment)
-		{
-			input.AddComment(comment);
 		}
 
 		#endregion
