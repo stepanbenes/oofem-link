@@ -5,20 +5,20 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Reflection;
-using static System.FormattableString;
 using System.Globalization;
 using System.Diagnostics;
+using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
 {
 	class InputBuilder : IDisposable,
 		INodeRecordBuilder,
 		IElementRecordBuilder,
-		ICrossSectionBuilder,
-		IMaterialBuilder,
-		IBoundaryConditionBuilder,
-		ITimeFunctionBuilder,
-		ISetBuilder
+		ICrossSectionRecordBuilder,
+		IMaterialRecordBuilder,
+		IBoundaryConditionRecordBuilder,
+		ITimeFunctionRecordBuilder,
+		ISetRecordBuilder
 	{
 		#region Fields, constructor
 
@@ -80,35 +80,35 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		public ICrossSectionBuilder AddCrossSection(string name, int id)
+		public ICrossSectionRecordBuilder AddCrossSection(string name, int id)
 		{
 			streamWriter.WriteLine();
 			streamWriter.Write($"{name} {id}");
 			return this;
 		}
 
-		public IMaterialBuilder AddMaterial(string name, int id)
+		public IMaterialRecordBuilder AddMaterial(string name, int id)
 		{
 			streamWriter.WriteLine();
 			streamWriter.Write($"{name} {id}");
 			return this;
 		}
 
-		public IBoundaryConditionBuilder AddBoundaryCondition(string name, int id)
+		public IBoundaryConditionRecordBuilder AddBoundaryCondition(string name, int id)
 		{
 			streamWriter.WriteLine();
 			streamWriter.Write($"{name} {id}");
 			return this;
 		}
 
-		public ITimeFunctionBuilder AddTimeFunction(string name, int id)
+		public ITimeFunctionRecordBuilder AddTimeFunction(string name, int id)
 		{
 			streamWriter.WriteLine();
 			streamWriter.Write($"{name} {id}");
 			return this;
 		}
 
-		public ISetBuilder AddSet(int id)
+		public ISetRecordBuilder AddSet(int id)
 		{
 			streamWriter.WriteLine();
 			streamWriter.Write($"{Keyword.set} {id}");
@@ -146,60 +146,60 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ICrossSectionBuilder ICrossSectionBuilder.WithParameter(string parameter)
+		ICrossSectionRecordBuilder ICrossSectionRecordBuilder.WithParameter(string parameter)
 		{
 			streamWriter.Write(" " + parameter);
 			return this;
 		}
 
-		ICrossSectionBuilder ICrossSectionBuilder.HasMaterial(int materialId)
+		ICrossSectionRecordBuilder ICrossSectionRecordBuilder.HasMaterial(int materialId)
 		{
 			streamWriter.Write($" {Keyword.material} {materialId}");
 			return this;
 		}
 
-		ICrossSectionBuilder ICrossSectionBuilder.AppliesToSet(int setId)
+		ICrossSectionRecordBuilder ICrossSectionRecordBuilder.AppliesToSet(int setId)
 		{
 			streamWriter.Write($" {Keyword.set} {setId}");
 			return this;
 		}
 
-		void IMaterialBuilder.WithParameter(string parameter)
+		void IMaterialRecordBuilder.WithParameter(string parameter)
 		{
 			streamWriter.Write(" " + parameter);
 		}
 
-		IBoundaryConditionBuilder IBoundaryConditionBuilder.InTime(int timeFunctionId)
+		IBoundaryConditionRecordBuilder IBoundaryConditionRecordBuilder.InTime(int timeFunctionId)
 		{
 			streamWriter.Write($" {Keyword.loadTimeFunction} {timeFunctionId}");
 			return this;
 		}
 
-		IBoundaryConditionBuilder IBoundaryConditionBuilder.WithParameter(string parameter)
+		IBoundaryConditionRecordBuilder IBoundaryConditionRecordBuilder.WithParameter(string parameter)
 		{
 			streamWriter.Write(" " + parameter);
 			return this;
 		}
 
-		IBoundaryConditionBuilder IBoundaryConditionBuilder.AppliesToSet(int setId)
+		IBoundaryConditionRecordBuilder IBoundaryConditionRecordBuilder.AppliesToSet(int setId)
 		{
 			streamWriter.Write($" {Keyword.set} {setId}");
 			return this;
 		}
 
-		ITimeFunctionBuilder ITimeFunctionBuilder.InTime(double time)
+		ITimeFunctionRecordBuilder ITimeFunctionRecordBuilder.InTime(double time)
 		{
 			streamWriter.Write(Invariant($" t {time}"));
 			return this;
 		}
 
-		ITimeFunctionBuilder ITimeFunctionBuilder.WithValue(double value)
+		ITimeFunctionRecordBuilder ITimeFunctionRecordBuilder.WithValue(double value)
 		{
 			streamWriter.Write(Invariant($" f(t) {value}"));
 			return this;
 		}
 
-		ITimeFunctionBuilder ITimeFunctionBuilder.WithTimeValuePairs(IReadOnlyList<KeyValuePair<double, double>> timeValuePairs)
+		ITimeFunctionRecordBuilder ITimeFunctionRecordBuilder.WithTimeValuePairs(IReadOnlyList<KeyValuePair<double, double>> timeValuePairs)
 		{
 			string times = string.Join(" ", timeValuePairs.Select(pair => pair.Key.ToString(CultureInfo.InvariantCulture)));
 			string values = string.Join(" ", timeValuePairs.Select(pair => pair.Value.ToString(CultureInfo.InvariantCulture)));
@@ -207,7 +207,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.WithNodes(IReadOnlyList<int> nodeIds)
+		ISetRecordBuilder ISetRecordBuilder.WithNodes(IReadOnlyList<int> nodeIds)
 		{
 			if (nodeIds.Count > 0)
 			{
@@ -216,7 +216,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.WithElements(IReadOnlyList<int> elementIds)
+		ISetRecordBuilder ISetRecordBuilder.WithElements(IReadOnlyList<int> elementIds)
 		{
 			if (elementIds.Count > 0)
 			{
@@ -225,7 +225,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs)
+		ISetRecordBuilder ISetRecordBuilder.WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs)
 		{
 			if (elementEdgeIdPairs.Count > 0)
 			{
@@ -234,7 +234,7 @@ namespace OofemLink.Services.Export.OOFEM
 			return this;
 		}
 
-		ISetBuilder ISetBuilder.WithElementSurfaces(IReadOnlyList<KeyValuePair<int, short>> elementSurfaceIdPairs)
+		ISetRecordBuilder ISetRecordBuilder.WithElementSurfaces(IReadOnlyList<KeyValuePair<int, short>> elementSurfaceIdPairs)
 		{
 			if (elementSurfaceIdPairs.Count > 0)
 			{
@@ -269,37 +269,37 @@ namespace OofemLink.Services.Export.OOFEM
 		IElementRecordBuilder WithParameter(string parameter);
 	}
 
-	interface ICrossSectionBuilder
+	interface ICrossSectionRecordBuilder
 	{
-		ICrossSectionBuilder WithParameter(string parameter);
-		ICrossSectionBuilder HasMaterial(int materialId);
-		ICrossSectionBuilder AppliesToSet(int setId);
+		ICrossSectionRecordBuilder WithParameter(string parameter);
+		ICrossSectionRecordBuilder HasMaterial(int materialId);
+		ICrossSectionRecordBuilder AppliesToSet(int setId);
 	}
 
-	interface IMaterialBuilder
+	interface IMaterialRecordBuilder
 	{
 		void WithParameter(string parameter);
 	}
 
-	interface IBoundaryConditionBuilder
+	interface IBoundaryConditionRecordBuilder
 	{
-		IBoundaryConditionBuilder InTime(int timeFunctionId);
-		IBoundaryConditionBuilder WithParameter(string parameter);
-		IBoundaryConditionBuilder AppliesToSet(int setId);
+		IBoundaryConditionRecordBuilder InTime(int timeFunctionId);
+		IBoundaryConditionRecordBuilder WithParameter(string parameter);
+		IBoundaryConditionRecordBuilder AppliesToSet(int setId);
 	}
 
-	interface ITimeFunctionBuilder
+	interface ITimeFunctionRecordBuilder
 	{
-		ITimeFunctionBuilder InTime(double time);
-		ITimeFunctionBuilder WithValue(double value);
-		ITimeFunctionBuilder WithTimeValuePairs(IReadOnlyList<KeyValuePair<double, double>> timeValuePairs);
+		ITimeFunctionRecordBuilder InTime(double time);
+		ITimeFunctionRecordBuilder WithValue(double value);
+		ITimeFunctionRecordBuilder WithTimeValuePairs(IReadOnlyList<KeyValuePair<double, double>> timeValuePairs);
 	}
 
-	interface ISetBuilder
+	interface ISetRecordBuilder
 	{
-		ISetBuilder WithNodes(IReadOnlyList<int> nodeIds);
-		ISetBuilder WithElements(IReadOnlyList<int> elementIds);
-		ISetBuilder WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs);
-		ISetBuilder WithElementSurfaces(IReadOnlyList<KeyValuePair<int, short>> elementSurfaceIdPairs);
+		ISetRecordBuilder WithNodes(IReadOnlyList<int> nodeIds);
+		ISetRecordBuilder WithElements(IReadOnlyList<int> elementIds);
+		ISetRecordBuilder WithElementEdges(IReadOnlyList<KeyValuePair<int, short>> elementEdgeIdPairs);
+		ISetRecordBuilder WithElementSurfaces(IReadOnlyList<KeyValuePair<int, short>> elementSurfaceIdPairs);
 	}
 }
