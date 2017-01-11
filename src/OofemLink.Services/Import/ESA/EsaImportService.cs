@@ -91,67 +91,22 @@ namespace OofemLink.Services.Import.ESA
 		/// </summary>
 		private void linkModelAndMeshTogether(Model model, Mesh mesh)
 		{
+			var modelMeshMapper = new ModelMeshMapper(model, mesh);
+
 			string mtoFileFullPath = Path.Combine(location, $"{taskName}.MTO");
 
 			// parse MTO file (Macro - Elements links)
 			var mtoFileParser = new MtoFileParser(location, taskName, loggerFactory);
-			foreach (var macroElementsLink in mtoFileParser.Parse())
-			{
-				var macro = model.Macros.SingleOrDefault(m => m.Id == macroElementsLink.MacroId);
-				if (macro == null)
-					throw new KeyNotFoundException($"Macro with id {macroElementsLink.MacroId} was not found");
-				switch (macroElementsLink.Dimension)
-				{
-					case MtoFileParser.MacroElementsLink.ElementDimension.OneD:
-						{
-							var macroCurveMapping = macro.MacroCurves.SingleOrDefault(c => c.CurveId == macroElementsLink.GeometryEntityId.Value);
-							if (macroCurveMapping == null)
-								throw new InvalidOperationException($"Curve with id {macroElementsLink.GeometryEntityId.Value} is not attached to macro with id {macroElementsLink.MacroId}.");
-							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
-							{
-								var edge = new CurveElement { Model = model, Mesh = mesh, CurveId = macroCurveMapping.CurveId, ElementId = elementId, Rank = 1 /*refers to single edge of 1D element*/ };
-								mesh.CurveElements.Add(edge);
-							}
-						}
-						break;
-					case MtoFileParser.MacroElementsLink.ElementDimension.TwoD:
-						{
-							var macroSurfaceMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.MacroSurfaces.SingleOrDefault(s => s.SurfaceId == macroElementsLink.GeometryEntityId.Value) : macro.MacroSurfaces.SingleOrDefault();
-							if (macroSurfaceMapping == null)
-								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to surface.");
-							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
-							{
-								var face = new SurfaceElement { Model = model, Mesh = mesh, SurfaceId = macroSurfaceMapping.SurfaceId, ElementId = elementId, Rank = 1 /*refers to single surface of 2D element*/ };
-								mesh.SurfaceElements.Add(face);
-							}
-						}
-						break;
-					case MtoFileParser.MacroElementsLink.ElementDimension.ThreeD:
-						{
-							var macroVolumeMapping = macroElementsLink.GeometryEntityId.HasValue ? macro.MacroVolumes.SingleOrDefault(v => v.VolumeId == macroElementsLink.GeometryEntityId.Value) : macro.MacroVolumes.SingleOrDefault();
-							if (macroVolumeMapping == null)
-								throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to volume.");
-							for (int elementId = macroElementsLink.StartElementId; elementId <= macroElementsLink.EndElementId; elementId++)
-							{
-								var volumeElementMapping = new VolumeElement { Model = model, Mesh = mesh, VolumeId = macroVolumeMapping.VolumeId, ElementId = elementId };
-								mesh.VolumeElements.Add(volumeElementMapping);
-							}
-						}
-						break;
-				}
-			}
+			mtoFileParser.Parse(modelMeshMapper);
 
-			// add Vertex-Node mapping
-			foreach (Vertex vertex in model.Vertices)
+			// parse LIN file (Curve - 2D Elements links)
+			var linFileParser = new LinFileParser(location, taskName, loggerFactory);
+			linFileParser.Parse(modelMeshMapper);
+
+			// add Vertex-Node mappings
+			foreach (var vertex in model.Vertices)
 			{
-				var vertexNode = new VertexNode
-				{
-					VertexId = vertex.Id,
-					NodeId = vertex.Id, // node id is same as vertex id!
-					Model = model,
-					Mesh = mesh
-				};
-				mesh.VertexNodes.Add(vertexNode);
+				modelMeshMapper.MapVertexToNode(vertex.Id);
 			}
 		}
 

@@ -15,7 +15,7 @@ namespace OofemLink.Services.Import.ESA
 
 		public override string Extension => "MTO";
 
-		public IEnumerable<MacroElementsLink> Parse()
+		public void Parse(ModelMeshMapper modelMeshMapper)
 		{
 			LogStart();
 
@@ -24,7 +24,7 @@ namespace OofemLink.Services.Import.ESA
 				string[] tokens = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 				if (tokens.Length < 7)
 				{
-					throw new FormatException("Wrong MTO file format. Each row has to have at least 7 records.");
+					throw new FormatException($"Wrong {Extension} file format. Each row has to have at least 7 records.");
 				}
 				switch (tokens[5])
 				{
@@ -36,7 +36,7 @@ namespace OofemLink.Services.Import.ESA
 							int startElementId = ParseInt32(tokens[3]);
 							int endElementId = ParseInt32(tokens[4]);
 
-							yield return new MacroElementsLink(macroId, lineId, MacroElementsLink.ElementDimension.OneD, startElementId, endElementId);
+							modelMeshMapper.MapCurveTo1DElements(lineId, macroId, startElementId, endElementId);
 						}
 						break;
 					case "C": // 2D MACRO
@@ -48,7 +48,7 @@ namespace OofemLink.Services.Import.ESA
 							int endElementId = ParseInt32(tokens[4]);
 							int localAxisDirection = ParseInt32(tokens[6]); // TODO: deal with local axis direction parameter
 
-							yield return new MacroElementsLink(macroId, null, MacroElementsLink.ElementDimension.TwoD, startElementId, endElementId);
+							modelMeshMapper.MapSurfaceTo2DElements(null, macroId, startElementId, endElementId);
 						}
 						break;
 					case "D": // 3D MACRO
@@ -57,7 +57,7 @@ namespace OofemLink.Services.Import.ESA
 							int startElementId = ParseInt32(tokens[3]);
 							int endElementId = ParseInt32(tokens[4]);
 
-							yield return new MacroElementsLink(macroId, null, MacroElementsLink.ElementDimension.ThreeD, startElementId, endElementId);
+							modelMeshMapper.MapVolumeTo3DElements(null, macroId, startElementId, endElementId);
 						}
 						break;
 					case "S": // SUM
@@ -76,25 +76,25 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		public struct MacroElementsLink
-		{
-			public enum ElementDimension
-			{
-				OneD = 1, TwoD, ThreeD
-			}
-			public int MacroId { get; }
-			public int? GeometryEntityId { get; }
-			public ElementDimension Dimension { get; }
-			public int StartElementId { get; }
-			public int EndElementId { get; }
-			public MacroElementsLink(int macroId, int? geometryEntityId, ElementDimension dimension, int startElementId, int endElementId)
-			{
-				MacroId = macroId;
-				GeometryEntityId = geometryEntityId;
-				Dimension = dimension;
-				StartElementId = startElementId;
-				EndElementId = endElementId;
-			}
-		}
+		//public struct MacroElementsLink
+		//{
+		//	public enum ElementDimension
+		//	{
+		//		OneD = 1, TwoD, ThreeD
+		//	}
+		//	public int MacroId { get; }
+		//	public int? GeometryEntityId { get; }
+		//	public ElementDimension Dimension { get; }
+		//	public int StartElementId { get; }
+		//	public int EndElementId { get; }
+		//	public MacroElementsLink(int macroId, int? geometryEntityId, ElementDimension dimension, int startElementId, int endElementId)
+		//	{
+		//		MacroId = macroId;
+		//		GeometryEntityId = geometryEntityId;
+		//		Dimension = dimension;
+		//		StartElementId = startElementId;
+		//		EndElementId = endElementId;
+		//	}
+		//}
 	}
 }
