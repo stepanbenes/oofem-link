@@ -35,6 +35,7 @@ namespace OofemLink.Services.Import.ESA
 			var attributes = new List<ModelAttribute>();
 			var materialMap = new Dictionary<int, ModelAttribute>();
 			var pointFixRecords = new List<FixRecord>();
+			var lineFixRecords = new List<FixRecord>();
 			var pointSpringRecords = new List<SpringRecord>();
 			var lineSpringRecords = new List<SpringRecord>();
 
@@ -43,7 +44,7 @@ namespace OofemLink.Services.Import.ESA
 				string line = streamReader.ReadLine(); // ignore first line: Directory path
 				while ((line = streamReader.ReadLine()) != null)
 				{
-					if (line == "")
+					if (line.Trim() == "") // ignore empty line
 						continue;
 					if (line.Length != 160)
 						throw new FormatException($"Wrong {Extension} file format. Each row (except the first) is expected to have exactly 160 characters.");
@@ -52,6 +53,9 @@ namespace OofemLink.Services.Import.ESA
 
 					switch (lineTokens.ItemType)
 					{
+						case Codes.MODEL:
+							// ignore this line
+							break;
 						case Codes.MAT:
 							var materialAttribute = parseMaterialSection(streamReader,
 									dimensionType: lineTokens.DimensionType,
@@ -86,9 +90,10 @@ namespace OofemLink.Services.Import.ESA
 									{
 										if (lineTokens.SelectionType != Codes.LINE)
 											throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{lineTokens.SelectionType}'");
-
-										throw new NotImplementedException(); // TODO: add one PointFixRecord for each node of the line
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
+										lineFixRecords.Add(new FixRecord(dofId, targetId: lineTokens.Number.Value));
 									}
+									break;
 								default:
 									throw new NotSupportedException($"dimension type '{lineTokens.DimensionType}' is not supported");
 							}
@@ -143,7 +148,7 @@ namespace OofemLink.Services.Import.ESA
 							}
 							break;
 						default:
-							Logger.LogWarning("Ignoring token '{0}'", lineTokens.ItemType);
+							Logger.LogWarning("Ignoring token '{0}', line: {1}", lineTokens.ItemType, line);
 							break;
 					}
 				}
@@ -168,6 +173,25 @@ namespace OofemLink.Services.Import.ESA
 				}
 			}
 
+			// group line supports
+			{
+				var lineFixGroups = from fixRecord in lineFixRecords
+									group fixRecord by fixRecord.TargetId;
+				foreach (var lineFixGroup in lineFixGroups)
+				{
+					var fixes = lineFixGroup.OrderBy(f => f.DofId).ToList();
+					var bc = new ModelAttribute
+					{
+						Type = AttributeType.BoundaryCondition,
+						Name = BoundaryConditionNames.BoundaryCondition,
+						Target = AttributeTarget.Node,
+						Parameters = Invariant($"values {fixes.Count} {string.Join(" ", Enumerable.Repeat(0, fixes.Count))} dofs {fixes.Count} {string.Join(" ", fixes.Select(f => f.DofId.ToString(CultureInfo.InvariantCulture)))}")
+					};
+					attributeMapper.MapToCurve(bc, lineFixGroup.Key);
+					attributes.Add(bc);
+				}
+			}
+
 			// group nodal springs
 			{
 				var pointSpringGroups = from springRecord in pointSpringRecords
@@ -187,7 +211,7 @@ namespace OofemLink.Services.Import.ESA
 				}
 			}
 
-			// handle line springs
+			// group line springs
 			{
 				var lineSpringGroups = from springRecord in lineSpringRecords
 									   group springRecord by springRecord.TargetId;
@@ -197,7 +221,7 @@ namespace OofemLink.Services.Import.ESA
 					var springAttribute = new ModelAttribute
 					{
 						Type = AttributeType.Spring,
-						Name = ElementNames.linedistributedspring,
+						Name = ElementNames.LineDistributedSpring,
 						Target = AttributeTarget.Volume,
 						Parameters = Invariant($"dofs {springs.Count} {string.Join(" ", springs.Select(s => s.DofId.ToString(CultureInfo.InvariantCulture)))} k {springs.Count} {string.Join(" ", springs.Select(f => f.Value.ToString(CultureInfo.InvariantCulture)))}")
 					};
@@ -248,7 +272,27 @@ namespace OofemLink.Services.Import.ESA
 					switch (quantityType)
 					{
 						case Codes.ISO:
-							throw new NotImplementedException();
+							{
+								LineValues lineValues = ParseLineValues(streamReader.ReadLine());
+								return createAttributeFromSurfaceIsoMaterialCharacteristics(number,
+										E: lineValues[0] ?? 0.0,
+										h: lineValues[2] ?? 0.0,
+										G: lineValues[3] ?? 0.0,
+										alpha: lineValues[5] ?? 0.0,
+										gamma: lineValues[6] ?? 0.0
+									);
+							}
+						case Codes.SOIL:
+							{
+								LineValues line1_Values = ParseLineValues(streamReader.ReadLine());
+								LineValues line2_Values = ParseLineValues(streamReader.ReadLine());
+								// TODO: take into account all values
+								return createAttributeFromSurfaceSoilMaterialCharacteristics(number,
+										c1: line1_Values[0] ?? 0.0,
+										c2x: line1_Values[2] ?? 0.0,
+										c2y: line1_Values[3] ?? 0.0
+									);
+							}
 						case Codes.ORT:
 							throw new NotImplementedException();
 						case Codes.STIF:
@@ -259,6 +303,61 @@ namespace OofemLink.Services.Import.ESA
 				default:
 					throw new NotSupportedException($"dimension type '{dimensionType}' is not supported");
 			}
+		}
+
+		private ModelAttribute createAttributeFromSurfaceIsoMaterialCharacteristics(int number, double E, double h, double G, double alpha, double gamma)
+		{
+			var crossSection = new ModelAttribute
+			{
+				Type = AttributeType.CrossSection,
+				LocalNumber = number,
+				Name = CrossSectionNames.SimpleCS,
+				Target = AttributeTarget.Volume, // cross-section is applied to element volume
+				Parameters = Invariant($"thick {h}")
+			};
+
+			var material = new ModelAttribute
+			{
+				Type = AttributeType.Material,
+				LocalNumber = number,
+				Name = MaterialNames.IsoLE,
+				Target = AttributeTarget.Volume, // material is applied to element volume
+				Parameters = Invariant($"d {gamma / PhysicalConstants.g} E {E} n {E / G / 2 - 1} tAlpha {alpha}")
+			};
+
+			// create cross-section - material relation
+			var relation = new AttributeComposition { ParentAttribute = crossSection, ChildAttribute = material };
+			crossSection.ChildAttributes.Add(relation);
+			material.ParentAttributes.Add(relation);
+
+			return crossSection;
+		}
+
+		private ModelAttribute createAttributeFromSurfaceSoilMaterialCharacteristics(int number, double c1, double c2x, double c2y)
+		{
+			var dummyCrossSection = new ModelAttribute
+			{
+				Type = AttributeType.CrossSection,
+				LocalNumber = number,
+				Name = CrossSectionNames.SimpleCS, // TODO: use some dummy cross-section instead if exists
+				Target = AttributeTarget.Volume,
+			};
+
+			var material = new ModelAttribute
+			{
+				Type = AttributeType.Material,
+				LocalNumber = number,
+				Name = MaterialNames.WinklerPasternak,
+				Target = AttributeTarget.Volume,
+				Parameters = Invariant($"c1 {c1} c2x {c2x} c2y {c2y}") // TODO: add 'd' parameter
+			};
+
+			// create cross-section - material relation
+			var relation = new AttributeComposition { ParentAttribute = dummyCrossSection, ChildAttribute = material };
+			dummyCrossSection.ChildAttributes.Add(relation);
+			material.ParentAttributes.Add(relation);
+
+			return dummyCrossSection;
 		}
 
 		private static ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ax /*ignored*/, double Ay, double Az, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
@@ -310,7 +409,7 @@ namespace OofemLink.Services.Import.ESA
 						case Codes.MAT:
 							{
 								if (selectionType != Codes.MACR)
-									throw new InvalidDataException($"Physical data {Codes.BEAM} {Codes.MAT} can be applied only to {Codes.MACR} selection");
+									throw new InvalidDataException($"{Codes.PHYS} {Codes.BEAM} {Codes.MAT} can be applied only to {Codes.MACR} selection");
 								LineTokens lineTokens = ParseLineTokens(streamReader.ReadLine());
 								if (lineTokens.SelectionType != Codes.LINE)
 									throw new InvalidDataException($"Selection type '{lineTokens.SelectionType}' was not expected. '{Codes.LINE}' was expected instead.");
@@ -321,6 +420,8 @@ namespace OofemLink.Services.Import.ESA
 							break;
 						case Codes.ROT:
 							// ignore PHYS BEAM ROT, information should be duplicated in LCS section
+							// however, read next line, that should contain line id
+							var ignore = streamReader.ReadLine();
 							break;
 						case Codes.VARL:
 							throw new NotImplementedException();
@@ -328,9 +429,19 @@ namespace OofemLink.Services.Import.ESA
 							throw new NotSupportedException($"quantity type '{quantityType}' is not supported");
 					}
 					break;
+				case Codes.FLAT:
+					{
+						if (quantityType != "")
+							throw new NotImplementedException($"quantity type '{quantityType}' is not implemented in section {Codes.PHYS} {Codes.FLAT}");
+						if (selectionType != Codes.MACR)
+							throw new InvalidDataException($"{Codes.PHYS} {Codes.FLAT} can be applied only to {Codes.MACR} selection");
+						int matId = (materialId.Value != 0) ? materialId.Value : subsoilId.Value; // standard material or subsoil?
+						var materialAttribute = materialMap[matId];
+						attributeMapper.MapToMacro(materialAttribute, macroId: number);
+					}
+					break;
 				case Codes.PLAT:
 				case Codes.PLAN:
-				case Codes.FLAT:
 					throw new NotImplementedException();
 				default:
 					throw new NotSupportedException($"dimension type '{dimensionType}' is not supported");
@@ -439,6 +550,7 @@ namespace OofemLink.Services.Import.ESA
 			public const string ISO = nameof(ISO);
 			public const string ORT = nameof(ORT);
 			public const string VARL = nameof(VARL);
+			public const string SOIL = nameof(SOIL);
 
 			// directions
 			public const string X = nameof(X);

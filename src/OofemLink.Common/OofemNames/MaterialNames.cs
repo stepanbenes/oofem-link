@@ -8,5 +8,6 @@ namespace OofemLink.Common.OofemNames
 	public static class MaterialNames
 	{
 		public const string IsoLE = nameof(IsoLE);
+		public const string WinklerPasternak = nameof(WinklerPasternak);
 	}
 }

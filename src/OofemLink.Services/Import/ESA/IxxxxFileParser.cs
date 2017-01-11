@@ -71,6 +71,10 @@ namespace OofemLink.Services.Import.ESA
 			LineTokens sectionHeader = lineBuffer.Peek();
 			switch (sectionHeader.ItemType)
 			{
+				case Codes.MODEL:
+					// ignore this line
+					lineBuffer.Clear();
+					break;
 				case Codes.MULT:
 					{
 						lineBuffer.Dequeue();
@@ -283,7 +287,7 @@ namespace OofemLink.Services.Import.ESA
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.ConstantEdgeLoad,
 							Target = AttributeTarget.Edge,
-							Parameters = Invariant($"loadType 3 components 1 {value} dofs 1 {dofId} csType {csType}")
+							Parameters = Invariant($"loadType 3 dofs 1 {dofId} components 1 {value} csType {csType}")
 						};
 						switch (firstLine.SelectionType)
 						{
@@ -310,6 +314,12 @@ namespace OofemLink.Services.Import.ESA
 									}
 								}
 								break;
+							case Codes.LINE:
+								{
+									int lineId = firstLine.Number.Value;
+									attributeMapper.MapToCurve(lineLoadAttribute, lineId);
+								}
+								break;
 							default:
 								throw new NotSupportedException($"selection type '{firstLine.SelectionType}' is not supported");
 						}
@@ -322,7 +332,55 @@ namespace OofemLink.Services.Import.ESA
 
 		private ModelAttribute parseSurfaceAttribute(IReadOnlyList<LineTokens> lines)
 		{
-			throw new NotImplementedException();
+			if (lines.Count > 1)
+				throw new NotImplementedException("Too many lines for surface load definition");
+
+			var firstLine = lines[0];
+
+			switch (firstLine.QuantityType)
+			{
+				case Codes.FORC:
+					{
+						// The load can be defined in global coordinate system (csType = 0, default) or in entity - specific local coordinate system (csType = 1).
+						int dofId;
+						switch (firstLine.Direction)
+						{
+							case Codes.XG:
+								dofId = 1;
+								break;
+							case Codes.YG:
+								dofId = 2;
+								break;
+							case Codes.ZG:
+								dofId = 3;
+								break;
+							default:
+								throw new NotSupportedException($"direction '{firstLine.Direction}' is not supported");
+						}
+						double value = firstLine.Value.Value;
+						var surfaceLoadAttribute = new ModelAttribute
+						{
+							Type = AttributeType.BoundaryCondition,
+							Name = BoundaryConditionNames.ConstantSurfaceLoad,
+							Target = AttributeTarget.Surface,
+							Parameters = Invariant($"loadType 3 dofs 1 {dofId} components 1 {value}")
+						};
+						switch (firstLine.SelectionType)
+						{
+							case Codes.MACR:
+								{
+									int macroId = firstLine.Number.Value;
+									attributeMapper.MapToMacro(surfaceLoadAttribute, macroId);
+								}
+								break;
+							default:
+								throw new NotSupportedException($"selection type '{firstLine.SelectionType}' is not supported");
+						}
+						return surfaceLoadAttribute;
+					}
+				default:
+					throw new NotSupportedException($"quantity type '{firstLine.QuantityType}' is not supported");
+			}
 		}
 
 		#endregion

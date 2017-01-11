@@ -11,5 +11,6 @@ namespace OofemLink.Common.OofemNames
 		public const string DeadWeight = nameof(DeadWeight);
 		public const string NodalLoad = nameof(NodalLoad);
 		public const string ConstantEdgeLoad = nameof(ConstantEdgeLoad);
+		public const string ConstantSurfaceLoad = nameof(ConstantSurfaceLoad);
 	}
 }
