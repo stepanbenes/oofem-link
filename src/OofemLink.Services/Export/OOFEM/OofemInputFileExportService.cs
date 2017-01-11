@@ -127,7 +127,7 @@ namespace OofemLink.Services.Export.OOFEM
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			// =========================================================================================
-			using (var input = new InputBuilder(inputFileFullPath))
+			using (var input = new StreamInputBuilder(inputFileFullPath))
 			{
 				// Output file name
 				input.AddPlainText(outputFileFullPath);
@@ -428,7 +428,7 @@ namespace OofemLink.Services.Export.OOFEM
 		}
 
 		[Conditional("DEBUG")]
-		private static void addDebugComment(InputBuilder input, string comment)
+		private static void addDebugComment(StreamInputBuilder input, string comment)
 		{
 			input.AddComment(comment);
 		}
