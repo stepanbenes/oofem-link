@@ -17,9 +17,28 @@ namespace OofemLink.Services.Import
 			this.model = model;
 		}
 
-		public Vector3d CalculateZAxisForLineFromAngleAroundLocalXAxis(int lineId, double angle /*alpha*/)
+		public Vector3d CalculateLocalZAxisForLineFromAngleAroundLocalXAxis(int lineId, double angle /*alpha in DEGrees*/)
 		{
-			throw new NotImplementedException();
+			int vertex1Id, vertex2Id;
+			if (!tryGetLineVertices(lineId, out vertex1Id, out vertex2Id))
+				throw new KeyNotFoundException($"Line with id {lineId} was not found");
+
+			Vertex v1, v2;
+			if (!tryGetVertex(vertex1Id, out v1))
+				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
+			if (!tryGetVertex(vertex2Id, out v2))
+				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
+
+			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
+			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
+
+			Vector3d xAxis = Vector3d.Normalize(point2 - point1);
+			Vector3d globalZAxis = Vector3d.UnitZ;
+			Vector3d yAxis = Vector3d.Normalize(Vector3d.Cross(globalZAxis, xAxis));
+			Vector3d zAxis = Vector3d.Cross(xAxis, yAxis); // zAxis should be unit vector
+			double angleInRad = ComputationalGeometry.Deg2Rad(angle);
+			Vector3d rotatedZAxis = ComputationalGeometry.RotateVector(zAxis, angleInRad, xAxis); // rotate zAxis around xAxis by angleInRad
+			return rotatedZAxis;
 		}
 
 		public Vector3d CalculateLocalZAxisForLineFromGlobalYAxisTargetPoint(int lineId, Vector3d yTargetPoint)
@@ -37,11 +56,9 @@ namespace OofemLink.Services.Import
 			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
 			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
 
-			Vector3d xAxis = point2 - point1;
-			Vector3d yAxis = yTargetPoint - point1;
-			Vector3d zAxis;
-			Vector3d.Cross(ref xAxis, ref yAxis, out zAxis);
-			zAxis.Normalize();
+			Vector3d xAxis = Vector3d.Normalize(point2 - point1);
+			Vector3d yAxis = Vector3d.Normalize(yTargetPoint - point1);
+			Vector3d zAxis = Vector3d.Cross(xAxis, yAxis);
 			return zAxis;
 		}
 
@@ -59,8 +76,7 @@ namespace OofemLink.Services.Import
 				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
 
 			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
-			Vector3d zAxis = zTargetPoint - point1;
-			zAxis.Normalize();
+			Vector3d zAxis = Vector3d.Normalize(zTargetPoint - point1);
 			return zAxis;
 		}
 

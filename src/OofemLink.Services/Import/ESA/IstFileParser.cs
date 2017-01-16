@@ -129,15 +129,25 @@ namespace OofemLink.Services.Import.ESA
 									{
 										case Codes.Y:
 										case Codes.Z:
-											var lcsAttribute = parseLocalCoordinateSystemForLine(
-																	direction: lineTokens.Direction,
-																	lcsType: lineTokens[4],
-																	selectionType: lineTokens.SelectionType,
-																	number: lineTokens.Number.Value,
-																	x: lineTokens.X.Value, y: lineTokens.Y.Value, z: lineTokens.Z.Value);
-											attributes.Add(lcsAttribute);
+											{
+												var lcsAttribute = parseLocalCoordinateSystemForLine( // LCS is defined using point in direction of Y or Z axis
+																		direction: lineTokens.Direction,
+																		lcsType: lineTokens[4],
+																		selectionType: lineTokens.SelectionType,
+																		number: lineTokens.Number.Value,
+																		x: lineTokens.X.Value, y: lineTokens.Y.Value, z: lineTokens.Z.Value);
+												attributes.Add(lcsAttribute);
+											}
 											break;
-										case Codes.ALPHA:
+										case Codes.ALFA:
+											{
+												var lcsAttribute = parseLocalCoordinateSystemForLine( // LCS is defined using rotation around local X axis by angle alpha
+																		selectionType: lineTokens.SelectionType,
+																		number: lineTokens.Number.Value,
+																		alpha: lineTokens.Value.Value);
+												attributes.Add(lcsAttribute);
+											}
+											break;
 										case Codes.X:
 										default:
 											throw new NotSupportedException($"direction {lineTokens.Direction} is not supported in section {Codes.LCS}");
@@ -516,6 +526,25 @@ namespace OofemLink.Services.Import.ESA
 				throw new NotSupportedException($"Lcs type '{lcsType}' is not supported in LCS section");
 		}
 
+		private ModelAttribute parseLocalCoordinateSystemForLine(string selectionType, int number, double alpha)
+		{
+			if (selectionType == Codes.LINE)
+			{
+				Vector3d localCoordinates = coordinateTransformService.CalculateLocalZAxisForLineFromAngleAroundLocalXAxis(lineId: number, angle: alpha);
+				var lcsAttribute = new ModelAttribute
+				{
+					Type = AttributeType.LocalCoordinateSystem,
+					Name = "zaxis",
+					Target = AttributeTarget.Volume,
+					Parameters = Invariant($"3 {localCoordinates.X} {localCoordinates.Y} {localCoordinates.Z}")
+				};
+				attributeMapper.MapToCurve(lcsAttribute, curveId: number);
+				return lcsAttribute;
+			}
+			else
+				throw new NotSupportedException($"Selection type '{selectionType}' is not supported in LCS section");
+		}
+
 		#endregion
 
 		#region File codes
@@ -556,7 +585,7 @@ namespace OofemLink.Services.Import.ESA
 			public const string X = nameof(X);
 			public const string Y = nameof(Y);
 			public const string Z = nameof(Z);
-			public const string ALPHA = nameof(ALPHA);
+			public const string ALFA = nameof(ALFA);
 
 			// selection types
 			public const string MACR = nameof(MACR);
