@@ -448,12 +448,11 @@ namespace OofemLink.Services.Import.ESA
 						case Codes.SOIL:
 							{
 								LineValues line1_Values = ParseLineValues(streamReader.ReadLine());
-								LineValues line2_Values = ParseLineValues(streamReader.ReadLine());
-								// TODO: take into account all values
+								LineValues ignore = ParseLineValues(streamReader.ReadLine());
 								return createAttributeFromSurfaceSoilMaterialCharacteristics(number,
 										c1: line1_Values[0] ?? 0.0,
-										c2x: line1_Values[2] ?? 0.0,
-										c2y: line1_Values[3] ?? 0.0
+										c2x: line1_Values[1] ?? 0.0,
+										c2y: line1_Values[2] ?? 0.0
 									);
 							}
 						case Codes.ORT:
@@ -468,7 +467,7 @@ namespace OofemLink.Services.Import.ESA
 			}
 		}
 
-		private ModelAttribute createAttributeFromSurfaceIsoMaterialCharacteristics(int number, double E, double h, double G, double alpha, double gamma)
+		private ModelAttribute createAttributeFromSurfaceIsoMaterialCharacteristics(int number, double E, double h /*thickness*/, double G, double alpha, double gamma /*unit mass*/)
 		{
 			var crossSection = new ModelAttribute
 			{
@@ -502,7 +501,10 @@ namespace OofemLink.Services.Import.ESA
 				LocalNumber = number,
 				Name = CrossSectionNames.SimpleCS, // TODO: use some dummy cross-section instead if exists
 				Target = AttributeTarget.Volume,
+				Parameters = "thick 1" // TODO: is this dummy parameter necessary?
 			};
+
+			const double d = 0;
 
 			var material = new ModelAttribute
 			{
@@ -510,7 +512,7 @@ namespace OofemLink.Services.Import.ESA
 				LocalNumber = number,
 				Name = MaterialNames.WinklerPasternak,
 				Target = AttributeTarget.Volume,
-				Parameters = Invariant($"c1 {c1} c2x {c2x} c2y {c2y}") // TODO: add 'd' parameter
+				Parameters = Invariant($"d {d} c1 {c1} c2x {c2x} c2y {c2y}") // TODO: add 'd' parameter
 			};
 
 			// create cross-section - material relation
