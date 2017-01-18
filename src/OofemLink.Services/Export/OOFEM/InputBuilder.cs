@@ -24,7 +24,7 @@ namespace OofemLink.Services.Export.OOFEM
 		readonly Dictionary<int, DofManagerRecord> dofManagerRecords;
 		readonly Dictionary<int, ElementRecord> elementRecords;
 
-		int maxDofManagerId, maxElementId;
+		int maxDofManagerId, maxElementId, maxCrossSectionId, maxMaterialId;
 
 		public InputBuilder()
 		{
@@ -40,8 +40,9 @@ namespace OofemLink.Services.Export.OOFEM
 		}
 
 		public int MaxDofManagerId => maxDofManagerId;
-
 		public int MaxElementId => maxElementId;
+		public int MaxCrossSectionId => maxCrossSectionId;
+		public int MaxMaterialId => maxMaterialId;
 
 		#endregion
 
@@ -110,11 +111,13 @@ namespace OofemLink.Services.Export.OOFEM
 		public void AddCrossSectionRecord(CrossSectionRecord record)
 		{
 			crossSectionRecords.Add(record);
+			maxCrossSectionId = Math.Max(maxCrossSectionId, record.Id);
 		}
 
 		public void AddMaterialRecord(MaterialRecord record)
 		{
 			materialRecords.Add(record);
+			maxMaterialId = Math.Max(maxMaterialId, record.Id);
 		}
 
 		public void AddBoundaryConditionRecord(BoundaryConditionRecord record)
@@ -132,9 +135,9 @@ namespace OofemLink.Services.Export.OOFEM
 			setRecords.Add(record);
 		}
 
-		public DofManagerRecord GetDofManagerRecordById(int id) => dofManagerRecords[id];
+		public IReadOnlyDictionary<int, DofManagerRecord> DofManagerRecords => dofManagerRecords;
 
-		public ElementRecord GetElementRecordById(int id) => elementRecords[id];
+		public IReadOnlyDictionary<int, ElementRecord> ElementRecords => elementRecords;
 
 		#endregion
 

@@ -62,19 +62,17 @@ namespace OofemLink.Services.Export.OOFEM
 
 			List<Node> nodes;
 			List<Element> elements;
-			List<ModelAttribute> crossSections;
-			List<ModelAttribute> materials;
-			List<ModelAttribute> boundaryConditions;
+			List<ModelAttribute> crossSectionAttributes;
+			List<ModelAttribute> materialAttributes;
+			List<ModelAttribute> boundaryConditionAttributes;
 			List<TimeFunction> timeFunctions;
 			Dictionary<KeyValuePair<int, short>, ModelAttribute> edgeLcsAttributeMap;
-			List<ModelAttribute> independentSprings;
-			List<ModelAttribute> hinges;
-			Dictionary<int, List<ModelAttribute>> hingeStringMap;
+			List<ModelAttribute> independentSpringAttributes;
+			List<ModelAttribute> hingeAttributes;
+			Dictionary<int, List<ModelAttribute>> hingeSpringAttributeMap;
 
 			// load all model entities from db
 			{
-				// TODO: [Optimization] are orderings necessary?
-
 				var nodesQuery = from node in dataContext.Nodes
 								 where node.MeshId == mesh.Id
 								 orderby node.Id
@@ -129,18 +127,28 @@ namespace OofemLink.Services.Export.OOFEM
 				// materialize queries
 				nodes = nodesQuery.ToList();
 				elements = elementsQuery.ToList();
-				crossSections = crossSectionsQuery.ToList();
-				materials = materialsQuery.ToList();
-				boundaryConditions = boundaryConditionsQuery.ToList();
+				crossSectionAttributes = crossSectionsQuery.ToList();
+				materialAttributes = materialsQuery.ToList();
+				boundaryConditionAttributes = boundaryConditionsQuery.ToList();
 				timeFunctions = timeFunctionsQuery.ToList();
 				edgeLcsAttributeMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple LCS attributes per edge
-				independentSprings = independentSpringsQuery.ToList();
-				hinges = hingesQuery.ToList();
-				hingeStringMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
+				independentSpringAttributes = independentSpringsQuery.ToList();
+				hingeAttributes = hingesQuery.ToList();
+				hingeSpringAttributeMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
 			}
 
-			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
+			int maxSetId = 0;
+			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id, ref maxSetId);
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
+
+			List<int> elementsWithDummyCS = new List<int>();
+
+			// build attribute id to material id map
+			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
+			for (int index = 0; index < materialAttributes.Count; index++)
+			{
+				attributeIdToMaterialIdMap.Add(materialAttributes[index].Id, index + 1);
+			}
 
 			// =========================================================================================
 
@@ -214,70 +222,68 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			// SPRINGS
-			// TODO: assign dummy cross-section to spring elements
-			foreach (var spring in independentSprings)
+			foreach (var spring in independentSpringAttributes)
 			{
 				Set set = attributeIdSetMap[spring.Id];
 				foreach (var nodeId in set.Nodes)
 				{
-					input.AddOrUpdateElementRecord(new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { nodeId }, parameters: spring.Parameters));
+					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
+					input.AddOrUpdateElementRecord(springElementRecord);
+					elementsWithDummyCS.Add(springElementRecord.Id);
 				}
 				foreach (var edge in set.ElementEdges)
 				{
 					int node1Id, node2Id;
 					getNodesOfEdge(edge.Key, edge.Value, out node1Id, out node2Id);
-					input.AddOrUpdateElementRecord(new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters));
+					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
+					input.AddOrUpdateElementRecord(springElementRecord);
+					elementsWithDummyCS.Add(springElementRecord.Id);
 				}
 			}
 
 			// HINGES
-			foreach (var hinge in hinges)
+			foreach (var hinge in hingeAttributes)
 			{
 				var set = attributeIdSetMap[hinge.Id];
-				var masterNodeRecord = input.GetDofManagerRecordById(id: set.Nodes.Single());
+				var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
 				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
 				input.AddOrUpdateDofManagerRecord(slaveNodeRecord);
 
-				var elementRecord = input.GetElementRecordById(id: set.Elements.Single());
-				var updatedElementRecord = elementRecord.WithReplacedNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
+				var beamElementRecord = input.ElementRecords[set.Elements.Single()];
+				var updatedElementRecord = beamElementRecord.WithReplacedNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
 				input.AddOrUpdateElementRecord(updatedElementRecord);
 
 				// hinge springs
 				List<ModelAttribute> hingeSprings;
-				if (hingeStringMap.TryGetValue(hinge.Id, out hingeSprings))
+				if (hingeSpringAttributeMap.TryGetValue(hinge.Id, out hingeSprings))
 				{
 					foreach (var spring in hingeSprings)
 					{
-						input.AddOrUpdateElementRecord(new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters));
+						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters);
+						input.AddOrUpdateElementRecord(springElementRecord);
+						elementsWithDummyCS.Add(springElementRecord.Id);
 					}
 				}
 			}
 
-			// build attribute id to material id map
-			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
-			for (int index = 0; index < materials.Count; index++)
-			{
-				attributeIdToMaterialIdMap.Add(materials[index].Id, index + 1);
-			}
-
 			// CROSS-SECTIONS
-			for (int i = 0; i < crossSections.Count; i++)
+			for (int i = 0; i < crossSectionAttributes.Count; i++)
 			{
-				var crossSection = crossSections[i];
-				int childAttributeId = crossSection.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
-				input.AddCrossSectionRecord(new CrossSectionRecord(crossSection.Name, id: i + 1, parameters: crossSection.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSection.Id].Id));
+				var crossSectionAttribute = crossSectionAttributes[i];
+				int childAttributeId = crossSectionAttribute.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
+				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
 			}
 
 			// MATERIALS
-			foreach (var material in materials)
+			foreach (var materialAttribute in materialAttributes)
 			{
-				input.AddMaterialRecord(new MaterialRecord(material.Name, id: attributeIdToMaterialIdMap[material.Id], parameters: material.Parameters));
+				input.AddMaterialRecord(new MaterialRecord(materialAttribute.Name, id: attributeIdToMaterialIdMap[materialAttribute.Id], parameters: materialAttribute.Parameters));
 			}
 
 			// BOUNDARY CONDITIONS
-			for (int i = 0; i < boundaryConditions.Count; i++) // write Boundary Conditions (including Loads)
+			for (int i = 0; i < boundaryConditionAttributes.Count; i++) // write Boundary Conditions (including Loads)
 			{
-				var bc = boundaryConditions[i];
+				var bc = boundaryConditionAttributes[i];
 				input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bc.Name, id: i + 1, parameters: bc.Parameters, timeFunctionId: bc.TimeFunctionId, setId: attributeIdSetMap[bc.Id].Id));
 			}
 
@@ -309,6 +315,30 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddSetRecord(new SetRecord(set));
 			}
 
+			// append dummy cross-section and material if needed
+			if (elementsWithDummyCS.Count > 0)
+			{
+				var set = new Set(++maxSetId).WithElements(elementsWithDummyCS.ToArray());
+				var setRecord = new SetRecord(set);
+				var dummyMaterialRecord = createDummyMaterialRecord(id: input.MaxMaterialId + 1);
+				var dummyCrossSectionRecord = createDummyCrossSectionRecord(id: input.MaxCrossSectionId + 1, materialId: dummyMaterialRecord.Id, setId: set.Id);
+
+				input.AddCrossSectionRecord(dummyCrossSectionRecord);
+				input.AddMaterialRecord(dummyMaterialRecord);
+				input.AddSetRecord(setRecord);
+
+				// Uncomment following to append "mat X crossSect Y" to Spring elements' parameters
+				//foreach (int elementId in elementsWithDummyCS)
+				//{
+				//	var elementRecord = input.ElementRecords[elementId];
+				//	if (elementRecord.Name == ElementNames.Spring)
+				//	{
+				//		var updatedElementRecord = elementRecord.WithAppendedParameters($"");
+				//		input.AddOrUpdateElementRecord(updatedElementRecord);
+				//	}
+				//}
+			}
+
 			// create input file
 			input.WriteToFile(inputFileFullPath);
 		}
@@ -316,6 +346,16 @@ namespace OofemLink.Services.Export.OOFEM
 		#endregion
 
 		#region Private methods
+
+		private CrossSectionRecord createDummyCrossSectionRecord(int id, int materialId, int setId)
+		{
+			return new CrossSectionRecord(CrossSectionNames.SimpleCS, id, /*parameters:*/ "", materialId, setId);
+		}
+
+		private MaterialRecord createDummyMaterialRecord(int id)
+		{
+			return new MaterialRecord(MaterialNames.DummyMat, id, parameters: "");
+		}
 
 		private void getNodesOfEdge(int elementId, short edgeRank, out int node1Id, out int node2Id)
 		{
@@ -348,12 +388,11 @@ namespace OofemLink.Services.Export.OOFEM
 			return resultQuery.ToList();
 		}
 
-		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId)
+		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId, ref int maxSetId)
 		{
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
 
 			var map = new Dictionary<int, Set>();
-			int setId = 1;
 
 			// AttributeTarget.Node:
 			{
@@ -378,7 +417,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(setId++);
+						set = new Set(++maxSetId);
 					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -395,7 +434,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(setId++).WithElementEdges(group.ToArray());
+					Set set = new Set(++maxSetId).WithElementEdges(group.ToArray());
 					map.Add(attributeId, set);
 				}
 			}
@@ -412,7 +451,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(setId++).WithElementSurfaces(group.ToArray());
+					Set set = new Set(++maxSetId).WithElementSurfaces(group.ToArray());
 					map.Add(attributeId, set);
 				}
 			}
@@ -444,7 +483,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(setId++);
+						set = new Set(++maxSetId);
 					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -482,7 +521,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(setId++);
+						set = new Set(++maxSetId);
 					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 
@@ -493,7 +532,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(setId++);
+						set = new Set(++maxSetId);
 					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}

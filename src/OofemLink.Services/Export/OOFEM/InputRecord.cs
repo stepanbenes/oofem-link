@@ -54,7 +54,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class VtkXmlExportModuleRecord : ExportModuleRecord
 	{
-		public override string ToString() => "vtkxml tstep_all domain_all primvars 1 1"; // TODO: this is hard-coded now, enable this to be configurable
+		public override string ToString() => "vtkxml tstep_all domain_all primvars 0 vars 1 7"; // TODO: this is hard-coded now, enable this to be configurable
 	}
 
 	class DomainRecord : HeaderRecord
@@ -142,6 +142,12 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
 			return new ElementRecord(Name, Id, updatedNodeIds, Parameters);
+		}
+
+		public ElementRecord WithAppendedParameters(string parametersToAppend)
+		{
+			string newParameters = (Parameters + " " + parametersToAppend).Trim();
+			return new ElementRecord(Name, Id, NodeIds, newParameters);
 		}
 	}
 
