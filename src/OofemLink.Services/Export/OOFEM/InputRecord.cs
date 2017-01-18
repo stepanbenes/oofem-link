@@ -140,7 +140,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public ElementRecord WithReplacedNode(int oldNodeId, int newNodeId)
 		{
-			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : oldNodeId).ToArray();
+			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
 			return new ElementRecord(Name, Id, updatedNodeIds, Parameters);
 		}
 	}
