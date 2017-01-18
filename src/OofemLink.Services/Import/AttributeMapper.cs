@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using OofemLink.Common.Enumerations;
+using OofemLink.Common.MathPhys;
+using OofemLink.Common.OofemNames;
 using OofemLink.Data.Entities;
 
 namespace OofemLink.Services.Import
@@ -105,6 +108,18 @@ namespace OofemLink.Services.Import
 		public void MapToSurface(ModelAttribute attribute, int surfaceId, int macroId)
 		{
 			attribute.SurfaceAttributes.Add(new SurfaceAttribute { MacroId = macroId, SurfaceId = surfaceId });
+
+			// TODO: avoid following hack; try to remove requirement to set normal vector, because attribute can be assigned to multiple (non-parallel) plates/walls
+
+			// SimpleCS cross-section attribute is required to have directorx, directory and directorz parameters specifying normal vector of the plane on which it is applied
+			if (attribute.Type == AttributeType.CrossSection && attribute.Name == CrossSectionNames.SimpleCS)
+			{
+				if (!attribute.Parameters.Contains("directorx")) // if parameter is not already set
+				{
+					Vector3d n = getSurfaceNormalVector(surfaceId);
+					attribute.Parameters += FormattableString.Invariant($" directorx {n.X} directory {n.Y} directorz {n.Z}");
+				}
+			}
 		}
 
 		public void MapToSurface(ModelAttribute attribute, int surfaceId)
@@ -175,6 +190,21 @@ namespace OofemLink.Services.Import
 
 			curveId = curve.Id;
 			vertexId = vertexCurve.VertexId;
+		}
+
+		private Vector3d getSurfaceNormalVector(int surfaceId)
+		{
+			var surface = model.Surfaces.Single(c => c.Id == surfaceId);
+			var surfaceVertices = from surfaceCurve in surface.SurfaceCurves
+								  orderby surfaceCurve.Rank
+								  join curve in model.Curves on surfaceCurve.CurveId equals curve.Id
+								  join vertex in model.Vertices on surfaceCurve.IsInversed ? curve.CurveVertices.First().VertexId : curve.CurveVertices.Last().VertexId equals vertex.Id
+								  select vertex;
+			var vertexPositions = surfaceVertices.Select(v => new Vector3d(v.X, v.Y, v.Z)).ToArray();
+			Debug.Assert(vertexPositions.Length == 4);
+			Vector3d a = vertexPositions[3] - vertexPositions[0];
+			Vector3d b = vertexPositions[1] - vertexPositions[0];
+			return Vector3d.Normalize(Vector3d.Cross(a, b));
 		}
 
 		#endregion
