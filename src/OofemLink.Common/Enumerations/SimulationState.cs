@@ -9,7 +9,6 @@ namespace OofemLink.Common.Enumerations
     {
 		New = 0,
 		ModelReady,
-		ReadyToRun,
 		Finished,
 		ReadyToPostprocess
 	}

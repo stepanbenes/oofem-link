@@ -40,12 +40,7 @@ namespace OofemLink.Services.Execution
 				throw new KeyNotFoundException($"Simulation with id {simulationId} does not exist.");
 			}
 
-			if (simulation.State == SimulationState.ModelReady)
-			{
-				await prepareSimulationToRunAsync(simulation);
-			}
-
-			if (simulation.State != SimulationState.ReadyToRun)
+			if (simulation.State < SimulationState.ModelReady)
 			{
 				throw new InvalidOperationException("Simulation is not ready to run. Current state: " + simulation.State);
 			}
@@ -87,14 +82,6 @@ namespace OofemLink.Services.Execution
 		#endregion
 
 		#region Private methods
-
-		private async Task prepareSimulationToRunAsync(Simulation simulation)
-		{
-			// TODO: call model transformation service etc.
-
-			simulation.State = SimulationState.ReadyToRun;
-			await dataContext.SaveChangesAsync();
-		}
 
 		private string prepareInputFile(int simulationId)
 		{
