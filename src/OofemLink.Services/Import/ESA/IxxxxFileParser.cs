@@ -147,13 +147,13 @@ namespace OofemLink.Services.Import.ESA
 			double x = 0, y = 0, z = 0;
 			switch (direction)
 			{
-				case Codes.XG:
+				case Directions.XG:
 					x = coefficient * PhysicalConstants.g; // TODO: check correctness
 					break;
-				case Codes.YG:
+				case Directions.YG:
 					y = coefficient * PhysicalConstants.g;
 					break;
-				case Codes.ZG:
+				case Directions.ZG:
 					z = coefficient * PhysicalConstants.g;
 					break;
 				default:
@@ -191,25 +191,10 @@ namespace OofemLink.Services.Import.ESA
 			{
 				case Codes.FORC:
 					{
-						int dofId;
-						switch (lineTokens.Direction)
-						{
-							case Codes.X:
-								dofId = 1;
-								break;
-							case Codes.Y:
-								dofId = 2;
-								break;
-							case Codes.Z:
-								dofId = 3;
-								break;
-							case Codes.XG:
-							case Codes.YG:
-							case Codes.ZG:
-								throw new NotImplementedException($"direction '{lineTokens.Direction}' is not implemented yet");
-							default:
-								throw new NotSupportedException($"direction '{lineTokens.Direction}' is not supported");
-						}
+						bool isLcs;
+						int dofId = ParseDofId(lineTokens.Direction, out isLcs);
+						if (isLcs)
+							throw new InvalidDataException($"Local coordinate system not supported in {Codes.MULT} {Codes.POIN} {Codes.FORC} section");
 						double value = lineTokens.Value.Value;
 						var pointLoadAttribute = new ModelAttribute
 						{
@@ -250,37 +235,9 @@ namespace OofemLink.Services.Import.ESA
 				case Codes.FORC:
 					{
 						// The load can be defined in global coordinate system (csType = 0, default) or in entity - specific local coordinate system (csType = 1).
-						int csType;
-						int dofId;
-						switch (firstLine.Direction)
-						{
-							case Codes.XG:
-								csType = 0;
-								dofId = 1;
-								break;
-							case Codes.YG:
-								csType = 0;
-								dofId = 2;
-								break;
-							case Codes.ZG:
-								csType = 0;
-								dofId = 3;
-								break;
-							case Codes.XE:
-								csType = 1;
-								dofId = 1;
-								break;
-							case Codes.YE:
-								csType = 1;
-								dofId = 2;
-								break;
-							case Codes.ZE:
-								csType = 1;
-								dofId = 3;
-								break;
-							default:
-								throw new NotSupportedException($"direction '{firstLine.Direction}' is not supported");
-						}
+						bool isLcs;
+						int dofId = ParseDofId(firstLine.Direction, out isLcs);
+						int csType = isLcs ? 1 : 0;
 						double value = firstLine.Value.Value;
 						var lineLoadAttribute = new ModelAttribute
 						{
@@ -342,21 +299,10 @@ namespace OofemLink.Services.Import.ESA
 				case Codes.FORC:
 					{
 						// The load can be defined in global coordinate system (csType = 0, default) or in entity - specific local coordinate system (csType = 1).
-						int dofId;
-						switch (firstLine.Direction)
-						{
-							case Codes.XG:
-								dofId = 1;
-								break;
-							case Codes.YG:
-								dofId = 2;
-								break;
-							case Codes.ZG:
-								dofId = 3;
-								break;
-							default:
-								throw new NotSupportedException($"direction '{firstLine.Direction}' is not supported");
-						}
+						bool isLcs;
+						int dofId = ParseDofId(firstLine.Direction, out isLcs);
+						if (isLcs)
+							throw new InvalidDataException($"Local coordinate system not supported in {Codes.MULT} {Codes.SURF} {Codes.FORC} section");
 						double value = firstLine.Value.Value;
 						var surfaceLoadAttribute = new ModelAttribute
 						{
@@ -407,23 +353,6 @@ namespace OofemLink.Services.Import.ESA
 			public const string MACR = nameof(MACR);
 			public const string LINE = nameof(LINE);
 			public const string NODE = nameof(NODE);
-
-			// Directions
-			public const string X = nameof(X);
-			public const string Y = nameof(Y);
-			public const string Z = nameof(Z);
-			public const string XG = nameof(XG);
-			public const string YG = nameof(YG);
-			public const string ZG = nameof(ZG);
-			public const string XL = nameof(XL);
-			public const string YL = nameof(YL);
-			public const string ZL = nameof(ZL);
-			public const string XPG = nameof(XPG);
-			public const string YPG = nameof(YPG);
-			public const string ZPG = nameof(ZPG);
-			public const string XE = nameof(XE);
-			public const string YE = nameof(YE);
-			public const string ZE = nameof(ZE);
 		}
 
 		#endregion

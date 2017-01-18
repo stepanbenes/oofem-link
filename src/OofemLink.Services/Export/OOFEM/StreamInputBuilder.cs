@@ -67,17 +67,17 @@ namespace OofemLink.Services.Export.OOFEM
 			streamWriter.Write($"{Keyword.ndofman} {dofManagerCount} {Keyword.nelem} {elementCount} {Keyword.ncrosssect} {crossSectionCount} {Keyword.nmat} {materialCount} {Keyword.nbc} {boundaryConditionCount} {Keyword.nic} {initialConditionCount} {Keyword.nltf} {timeFunctionCount} {Keyword.nset} {setCount}");
 		}
 
-		public INodeRecordBuilder AddNode(int id)
+		public INodeRecordBuilder AddNode(string name, int id)
 		{
 			streamWriter.WriteLine();
-			streamWriter.Write($"{Keyword.node} {id}");
+			streamWriter.Write($"{name} {id}");
 			return this;
 		}
 
-		public IElementRecordBuilder AddElement(string type, int id)
+		public IElementRecordBuilder AddElement(string name, int id)
 		{
 			streamWriter.WriteLine();
-			streamWriter.Write($"{type} {id}");
+			streamWriter.Write($"{name} {id}");
 			return this;
 		}
 

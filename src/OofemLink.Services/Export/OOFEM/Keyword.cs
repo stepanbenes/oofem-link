@@ -7,7 +7,6 @@ namespace OofemLink.Services.Export.OOFEM
 {
     public static class Keyword
     {
-		public const string node = nameof(node);
 		public const string coords = nameof(coords);
 		public const string nodes = nameof(nodes);
 		public const string material = nameof(material);
@@ -16,6 +15,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public const string elementedges = nameof(elementedges);
 		public const string elementboundaries = nameof(elementboundaries);
 		public const string allElements = nameof(allElements);
+		public const string master = nameof(master);
 
 		public const string zaxis = nameof(zaxis);
 

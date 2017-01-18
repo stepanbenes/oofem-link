@@ -11,34 +11,24 @@ namespace OofemLink.Services.Import
 	public class CoordinateTransformService
 	{
 		readonly Model model;
+		readonly Dictionary<int, CS> curveLcsCache;
 
 		public CoordinateTransformService(Model model)
 		{
 			this.model = model;
+			this.curveLcsCache = new Dictionary<int, CS>();
 		}
 
 		public Vector3d CalculateLocalZAxisForLineFromAngleAroundLocalXAxis(int lineId, double angle /*alpha in DEGrees*/)
 		{
-			int vertex1Id, vertex2Id;
-			if (!tryGetLineVertices(lineId, out vertex1Id, out vertex2Id))
-				throw new KeyNotFoundException($"Line with id {lineId} was not found");
-
-			Vertex v1, v2;
-			if (!tryGetVertex(vertex1Id, out v1))
-				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
-			if (!tryGetVertex(vertex2Id, out v2))
-				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
-
-			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
-			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
-
-			Vector3d xAxis = Vector3d.Normalize(point2 - point1);
-			Vector3d globalZAxis = Vector3d.UnitZ;
-			Vector3d yAxis = Vector3d.Normalize(Vector3d.Cross(globalZAxis, xAxis));
-			Vector3d zAxis = Vector3d.Cross(xAxis, yAxis); // zAxis should be unit vector
+			CS curveLcs = calculateLcsForCurve(lineId);
 			double angleInRad = ComputationalGeometry.Deg2Rad(angle);
-			Vector3d rotatedZAxis = ComputationalGeometry.RotateVector(zAxis, angleInRad, xAxis); // rotate zAxis around xAxis by angleInRad
-			return rotatedZAxis;
+			Vector3d rotatedYAxis = ComputationalGeometry.RotateVector(curveLcs.YAxis, angleInRad, curveLcs.XAxis); // rotate zAxis around xAxis by angleInRad
+			CS newCurveLcs = new CS(curveLcs.XAxis, rotatedYAxis);
+
+			curveLcsCache[lineId] = newCurveLcs;
+
+			return newCurveLcs.ZAxis;
 		}
 
 		public Vector3d CalculateLocalZAxisForLineFromGlobalYAxisTargetPoint(int lineId, Vector3d yTargetPoint)
@@ -59,25 +49,42 @@ namespace OofemLink.Services.Import
 			Vector3d xAxis = Vector3d.Normalize(point2 - point1);
 			Vector3d yAxis = Vector3d.Normalize(yTargetPoint - point1);
 			Vector3d zAxis = Vector3d.Cross(xAxis, yAxis);
+
+			curveLcsCache[lineId] = new CS(xAxis, yAxis);
+
 			return zAxis;
 		}
 
 		public Vector3d CalculateLocalZAxisForLineFromGlobalZAxisTargetPoint(int lineId, Vector3d zTargetPoint)
 		{
-			Curve line;
-			if (!tryGetCurve(lineId, out line))
+			int vertex1Id, vertex2Id;
+			if (!tryGetLineVertices(lineId, out vertex1Id, out vertex2Id))
 				throw new KeyNotFoundException($"Line with id {lineId} was not found");
 
-			Debug.Assert(line.CurveVertices.Count == 2);
-			int vertex1Id = line.CurveVertices.ElementAt(0).VertexId;
-
-			Vertex v1;
+			Vertex v1, v2;
 			if (!tryGetVertex(vertex1Id, out v1))
 				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
+			if (!tryGetVertex(vertex2Id, out v2))
+				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
 
 			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
+			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
+
+			Vector3d xAxis = Vector3d.Normalize(point2 - point1);
 			Vector3d zAxis = Vector3d.Normalize(zTargetPoint - point1);
+			Vector3d yAxis = Vector3d.Cross(zAxis, xAxis);
+
+			curveLcsCache[lineId] = new CS(xAxis, yAxis);
+
 			return zAxis;
+		}
+
+		public void GetLocalCoordinateSystemAxesForLine(int lineId, out Vector3d xAxis, out Vector3d yAxis, out Vector3d zAxis)
+		{
+			CS lcs = getOrCalculateLcsForCurve(lineId);
+			xAxis = lcs.XAxis;
+			yAxis = lcs.YAxis;
+			zAxis = lcs.ZAxis;
 		}
 
 		#region Private methods
@@ -110,6 +117,51 @@ namespace OofemLink.Services.Import
 			return vertex != null;
 		}
 
+		private CS getOrCalculateLcsForCurve(int curveId)
+		{
+			CS curveLcs;
+			if (curveLcsCache.TryGetValue(curveId, out curveLcs))
+				return curveLcs;
+			curveLcs = calculateLcsForCurve(curveId);
+			curveLcsCache[curveId] = curveLcs;
+			return curveLcs;
+
+		}
+
+		private CS calculateLcsForCurve(int curveId)
+		{
+			int vertex1Id, vertex2Id;
+			if (!tryGetLineVertices(curveId, out vertex1Id, out vertex2Id))
+				throw new KeyNotFoundException($"Line with id {curveId} was not found");
+
+			Vertex v1, v2;
+			if (!tryGetVertex(vertex1Id, out v1))
+				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
+			if (!tryGetVertex(vertex2Id, out v2))
+				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
+
+			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
+			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
+
+			Vector3d xAxis = Vector3d.Normalize(point2 - point1);
+			Vector3d globalZAxis = Vector3d.UnitZ; // WARNING: zAxis should not be parallel with xAxis
+			Vector3d yAxis = Vector3d.Normalize(Vector3d.Cross(globalZAxis, xAxis));
+
+			return new CS(xAxis, yAxis);
+		}
+
 		#endregion
+
+		private struct CS
+		{
+			public CS(Vector3d normalizedXAxis, Vector3d normalizedYAxis)
+			{
+				XAxis = normalizedXAxis;
+				YAxis = normalizedYAxis;
+			}
+			public Vector3d XAxis { get; }
+			public Vector3d YAxis { get; }
+			public Vector3d ZAxis => Vector3d.Cross(XAxis, YAxis);
+		}
 	}
 }

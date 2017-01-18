@@ -18,6 +18,7 @@ namespace OofemLink.Data.Entities
 	{
 		public int CurveId { get; set; }
 		public virtual Curve Curve { get; set; }
+		public short Rank { get; set; }
 	}
 
 	public class MacroSurface : MacroGeometryMapping

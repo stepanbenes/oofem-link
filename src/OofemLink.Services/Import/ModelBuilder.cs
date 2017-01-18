@@ -67,9 +67,11 @@ namespace OofemLink.Services.Import
 		public ModelBuilder AddBeamMacro(int macroId, IEnumerable<int> lineIds)
 		{
 			var macro = new Macro { Model = model, Id = macroId };
+			short rank = 1;
 			foreach (var lineId in lineIds)
 			{
-				macro.MacroCurves.Add(new MacroCurve { Model = model, MacroId = macroId, CurveId = lineId });
+				macro.MacroCurves.Add(new MacroCurve { Model = model, MacroId = macroId, CurveId = lineId, Rank = rank });
+				rank += 1;
 			}
 			model.Macros.Add(macro);
 			return this;

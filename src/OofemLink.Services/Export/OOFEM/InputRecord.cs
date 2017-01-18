@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OofemLink.Common.OofemNames;
 using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
@@ -71,9 +72,9 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString() => "OutputManager tstep_all dofman_all element_all"; // TODO: avoid hard-coded string
 	}
 
-	class NodeRecord : InputRecord
+	abstract class DofManagerRecord : InputRecord
 	{
-		public NodeRecord(int id, double x, double y, double z)
+		public DofManagerRecord(int id, double x, double y, double z)
 		{
 			Id = id;
 			X = x;
@@ -84,7 +85,29 @@ namespace OofemLink.Services.Export.OOFEM
 		public double X { get; }
 		public double Y { get; }
 		public double Z { get; }
-		public override string ToString() => Invariant($"{Keyword.node} {Id} {Keyword.coords} 3 {X} {Y} {Z}");
+	}
+
+	class NodeRecord : DofManagerRecord
+	{
+		public NodeRecord(int id, double x, double y, double z)
+			: base(id, x, y, z)
+		{ }
+		public override string ToString() => Invariant($"{DofManagerNames.node} {Id} {Keyword.coords} 3 {X} {Y} {Z}");
+	}
+
+	class RigidArmNodeRecord : DofManagerRecord
+	{
+		public RigidArmNodeRecord(string name, int id, double x, double y, double z, int masterId, string parameters)
+			: base(id, x, y, z)
+		{
+			Name = name;
+			MasterId = masterId;
+			Parameters = parameters;
+		}
+		public string Name { get; }
+		public int MasterId { get; }
+		public string Parameters { get; }
+		public override string ToString() => Invariant($"{DofManagerNames.RigidArmNode} {Id} {Keyword.coords} 3 {X} {Y} {Z} {Keyword.master} {MasterId} {Parameters}");
 	}
 
 	abstract class NamedRecord : InputRecord
@@ -168,7 +191,7 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			this.timeValuePairs = timeValuePairs;
 		}
-	
+
 		public TimeFunctionRecord(string name, int id, double time, double value)
 			: base(name, id)
 		{

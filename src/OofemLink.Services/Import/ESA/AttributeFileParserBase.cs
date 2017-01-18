@@ -71,5 +71,57 @@ namespace OofemLink.Services.Import.ESA
 			Debug.Assert(values.Length == 8);
 			return new LineValues(values);
 		}
+
+		protected static int ParseDofId(string direction, out bool isLcs)
+		{
+			switch (direction)
+			{
+				case Directions.X:
+				case Directions.XG:
+					isLcs = false;
+					return 1;
+				case Directions.Y:
+				case Directions.YG:
+					isLcs = false;
+					return 2;
+				case Directions.Z:
+				case Directions.ZG:
+					isLcs = false;
+					return 3;
+				case Directions.XL:
+				case Directions.XE:
+					isLcs = true;
+					return 1;
+				case Directions.YL:
+				case Directions.YE:
+					isLcs = true;
+					return 2;
+				case Directions.ZL:
+				case Directions.ZE:
+					isLcs = true;
+					return 3;
+				default:
+					throw new NotSupportedException($"direction '{direction}' is not supported");
+			}
+		}
+
+		protected static class Directions
+		{
+			public const string X = nameof(X);
+			public const string Y = nameof(Y);
+			public const string Z = nameof(Z);
+			public const string XG = nameof(XG);
+			public const string YG = nameof(YG);
+			public const string ZG = nameof(ZG);
+			public const string XL = nameof(XL);
+			public const string YL = nameof(YL);
+			public const string ZL = nameof(ZL);
+			public const string XPG = nameof(XPG);
+			public const string YPG = nameof(YPG);
+			public const string ZPG = nameof(ZPG);
+			public const string XE = nameof(XE);
+			public const string YE = nameof(YE);
+			public const string ZE = nameof(ZE);
+		}
 	}
 }

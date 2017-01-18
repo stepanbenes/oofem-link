@@ -38,6 +38,7 @@ namespace OofemLink.Services.Import.ESA
 			var lineFixRecords = new List<FixRecord>();
 			var pointSpringRecords = new List<SpringRecord>();
 			var lineSpringRecords = new List<SpringRecord>();
+			var releaseRecords = new List<ReleaseRecord>();
 
 			using (var streamReader = File.OpenText(FileFullPath))
 			{
@@ -82,16 +83,22 @@ namespace OofemLink.Services.Import.ESA
 									{
 										if (lineTokens.SelectionType != Codes.NODE)
 											throw new InvalidDataException($"Selection type '{Codes.NODE}' was expected instead of '{lineTokens.SelectionType}'");
-										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
-										pointFixRecords.Add(new FixRecord(dofId, targetId: lineTokens.Number.Value));
+										bool isLcs;
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction, out isLcs);
+										if (isLcs)
+											throw new InvalidDataException($"Local coordinate system not supported in {Codes.FIX} {Codes.POIN} section");
+										pointFixRecords.Add(new FixRecord(dofId, isLcs, targetId: lineTokens.Number.Value));
 									}
 									break;
 								case Codes.LIN:
 									{
 										if (lineTokens.SelectionType != Codes.LINE)
 											throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{lineTokens.SelectionType}'");
-										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
-										lineFixRecords.Add(new FixRecord(dofId, targetId: lineTokens.Number.Value));
+										bool isLcs;
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction, out isLcs);
+										if (isLcs)
+											throw new NotImplementedException($"Local coordinate system not implemeted in {Codes.FIX} {Codes.POIN} section");
+										lineFixRecords.Add(new FixRecord(dofId, isLcs, targetId: lineTokens.Number.Value));
 									}
 									break;
 								default:
@@ -105,16 +112,22 @@ namespace OofemLink.Services.Import.ESA
 									{
 										if (lineTokens.SelectionType != Codes.NODE)
 											throw new InvalidDataException($"Selection type '{Codes.NODE}' was expected instead of '{lineTokens.SelectionType}'");
-										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
-										pointSpringRecords.Add(new SpringRecord(dofId, targetId: lineTokens.Number.Value, value: lineTokens.Value.Value));
+										bool isLcs;
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction, out isLcs);
+										if (isLcs)
+											throw new InvalidDataException($"Local coordinate system not supported in {Codes.FIX} {Codes.POIN} section");
+										pointSpringRecords.Add(new SpringRecord(dofId, isLcs, targetId: lineTokens.Number.Value, value: lineTokens.Value.Value));
 									}
 									break;
 								case Codes.LIN:
 									{
 										if (lineTokens.SelectionType != Codes.LINE)
 											throw new InvalidDataException($"Selection type '{Codes.LINE}' was expected instead of '{lineTokens.SelectionType}'");
-										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction);
-										lineSpringRecords.Add(new SpringRecord(dofId, targetId: lineTokens.Number.Value, value: lineTokens.Value.Value));
+										bool isLcs;
+										int dofId = parseDofId(lineTokens.QuantityType, lineTokens.Direction, out isLcs);
+										if (isLcs)
+											throw new NotImplementedException($"Local coordinate system not implemeted in {Codes.FIX} {Codes.POIN} section");
+										lineSpringRecords.Add(new SpringRecord(dofId, isLcs, targetId: lineTokens.Number.Value, value: lineTokens.Value.Value));
 									}
 									break;
 								default:
@@ -127,8 +140,8 @@ namespace OofemLink.Services.Import.ESA
 								{
 									switch (lineTokens.Direction)
 									{
-										case Codes.Y:
-										case Codes.Z:
+										case Directions.Y:
+										case Directions.Z:
 											{
 												var lcsAttribute = parseLocalCoordinateSystemForLine( // LCS is defined using point in direction of Y or Z axis
 																		direction: lineTokens.Direction,
@@ -148,13 +161,47 @@ namespace OofemLink.Services.Import.ESA
 												attributes.Add(lcsAttribute);
 											}
 											break;
-										case Codes.X:
+										case Directions.X:
 										default:
-											throw new NotSupportedException($"direction {lineTokens.Direction} is not supported in section {Codes.LCS}");
+											throw new NotSupportedException($"direction '{lineTokens.Direction}' is not supported in section '{Codes.LCS}'");
 									}
 								}
 								else
-									throw new NotSupportedException($"quantity type {lineTokens.QuantityType} is not supported in section {Codes.LCS}");
+									throw new NotSupportedException($"quantity type '{lineTokens.QuantityType}' is not supported in section '{Codes.LCS}'");
+							}
+							break;
+						case Codes.REL:
+							{
+								switch (lineTokens.DimensionType)
+								{
+									case Codes.BEAM:
+										{
+											if (lineTokens.SelectionType != Codes.MACR)
+												throw new InvalidDataException($"Selection type '{Codes.MACR}' was expected instead of '{lineTokens.SelectionType}'");
+
+											double? start = null, end = null;
+											if (lineTokens[8] == Codes.START) start = TryParseFloat64(lineTokens[9]);
+											if (lineTokens[8] == Codes.END) end = TryParseFloat64(lineTokens[9]);
+											if (lineTokens[10] == Codes.START) start = TryParseFloat64(lineTokens[11]);
+											if (lineTokens[10] == Codes.END) end = TryParseFloat64(lineTokens[11]);
+
+											foreach (var releaseRecord in createAttributesFromBeamReleaseSection(
+																			quantityType: lineTokens.QuantityType,
+																			direction: lineTokens.Direction,
+																			functionCode: lineTokens[5],
+																			macroId: lineTokens.Number.Value,
+																			startValue: start,
+																			endValue: end))
+											{
+												releaseRecords.Add(releaseRecord);
+											}
+										}
+										break;
+									case Codes.FLAT:
+										throw new NotImplementedException($"Dimension type '{Codes.FLAT}' is not yet implemented in section '{Codes.REL}'");
+									default:
+										throw new NotSupportedException($"Dimension type '{lineTokens.DimensionType}' is not supported in section '{Codes.REL}'");
+								}
 							}
 							break;
 						default:
@@ -237,6 +284,112 @@ namespace OofemLink.Services.Import.ESA
 					};
 					attributeMapper.MapToCurve(springAttribute, curveId: lineSpringGroup.Key);
 					attributes.Add(springAttribute);
+				}
+			}
+
+			// group releases (hinges + springs)
+			{
+				var releaseGroups = from releaseRecord in releaseRecords
+									group releaseRecord by new { releaseRecord.MacroId, releaseRecord.CurveId, releaseRecord.VertexId };
+				foreach (var releaseGroup in releaseGroups)
+				{
+					int macroId = releaseGroup.Key.MacroId;
+					int curveId = releaseGroup.Key.CurveId;
+					int vertexId = releaseGroup.Key.VertexId;
+
+					const int dofArraysLength = 6;
+					int[] dofIDMaskArray = Enumerable.Range(1, dofArraysLength).ToArray();
+					int[] dofTypeArray = Enumerable.Repeat(2, count: dofArraysLength).ToArray(); // Linked DOFs should have dofType value equal to 2
+					int[] masterMaskArray = Enumerable.Repeat(1, count: dofArraysLength).ToArray(); // For all linked DOFs (with corresponding dofType value equal to 2) the corresponding value of masterMask array should be 1
+
+					foreach (var release in releaseGroup)
+					{
+						int dofIndex = release.DofId - 1;
+						dofTypeArray[dofIndex] = 0; // non-linked (primary) DOFs should have dofType value equal to 0
+						masterMaskArray[dofIndex] = 0; // non-linked DOFs should have mastermask value equal to 0
+					}
+
+					Vector3d xAxis, yAxis, zAxis;
+					coordinateTransformService.GetLocalCoordinateSystemAxesForLine(curveId, out xAxis, out yAxis, out zAxis);
+
+					string lcsParameter;
+					if (releaseGroup.All(r => r.IsLcs))
+					{
+						lcsParameter = Invariant($" lcs 6 {xAxis.X} {xAxis.Y} {xAxis.Z} {yAxis.X} {yAxis.Y} {yAxis.Z}");
+					}
+					else if (releaseGroup.All(r => !r.IsLcs))
+					{
+						lcsParameter = ""; // GCS is default
+					}
+					else
+						throw new InvalidDataException("REL attributes applied to the same macro should be defined either all in local coordinate system or all in global coordinate system.");
+
+					var hingeAttribute = new ModelAttribute
+					{
+						Type = AttributeType.Hinge,
+						Name = DofManagerNames.RigidArmNode,
+						Target = AttributeTarget.Node,
+						Parameters = $"DofIDMask {dofArraysLength} {string.Join(" ", dofIDMaskArray)} doftype {dofArraysLength} {string.Join(" ", dofTypeArray)} mastermask {dofArraysLength} {string.Join(" ", masterMaskArray)}{lcsParameter}"
+					};
+
+					attributeMapper.MapToVertex(hingeAttribute, vertexId);
+
+					attributes.Add(hingeAttribute);
+
+					foreach (var springRelease in releaseGroup.Where(r => r.Value != 0)) // Non-zero value means that we need to add spring element between master and slave node
+					{
+						int dofId = springRelease.DofId;
+
+						/// Spring element's parameters
+						/// 
+						/// mode: defines the type of spring element
+						///		mode 4: 3D spring element in space
+						///		mode 5: 3D torsional spring in space
+						///	orientation: defines orientation vector of spring element (of size 3) - for longitudinal spring it defines the direction of spring, for torsional spring it defines the axis of rotation.
+						/// k: determines the spring constant, corresponding units are [Force/Length] for longitudinal spring and [Force*Length/Radian] for torsional spring
+
+						int mode = dofId > 3 ? 5 : 4;
+						double k = springRelease.Value;
+						Vector3d orientation;
+						switch (dofId)
+						{
+							case 1:
+							case 4:
+								if (springRelease.IsLcs)
+									orientation = xAxis;
+								else
+									orientation = Vector3d.UnitX;
+								break;
+							case 2:
+							case 5:
+								if (springRelease.IsLcs)
+									orientation = yAxis;
+								else
+									orientation = Vector3d.UnitY;
+								break;
+							case 3:
+							case 6:
+								if (springRelease.IsLcs)
+									orientation = zAxis;
+								else
+									orientation = Vector3d.UnitZ;
+								break;
+							default:
+								throw new InvalidOperationException($"Unexpected dofId ({dofId})");
+						}
+
+						var springAttribute = new ModelAttribute
+						{
+							Type = AttributeType.Spring,
+							Name = ElementNames.Spring,
+							Target = AttributeTarget.Node,
+							Parameters = Invariant($"mode {mode} orientation 3 {orientation.X} {orientation.Y} {orientation.Z} k {k}")
+						};
+
+						// append spring to hinge
+						attributeMapper.CreateParentChildRelation(hingeAttribute, springAttribute);
+						attributes.Add(springAttribute);
+					}
 				}
 			}
 
@@ -336,9 +489,7 @@ namespace OofemLink.Services.Import.ESA
 			};
 
 			// create cross-section - material relation
-			var relation = new AttributeComposition { ParentAttribute = crossSection, ChildAttribute = material };
-			crossSection.ChildAttributes.Add(relation);
-			material.ParentAttributes.Add(relation);
+			attributeMapper.CreateParentChildRelation(crossSection, material);
 
 			return crossSection;
 		}
@@ -363,14 +514,12 @@ namespace OofemLink.Services.Import.ESA
 			};
 
 			// create cross-section - material relation
-			var relation = new AttributeComposition { ParentAttribute = dummyCrossSection, ChildAttribute = material };
-			dummyCrossSection.ChildAttributes.Add(relation);
-			material.ParentAttributes.Add(relation);
+			attributeMapper.CreateParentChildRelation(dummyCrossSection, material);
 
 			return dummyCrossSection;
 		}
 
-		private static ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ax /*ignored*/, double Ay, double Az, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
+		private ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ax /*ignored*/, double Ay, double Az, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
 		{
 			const double tAlpha = 0.0;
 
@@ -393,9 +542,7 @@ namespace OofemLink.Services.Import.ESA
 			};
 
 			// create cross-section - material relation
-			var relation = new AttributeComposition { ParentAttribute = crossSection, ChildAttribute = material };
-			crossSection.ChildAttributes.Add(relation);
-			material.ParentAttributes.Add(relation);
+			attributeMapper.CreateParentChildRelation(crossSection, material);
 
 			return crossSection;
 		}
@@ -460,25 +607,12 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
-		#region Parsing supports & springs
+		#region Dof parsing
 
-		private static int parseDofId(string quantityType, string direction)
+		private static int parseDofId(string quantityType, string direction, out bool isLcs)
 		{
-			int dofId;
-			switch (direction)
-			{
-				case Codes.X:
-					dofId = 1;
-					break;
-				case Codes.Y:
-					dofId = 2;
-					break;
-				case Codes.Z:
-					dofId = 3;
-					break;
-				default:
-					throw new NotSupportedException($"direction '{direction}' is not supported");
-			}
+			int dofId = ParseDofId(direction, out isLcs);
+
 			switch (quantityType)
 			{
 				case Codes.DISP:
@@ -499,13 +633,13 @@ namespace OofemLink.Services.Import.ESA
 
 		private ModelAttribute parseLocalCoordinateSystemForLine(string direction, string lcsType, string selectionType, int number, double x, double y, double z)
 		{
-			Debug.Assert(direction == Codes.Y || direction == Codes.Z);
+			Debug.Assert(direction == Directions.Y || direction == Directions.Z);
 			if (lcsType == Codes.GLOB)
 			{
 				if (selectionType == Codes.LINE)
 				{
 					Vector3d localCoordinates;
-					if (direction == Codes.Y)
+					if (direction == Directions.Y)
 						localCoordinates = coordinateTransformService.CalculateLocalZAxisForLineFromGlobalYAxisTargetPoint(lineId: number, yTargetPoint: new Vector3d(x, y, z));
 					else
 						localCoordinates = coordinateTransformService.CalculateLocalZAxisForLineFromGlobalZAxisTargetPoint(lineId: number, zTargetPoint: new Vector3d(x, y, z));
@@ -547,6 +681,40 @@ namespace OofemLink.Services.Import.ESA
 
 		#endregion
 
+		#region REL parsing
+
+		private IEnumerable<ReleaseRecord> createAttributesFromBeamReleaseSection(string quantityType, string direction, string functionCode, int macroId, double? startValue, double? endValue)
+		{
+			bool isLcs;
+			int dofId = parseDofId(quantityType, direction, out isLcs);
+			switch (functionCode)
+			{
+				case "": // ELAST is default
+				case Codes.ELAST:
+					{
+						int curveId, vertexId;
+						if (startValue.HasValue)
+						{
+							attributeMapper.GetStartCurveAndVertexOfBeamMacro(macroId, out curveId, out vertexId);
+							yield return new ReleaseRecord(dofId, isLcs, macroId, curveId, vertexId, startValue.Value);
+						}
+						if (endValue.HasValue)
+						{
+							attributeMapper.GetEndCurveAndVertexOfBeamMacro(macroId, out curveId, out vertexId);
+							yield return new ReleaseRecord(dofId, isLcs, macroId, curveId, vertexId, endValue.Value);
+						}
+					}
+					break;
+				case Codes.PLAST:
+				case Codes.NON:
+					throw new NotImplementedException($"Function code '{functionCode}' is not yet implemented in section '{Codes.REL}'");
+				default:
+					throw new NotSupportedException($"Function code '{functionCode}' is not supported in section '{Codes.REL}'");
+			}
+		}
+
+		#endregion
+
 		#region File codes
 
 		private static class Codes
@@ -581,10 +749,6 @@ namespace OofemLink.Services.Import.ESA
 			public const string VARL = nameof(VARL);
 			public const string SOIL = nameof(SOIL);
 
-			// directions
-			public const string X = nameof(X);
-			public const string Y = nameof(Y);
-			public const string Z = nameof(Z);
 			public const string ALFA = nameof(ALFA);
 
 			// selection types
@@ -593,6 +757,12 @@ namespace OofemLink.Services.Import.ESA
 			public const string NODE = nameof(NODE);
 
 			public const string GLOB = nameof(GLOB);
+			public const string START = nameof(START);
+			public const string END = nameof(END);
+
+			public const string ELAST = nameof(ELAST);
+			public const string PLAST = nameof(PLAST);
+			public const string NON = nameof(NON);
 		}
 
 		#endregion
@@ -601,25 +771,48 @@ namespace OofemLink.Services.Import.ESA
 
 		private struct FixRecord
 		{
-			public FixRecord(int dofId, int targetId)
+			public FixRecord(int dofId, bool isLcs, int targetId)
 			{
 				DofId = dofId;
+				IsLcs = isLcs;
 				TargetId = targetId;
 			}
 			public int DofId { get; }
+			public bool IsLcs { get; }
 			public int TargetId { get; }
 		}
 
 		private struct SpringRecord
 		{
-			public SpringRecord(int dofId, int targetId, double value)
+			public SpringRecord(int dofId, bool isLcs, int targetId, double value)
 			{
 				DofId = dofId;
+				IsLcs = isLcs;
 				TargetId = targetId;
 				Value = value;
 			}
 			public int DofId { get; }
+			public bool IsLcs { get; }
 			public int TargetId { get; }
+			public double Value { get; }
+		}
+
+		private struct ReleaseRecord
+		{
+			public ReleaseRecord(int dofId, bool isLcs, int macroId, int curveId, int vertexId, double value)
+			{
+				DofId = dofId;
+				IsLcs = isLcs;
+				MacroId = macroId;
+				CurveId = curveId;
+				VertexId = vertexId;
+				Value = value;
+			}
+			public int DofId { get; }
+			public bool IsLcs { get; }
+			public int MacroId { get; }
+			public int CurveId { get; }
+			public int VertexId { get; }
 			public double Value { get; }
 		}
 

@@ -9,6 +9,7 @@ namespace OofemLink.Common.OofemNames
     {
 		public const string beam3d = nameof(beam3d);
 		public const string mitc4shell = nameof(mitc4shell);
+		public const string Spring = nameof(Spring);
 		public const string NodalSpring = nameof(NodalSpring);
 		public const string LineDistributedSpring = nameof(LineDistributedSpring);
 	}

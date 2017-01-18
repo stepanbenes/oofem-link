@@ -12,6 +12,7 @@ namespace OofemLink.Common.Enumerations
 		BoundaryCondition,
 		InitialCondition,
 		LocalCoordinateSystem,
-		Spring
+		Spring,
+		Hinge
 	}
 }

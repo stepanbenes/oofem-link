@@ -133,5 +133,50 @@ namespace OofemLink.Services.Import
 				MapToVolume(attribute, volumeId, macroId);
 			}
 		}
+
+		public void CreateParentChildRelation(ModelAttribute parentAttribute, ModelAttribute childAttribute)
+		{
+			var relation = new AttributeComposition { ParentAttribute = parentAttribute, ChildAttribute = childAttribute };
+			parentAttribute.ChildAttributes.Add(relation);
+			childAttribute.ParentAttributes.Add(relation);
+		}
+
+		public void GetStartCurveAndVertexOfBeamMacro(int macroId, out int curveId, out int vertexId)
+		{
+			getStartCurveAndVertexOfBeamMacro(macroId, true, out curveId, out vertexId);
+		}
+
+		public void GetEndCurveAndVertexOfBeamMacro(int macroId, out int curveId, out int vertexId)
+		{
+			getStartCurveAndVertexOfBeamMacro(macroId, false, out curveId, out vertexId);
+		}
+
+		#region Private methods
+
+		private void getStartCurveAndVertexOfBeamMacro(int macroId, bool isStartVertexRequested /*true to apply to start vertex, false to end vertex*/, out int curveId, out int vertexId)
+		{
+			var macro = model.Macros.SingleOrDefault(m => m.Id == macroId);
+			if (macro == null)
+				throw new KeyNotFoundException($"Macro with id {macroId} was not found");
+
+			MacroCurve macroCurve;
+			if (isStartVertexRequested)
+				macroCurve = macro.MacroCurves.OrderBy(mc => mc.Rank).First();
+			else
+				macroCurve = macro.MacroCurves.OrderByDescending(mc => mc.Rank).First();
+
+			// map the attribute to start vertex of curve
+			var curve = model.Curves.Single(c => c.Id == macroCurve.CurveId);
+			VertexCurve vertexCurve;
+			if (isStartVertexRequested)
+				vertexCurve = curve.CurveVertices.OrderBy(cv => cv.Rank).First();
+			else
+				vertexCurve = curve.CurveVertices.OrderByDescending(cv => cv.Rank).First();
+
+			curveId = curve.Id;
+			vertexId = vertexCurve.VertexId;
+		}
+
+		#endregion
 	}
 }
