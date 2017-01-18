@@ -521,7 +521,7 @@ namespace OofemLink.Services.Import.ESA
 
 		private ModelAttribute createAttributeFromBeamCrossSectionCharacteristics(int number, double Ax /*ignored*/, double Ay, double Az, double Ix, double Iy, double Iz, double E, double G, double gamma, double area)
 		{
-			const double tAlpha = 0.0;
+			const double tAlpha = 1.2e-5; // TODO: avoid magic numbers
 
 			var crossSection = new ModelAttribute
 			{
