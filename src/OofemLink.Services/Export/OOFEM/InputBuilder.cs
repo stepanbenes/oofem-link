@@ -15,25 +15,33 @@ namespace OofemLink.Services.Export.OOFEM
 		#region Fields, constructor
 
 		readonly List<HeaderRecord> headerRecords;
-		readonly List<NodeRecord> nodeRecords;
-		readonly List<ElementRecord> elementRecords;
 		readonly List<CrossSectionRecord> crossSectionRecords;
 		readonly List<MaterialRecord> materialRecords;
 		readonly List<BoundaryConditionRecord> boundaryConditionRecords;
 		readonly List<TimeFunctionRecord> timeFunctionRecords;
 		readonly List<SetRecord> setRecords;
 
+		readonly Dictionary<int, DofManagerRecord> dofManagerRecords;
+		readonly Dictionary<int, ElementRecord> elementRecords;
+
+		int maxDofManagerId, maxElementId;
+
 		public InputBuilder()
 		{
 			headerRecords = new List<HeaderRecord>();
-			nodeRecords = new List<NodeRecord>();
-			elementRecords = new List<ElementRecord>();
 			crossSectionRecords = new List<CrossSectionRecord>();
 			materialRecords = new List<MaterialRecord>();
 			boundaryConditionRecords = new List<BoundaryConditionRecord>();
 			timeFunctionRecords = new List<TimeFunctionRecord>();
 			setRecords = new List<SetRecord>();
+
+			dofManagerRecords = new Dictionary<int, DofManagerRecord>();
+			elementRecords = new Dictionary<int, ElementRecord>();
 		}
+
+		public int MaxDofManagerId => maxDofManagerId;
+
+		public int MaxElementId => maxElementId;
 
 		#endregion
 
@@ -52,12 +60,12 @@ namespace OofemLink.Services.Export.OOFEM
 				// calculate and print numbers of records
 				streamWriter.WriteLine(buildRecordCountsString());
 
-				streamWriter.WriteLine($"# NODES");
-				foreach (var record in nodeRecords)
+				streamWriter.WriteLine($"# DOF-MANAGERS");
+				foreach (var record in dofManagerRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# ELEMENTS");
-				foreach (var record in elementRecords)
+				foreach (var record in elementRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# CROSS-SECTIONS");
@@ -87,14 +95,16 @@ namespace OofemLink.Services.Export.OOFEM
 			headerRecords.Add(record);
 		}
 
-		public void AddNodeRecord(NodeRecord record)
+		public void AddOrUpdateDofManagerRecord(DofManagerRecord record)
 		{
-			nodeRecords.Add(record);
+			dofManagerRecords[record.Id] = record;
+			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
 		}
 
-		public void AddElementRecord(ElementRecord record)
+		public void AddOrUpdateElementRecord(ElementRecord record)
 		{
-			elementRecords.Add(record);
+			elementRecords[record.Id] = record;
+			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
 		public void AddCrossSectionRecord(CrossSectionRecord record)
@@ -122,6 +132,10 @@ namespace OofemLink.Services.Export.OOFEM
 			setRecords.Add(record);
 		}
 
+		public DofManagerRecord GetDofManagerRecordById(int id) => dofManagerRecords[id];
+
+		public ElementRecord GetElementRecordById(int id) => elementRecords[id];
+
 		#endregion
 
 		#region Private methods
@@ -136,7 +150,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 		private string buildRecordCountsString()
 		{
-			int dofManagerCount = nodeRecords.Count;
+			int dofManagerCount = dofManagerRecords.Count;
 			int elementCount = elementRecords.Count;
 			int crossSectionCount = crossSectionRecords.Count;
 			int materialCount = materialRecords.Count;

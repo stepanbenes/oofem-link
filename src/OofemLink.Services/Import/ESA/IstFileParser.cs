@@ -328,12 +328,12 @@ namespace OofemLink.Services.Import.ESA
 					{
 						Type = AttributeType.Hinge,
 						Name = DofManagerNames.RigidArmNode,
-						Target = AttributeTarget.Node,
+						Target = AttributeTarget.Undefined,
 						Parameters = $"DofIDMask {dofArraysLength} {string.Join(" ", dofIDMaskArray)} doftype {dofArraysLength} {string.Join(" ", dofTypeArray)} mastermask {dofArraysLength} {string.Join(" ", masterMaskArray)}{lcsParameter}"
 					};
 
 					attributeMapper.MapToVertex(hingeAttribute, vertexId);
-
+					attributeMapper.MapToCurve(hingeAttribute, curveId, macroId);
 					attributes.Add(hingeAttribute);
 
 					foreach (var springRelease in releaseGroup.Where(r => r.Value != 0)) // Non-zero value means that we need to add spring element between master and slave node
@@ -382,7 +382,7 @@ namespace OofemLink.Services.Import.ESA
 						{
 							Type = AttributeType.Spring,
 							Name = ElementNames.Spring,
-							Target = AttributeTarget.Node,
+							Target = AttributeTarget.Undefined,
 							Parameters = Invariant($"mode {mode} orientation 3 {orientation.X} {orientation.Y} {orientation.Z} k {k}")
 						};
 

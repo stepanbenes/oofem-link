@@ -67,7 +67,9 @@ namespace OofemLink.Services.Export.OOFEM
 			List<ModelAttribute> boundaryConditions;
 			List<TimeFunction> timeFunctions;
 			Dictionary<KeyValuePair<int, short>, ModelAttribute> edgeLcsAttributeMap;
-			List<ModelAttribute> springs;
+			List<ModelAttribute> independentSprings;
+			List<ModelAttribute> hinges;
+			Dictionary<int, List<ModelAttribute>> hingeStringMap;
 
 			// load all model entities from db
 			{
@@ -106,11 +108,23 @@ namespace OofemLink.Services.Export.OOFEM
 							   from curveElement in curveAttribute.Curve.CurveElements
 							   where curveElement.MeshId == mesh.Id
 							   group curveAttribute.Attribute by new KeyValuePair<int, short>(curveElement.ElementId, curveElement.Rank);
-				var springsQuery = from attribute in dataContext.Attributes
-								   where attribute.ModelId == model.Id
-								   where attribute.Type == AttributeType.Spring
-								   orderby attribute.Id
-								   select attribute;
+				var independentSpringsQuery = from attribute in dataContext.Attributes
+											  where attribute.ModelId == model.Id
+											  where attribute.Type == AttributeType.Spring
+											  where !attribute.ParentAttributes.Any()
+											  orderby attribute.Id
+											  select attribute;
+				var hingesQuery = from attribute in dataContext.Attributes
+								  where attribute.ModelId == model.Id
+								  where attribute.Type == AttributeType.Hinge
+								  orderby attribute.Id
+								  select attribute;
+				var hingeStringQuery = from attribute in dataContext.Attributes
+									   where attribute.ModelId == model.Id
+									   where attribute.Type == AttributeType.Hinge
+									   from attributeComposition in attribute.ChildAttributes
+									   where attributeComposition.ChildAttribute.Type == AttributeType.Spring
+									   group attributeComposition.ChildAttribute by attribute.Id;
 
 				// materialize queries
 				nodes = nodesQuery.ToList();
@@ -120,7 +134,9 @@ namespace OofemLink.Services.Export.OOFEM
 				boundaryConditions = boundaryConditionsQuery.ToList();
 				timeFunctions = timeFunctionsQuery.ToList();
 				edgeLcsAttributeMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple LCS attributes per edge
-				springs = springsQuery.ToList();
+				independentSprings = independentSpringsQuery.ToList();
+				hinges = hingesQuery.ToList();
+				hingeStringMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
 			}
 
 			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
@@ -154,17 +170,15 @@ namespace OofemLink.Services.Export.OOFEM
 			// NODES
 			foreach (var node in nodes)
 			{
-				input.AddNodeRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
+				input.AddOrUpdateDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
 			}
 
 			// ELEMENTS
-			int maxElementId = 0;
 			foreach (var element in elements)
 			{
 				var nodeIds = (from elementNode in element.ElementNodes
 							   orderby elementNode.Rank
 							   select elementNode.NodeId).ToArray();
-				maxElementId = Math.Max(element.Id, maxElementId);
 				ElementRecord elementRecord;
 				switch (element.Type)
 				{
@@ -196,26 +210,50 @@ namespace OofemLink.Services.Export.OOFEM
 					default:
 						throw new NotSupportedException($"Element type {element.Type} is not supported.");
 				}
-				input.AddElementRecord(elementRecord);
+				input.AddOrUpdateElementRecord(elementRecord);
 			}
 
 			// SPRINGS
 			// TODO: assign dummy cross-section to spring elements
-			foreach (var spring in springs)
+			foreach (var spring in independentSprings)
 			{
-				var set = attributeIdSetMap[spring.Id];
+				Set set = attributeIdSetMap[spring.Id];
 				foreach (var nodeId in set.Nodes)
 				{
-					input.AddElementRecord(new ElementRecord(spring.Name, id: ++maxElementId, nodeIds: new[] { nodeId }, parameters: spring.Parameters));
+					input.AddOrUpdateElementRecord(new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { nodeId }, parameters: spring.Parameters));
 				}
 				foreach (var edge in set.ElementEdges)
 				{
 					int node1Id, node2Id;
 					getNodesOfEdge(edge.Key, edge.Value, out node1Id, out node2Id);
-					input.AddElementRecord(new ElementRecord(spring.Name, id: ++maxElementId, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters));
+					input.AddOrUpdateElementRecord(new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters));
 				}
 			}
 
+			// HINGES
+			foreach (var hinge in hinges)
+			{
+				var set = attributeIdSetMap[hinge.Id];
+				var masterNodeRecord = input.GetDofManagerRecordById(id: set.Nodes.Single());
+				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
+				input.AddOrUpdateDofManagerRecord(slaveNodeRecord);
+
+				var elementRecord = input.GetElementRecordById(id: set.Elements.Single());
+				var updatedElementRecord = elementRecord.WithReplacedNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
+				input.AddOrUpdateElementRecord(updatedElementRecord);
+
+				// hinge springs
+				List<ModelAttribute> hingeSprings;
+				if (hingeStringMap.TryGetValue(hinge.Id, out hingeSprings))
+				{
+					foreach (var spring in hingeSprings)
+					{
+						input.AddOrUpdateElementRecord(new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters));
+					}
+				}
+			}
+
+			// build attribute id to material id map
 			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
 			for (int index = 0; index < materials.Count; index++)
 			{
@@ -324,7 +362,6 @@ namespace OofemLink.Services.Export.OOFEM
 								  where vertexAttribute.Attribute.Target == AttributeTarget.Node
 								  from vertexNode in vertexAttribute.Vertex.VertexNodes
 								  where vertexNode.MeshId == meshId
-								  orderby vertexNode.NodeId
 								  group vertexNode.NodeId by vertexAttribute.AttributeId;
 				var curveQuery = from curveAttribute in dataContext.Set<CurveAttribute>() // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
 								 where curveAttribute.ModelId == modelId
@@ -332,14 +369,17 @@ namespace OofemLink.Services.Export.OOFEM
 								 from curveVertex in curveAttribute.Curve.CurveVertices
 								 from vertexNode in curveVertex.Vertex.VertexNodes
 								 where vertexNode.MeshId == meshId
-								 orderby vertexNode.NodeId
 								 group vertexNode.NodeId by curveAttribute.AttributeId;
+
 				var query = vertexQuery.Concat(curveQuery);
+
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(setId++).WithNodes(group.ToArray());
-					map.Add(attributeId, set);
+					Set set;
+					if (!map.TryGetValue(attributeId, out set))
+						set = new Set(setId++);
+					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
 
@@ -402,8 +442,59 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(setId++).WithElements(group.OrderBy(id => id).ToArray());
-					map.Add(attributeId, set);
+					Set set;
+					if (!map.TryGetValue(attributeId, out set))
+						set = new Set(setId++);
+					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
+				}
+			}
+
+			// AttributeTarget.Undefined:
+			{
+				var nodesQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
+								 where vertexAttribute.ModelId == modelId
+								 where vertexAttribute.Attribute.Target == AttributeTarget.Undefined
+								 from vertexNode in vertexAttribute.Vertex.VertexNodes
+								 where vertexNode.MeshId == meshId
+								 group vertexNode.NodeId by vertexAttribute.AttributeId;
+				var elements1dQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
+									  where curveAttribute.ModelId == modelId
+									  where curveAttribute.Attribute.Target == AttributeTarget.Undefined
+									  from curveElement in curveAttribute.Curve.CurveElements
+									  where curveElement.MeshId == meshId
+									  group curveElement.ElementId by curveAttribute.AttributeId;
+				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
+									  where surfaceAttribute.ModelId == modelId
+									  where surfaceAttribute.Attribute.Target == AttributeTarget.Undefined
+									  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+									  where surfaceElement.MeshId == meshId
+									  group surfaceElement.ElementId by surfaceAttribute.AttributeId;
+				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
+									  where volumeAttribute.ModelId == modelId
+									  where volumeAttribute.Attribute.Target == AttributeTarget.Undefined
+									  from volumeElement in volumeAttribute.Volume.VolumeElements
+									  where volumeElement.MeshId == meshId
+									  group volumeElement.ElementId by volumeAttribute.AttributeId;
+
+
+				foreach (var group in nodesQuery)
+				{
+					int attributeId = group.Key;
+					Set set;
+					if (!map.TryGetValue(attributeId, out set))
+						set = new Set(setId++);
+					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
+				}
+
+				var elementsQuery = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
+
+				foreach (var group in elementsQuery)
+				{
+					int attributeId = group.Key;
+					Set set;
+					if (!map.TryGetValue(attributeId, out set))
+						set = new Set(setId++);
+					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
 

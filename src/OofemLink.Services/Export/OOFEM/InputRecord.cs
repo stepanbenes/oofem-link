@@ -97,14 +97,12 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class RigidArmNodeRecord : DofManagerRecord
 	{
-		public RigidArmNodeRecord(string name, int id, double x, double y, double z, int masterId, string parameters)
+		public RigidArmNodeRecord(int id, double x, double y, double z, int masterId, string parameters)
 			: base(id, x, y, z)
 		{
-			Name = name;
 			MasterId = masterId;
 			Parameters = parameters;
 		}
-		public string Name { get; }
 		public int MasterId { get; }
 		public string Parameters { get; }
 		public override string ToString() => Invariant($"{DofManagerNames.RigidArmNode} {Id} {Keyword.coords} 3 {X} {Y} {Z} {Keyword.master} {MasterId} {Parameters}");
@@ -138,6 +136,12 @@ namespace OofemLink.Services.Export.OOFEM
 			if (string.IsNullOrEmpty(Parameters))
 				return text;
 			return text + " " + Parameters;
+		}
+
+		public ElementRecord WithReplacedNode(int oldNodeId, int newNodeId)
+		{
+			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : oldNodeId).ToArray();
+			return new ElementRecord(Name, Id, updatedNodeIds, Parameters);
 		}
 	}
 
