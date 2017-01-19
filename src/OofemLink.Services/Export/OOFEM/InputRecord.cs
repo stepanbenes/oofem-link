@@ -167,6 +167,8 @@ namespace OofemLink.Services.Export.OOFEM
 		public int MaterialId { get; }
 		public int SetId { get; }
 		public override string ToString() => $"{Name} {Id} {Parameters} {Keyword.material} {MaterialId} {Keyword.set} {SetId}";
+
+		public CrossSectionRecord WithSet(int newSetId) => new CrossSectionRecord(Name, Id, Parameters, MaterialId, newSetId);
 	}
 
 	class MaterialRecord : NamedRecord

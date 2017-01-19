@@ -274,7 +274,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
 				int childAttributeId = crossSectionAttribute.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
-				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
+				input.AddOrUpdateCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
 			}
 
 			// MATERIALS
@@ -326,7 +326,7 @@ namespace OofemLink.Services.Export.OOFEM
 				var dummyMaterialRecord = createDummyMaterialRecord(id: input.MaxMaterialId + 1);
 				var dummyCrossSectionRecord = createDummyCrossSectionRecord(id: input.MaxCrossSectionId + 1, materialId: dummyMaterialRecord.Id, setId: set.Id);
 
-				input.AddCrossSectionRecord(dummyCrossSectionRecord);
+				input.AddOrUpdateCrossSectionRecord(dummyCrossSectionRecord);
 				input.AddMaterialRecord(dummyMaterialRecord);
 				input.AddSetRecord(setRecord);
 
@@ -379,6 +379,29 @@ namespace OofemLink.Services.Export.OOFEM
 					input.AddBoundaryConditionRecord(boundaryConditionRecord);
 					input.AddTimeFunctionRecord(timeFunctionRecord);
 					input.AddSetRecord(setRecord);
+				}
+			}
+
+			// attach quad1platesubsoil elements to elements having WinklerPasternak material assigned to them
+			{
+				foreach (var crossSectionRecord in from materialRecord in input.MaterialRecords.Values
+												   where materialRecord.Name == MaterialNames.WinklerPasternak
+												   join crossSection in input.CrossSectionRecords.Values on materialRecord.Id equals crossSection.MaterialId
+												   select crossSection)
+				{
+					var setRecord = input.SetRecords[crossSectionRecord.SetId];
+					var soilElementIds = new List<int>();
+					foreach (var elementRecord in from elementId in setRecord.Set.Elements
+												  select input.ElementRecords[elementId])
+					{
+						var soilElementRecord = new ElementRecord(ElementNames.quad1platesubsoil, input.MaxElementId + 1, elementRecord.Type, elementRecord.NodeIds);
+						input.AddOrUpdateElementRecord(soilElementRecord);
+						soilElementIds.Add(soilElementRecord.Id);
+					}
+					var newSetRecord = new SetRecord(new Set(input.MaxSetId + 1).WithElements(soilElementIds.ToArray()));
+					input.AddSetRecord(newSetRecord);
+					var updatedCrossSectionRecord = crossSectionRecord.WithSet(newSetRecord.Id);
+					input.AddOrUpdateCrossSectionRecord(updatedCrossSectionRecord);
 				}
 			}
 

@@ -15,25 +15,26 @@ namespace OofemLink.Services.Export.OOFEM
 		#region Fields, constructor
 
 		readonly List<HeaderRecord> headerRecords;
-		readonly List<CrossSectionRecord> crossSectionRecords;
-		readonly List<MaterialRecord> materialRecords;
 		readonly List<BoundaryConditionRecord> boundaryConditionRecords;
 		readonly List<TimeFunctionRecord> timeFunctionRecords;
-		readonly List<SetRecord> setRecords;
-
+		
 		readonly Dictionary<int, DofManagerRecord> dofManagerRecords;
 		readonly Dictionary<int, ElementRecord> elementRecords;
+
+		readonly Dictionary<int, CrossSectionRecord> crossSectionRecords;
+		readonly Dictionary<int, MaterialRecord> materialRecords;
+		readonly Dictionary<int, SetRecord> setRecords;
 
 		int maxDofManagerId, maxElementId, maxCrossSectionId, maxMaterialId, maxBoundaryConditionId, maxTimeFunctionId, maxSetId;
 
 		public InputBuilder()
 		{
 			headerRecords = new List<HeaderRecord>();
-			crossSectionRecords = new List<CrossSectionRecord>();
-			materialRecords = new List<MaterialRecord>();
+			crossSectionRecords = new Dictionary<int, CrossSectionRecord>();
+			materialRecords = new Dictionary<int, MaterialRecord>();
 			boundaryConditionRecords = new List<BoundaryConditionRecord>();
 			timeFunctionRecords = new List<TimeFunctionRecord>();
-			setRecords = new List<SetRecord>();
+			setRecords = new Dictionary<int, SetRecord>();
 
 			dofManagerRecords = new Dictionary<int, DofManagerRecord>();
 			elementRecords = new Dictionary<int, ElementRecord>();
@@ -73,11 +74,11 @@ namespace OofemLink.Services.Export.OOFEM
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# CROSS-SECTIONS");
-				foreach (var record in crossSectionRecords)
+				foreach (var record in crossSectionRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# MATERIALS");
-				foreach (var record in materialRecords)
+				foreach (var record in materialRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# BOUNDARY CONDITIONS");
@@ -89,7 +90,7 @@ namespace OofemLink.Services.Export.OOFEM
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# SETS");
-				foreach (var record in setRecords)
+				foreach (var record in setRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 			}
 		}
@@ -111,15 +112,15 @@ namespace OofemLink.Services.Export.OOFEM
 			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
-		public void AddCrossSectionRecord(CrossSectionRecord record)
+		public void AddOrUpdateCrossSectionRecord(CrossSectionRecord record)
 		{
-			crossSectionRecords.Add(record);
+			crossSectionRecords[record.Id] = record;
 			maxCrossSectionId = Math.Max(maxCrossSectionId, record.Id);
 		}
 
 		public void AddMaterialRecord(MaterialRecord record)
 		{
-			materialRecords.Add(record);
+			materialRecords.Add(record.Id, record);
 			maxMaterialId = Math.Max(maxMaterialId, record.Id);
 		}
 
@@ -137,13 +138,15 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public void AddSetRecord(SetRecord record)
 		{
-			setRecords.Add(record);
+			setRecords.Add(record.Id, record);
 			maxSetId = Math.Max(maxSetId, record.Id);
 		}
 
 		public IReadOnlyDictionary<int, DofManagerRecord> DofManagerRecords => dofManagerRecords;
-
 		public IReadOnlyDictionary<int, ElementRecord> ElementRecords => elementRecords;
+		public IReadOnlyDictionary<int, CrossSectionRecord> CrossSectionRecords => crossSectionRecords;
+		public IReadOnlyDictionary<int, MaterialRecord> MaterialRecords => materialRecords;
+		public IReadOnlyDictionary<int, SetRecord> SetRecords => setRecords;
 
 		#endregion
 
