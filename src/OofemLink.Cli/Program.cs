@@ -16,6 +16,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using OofemLink.Services.Execution;
+using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Cli
 {
@@ -181,9 +182,7 @@ namespace OofemLink.Cli
 		private Task<int> runImportCommandAsync(ImportOptions options)
 		{
 			var location = options.Location ?? Directory.GetCurrentDirectory();
-			var projectService = serviceProvider.GetRequiredService<IProjectService>();
-			var importService = serviceProvider.GetRequiredService<IImportServiceFactory>().Create(options.Source, location, options.TaskName, options.ModelOnly);
-			projectService.ImportSimulation(importService);
+			importSimulationFromLocation(options.Source, location, options.TaskName, options.ModelOnly);
 			return Task.FromResult(0);
 		}
 
@@ -206,8 +205,20 @@ namespace OofemLink.Cli
 
 		private async Task<int> runRunCommandAsync(RunOptions options)
 		{
+			int simulationId;
+			if (options.SimulationId.HasValue)
+			{
+				simulationId = options.SimulationId.Value;
+			}
+			else if (!string.IsNullOrEmpty(options.Location))
+			{
+				simulationId = importSimulationFromLocation(source: ImportSource.Default, location: options.Location, taskName: options.TaskName, modelOnly: false);
+			}
+			else
+				throw new InvalidOperationException("Either simulationId or import location must be specified.");
+
 			var executionService = serviceProvider.GetRequiredService<IExecutionService>();
-			var success = await executionService.ExecuteAsync(options.SimulationId);
+			var success = await executionService.ExecuteAsync(simulationId);
 			return success ? 0 : 666;
 		}
 
@@ -216,6 +227,13 @@ namespace OofemLink.Cli
 			var projectService = serviceProvider.GetRequiredService<IProjectService>();
 			await projectService.DeleteAsync(options.ProjectId);
 			return 0;
+		}
+
+		private int importSimulationFromLocation(ImportSource source, string location, string taskName, bool modelOnly)
+		{
+			var projectService = serviceProvider.GetRequiredService<IProjectService>();
+			var importService = serviceProvider.GetRequiredService<IImportServiceFactory>().Create(source, location, taskName, modelOnly);
+			return projectService.ImportSimulation(importService); // return simulation id
 		}
 
 		#endregion

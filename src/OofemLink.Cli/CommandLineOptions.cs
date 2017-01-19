@@ -21,7 +21,7 @@ namespace OofemLink.Cli
 	[Verb("create", HelpText = "Create new project in OOFEM database")]
 	class CreateOptions : CommandLineOptions
 	{
-		[Value(index: 0, Required = true, MetaName = "Project name", HelpText = "Nema of project to create")]
+		[Value(index: 0, Required = true, MetaName = "Project name", HelpText = "Name of project to create")]
 		public string ProjectName { get; set; }
 	}
 
@@ -33,7 +33,7 @@ namespace OofemLink.Cli
 		[Option('l', "location", Required = true, HelpText = "Location of input data")]
 		public string Location { get; set; }
 
-		[Option("taskName", Required = false, Default = DefaultTaskName, HelpText = "Name of task to import")]
+		[Option("task-name", Required = false, Default = DefaultTaskName, HelpText = "Name of task to import")]
 		public string TaskName { get; set; }
 
 		[Option('s', "source", Required = false, Default = ImportSource.Default, HelpText = "Source of model data to import")]
@@ -43,22 +43,27 @@ namespace OofemLink.Cli
 		public bool ModelOnly { get; set; }
 	}
 
-	abstract class SimulationOptions : CommandLineOptions
-	{
-		[Option('s', "simulation", Required = true, HelpText = "Id of simulation")]
-		public int SimulationId { get; set; }
-	}
-
 	[Verb("export", HelpText = "Build OOFEM input file from model in database")]
-	class ExportOptions : SimulationOptions
+	class ExportOptions : CommandLineOptions
 	{
+		[Option('s', "simulation", Required = true, HelpText = "Id of simulation to export")]
+		public int SimulationId { get; set; }
+
 		[Option('f', "file", Required = false, HelpText = "File absolute or relative path")]
 		public string FileName { get; set; }
 	}
 
 	[Verb("run", HelpText = "Run simulation in OOFEM")]
-	class RunOptions : SimulationOptions
+	class RunOptions : CommandLineOptions
 	{
+		[Option('s', "simulation", Required = false, HelpText = "Id of simulation to run")]
+		public int? SimulationId { get; set; }
+
+		[Option('i', "import", Required = false, HelpText = "Location of input data to import")]
+		public string Location { get; set; }
+
+		[Option("task-name", Required = false, Default = ImportOptions.DefaultTaskName, HelpText = "Name of task to import")]
+		public string TaskName { get; set; }
 	}
 
 	abstract class ProjectOptions : CommandLineOptions
