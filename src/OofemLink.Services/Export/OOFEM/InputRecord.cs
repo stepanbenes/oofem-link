@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OofemLink.Common.Enumerations;
 using OofemLink.Common.OofemNames;
 using static System.FormattableString;
 
@@ -122,12 +123,14 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class ElementRecord : NamedRecord
 	{
-		public ElementRecord(string name, int id, IReadOnlyList<int> nodeIds, string parameters = null)
+		public ElementRecord(string name, int id, CellType type, IReadOnlyList<int> nodeIds, string parameters = null)
 			: base(name, id)
 		{
+			Type = type;
 			NodeIds = nodeIds;
 			Parameters = parameters;
 		}
+		public CellType Type { get; }
 		public IReadOnlyList<int> NodeIds { get; }
 		public string Parameters { get; }
 		public override string ToString()
@@ -141,13 +144,13 @@ namespace OofemLink.Services.Export.OOFEM
 		public ElementRecord WithReplacedNode(int oldNodeId, int newNodeId)
 		{
 			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
-			return new ElementRecord(Name, Id, updatedNodeIds, Parameters);
+			return new ElementRecord(Name, Id, Type, updatedNodeIds, Parameters);
 		}
 
 		public ElementRecord WithAppendedParameters(string parametersToAppend)
 		{
 			string newParameters = (Parameters + " " + parametersToAppend).Trim();
-			return new ElementRecord(Name, Id, NodeIds, newParameters);
+			return new ElementRecord(Name, Id, Type, NodeIds, newParameters);
 		}
 	}
 
@@ -239,11 +242,12 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			Set = set;
 		}
+		public int Id => Set.Id;
 		public Set Set { get; }
 		public override string ToString()
 		{
 			var text = new StringBuilder();
-			text.Append($"{Keyword.set} {Set.Id}");
+			text.Append($"{Keyword.set} {Id}");
 			if (Set.Nodes.Count > 0)
 			{
 				text.Append($" {Keyword.nodes} {Set.Nodes.Count} {string.Join(" ", Set.Nodes)}");

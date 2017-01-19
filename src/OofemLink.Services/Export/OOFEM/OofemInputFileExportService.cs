@@ -200,19 +200,19 @@ namespace OofemLink.Services.Export.OOFEM
 								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
 							else
 								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, nodeIds, lcsParameter);
+							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, nodeIds, lcsParameter);
 						}
 						break;
 					case CellType.TriangleLinear:
 						{
 							Debug.Assert(nodeIds.Length == 3);
-							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, nodeIds: new[] { nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2] }); // last node is doubled
+							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds: new[] { nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2] }); // last node is doubled
 						}
 						break;
 					case CellType.QuadLinear:
 						{
 							Debug.Assert(nodeIds.Length == 4);
-							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, nodeIds);
+							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds);
 						}
 						break;
 					default:
@@ -227,15 +227,18 @@ namespace OofemLink.Services.Export.OOFEM
 				Set set = attributeIdSetMap[spring.Id];
 				foreach (var nodeId in set.Nodes)
 				{
-					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
+					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
 					input.AddOrUpdateElementRecord(springElementRecord);
 					elementsWithDummyCS.Add(springElementRecord.Id);
 				}
 				foreach (var edge in set.ElementEdges)
 				{
+					int elementId = edge.Key;
+					short edgeRank = edge.Value;
+					ElementRecord parentElementRecord = input.ElementRecords[elementId];
 					int node1Id, node2Id;
-					getNodesOfEdge(edge.Key, edge.Value, out node1Id, out node2Id);
-					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
+					getNodesOfEdge(parentElementRecord, edgeRank, out node1Id, out node2Id);
+					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
 					input.AddOrUpdateElementRecord(springElementRecord);
 					elementsWithDummyCS.Add(springElementRecord.Id);
 				}
@@ -259,7 +262,7 @@ namespace OofemLink.Services.Export.OOFEM
 				{
 					foreach (var spring in hingeSprings)
 					{
-						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters);
+						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters);
 						input.AddOrUpdateElementRecord(springElementRecord);
 						elementsWithDummyCS.Add(springElementRecord.Id);
 					}
@@ -333,10 +336,50 @@ namespace OofemLink.Services.Export.OOFEM
 				//	var elementRecord = input.ElementRecords[elementId];
 				//	if (elementRecord.Name == ElementNames.Spring)
 				//	{
-				//		var updatedElementRecord = elementRecord.WithAppendedParameters($"");
+				//		var updatedElementRecord = elementRecord.WithAppendedParameters($"mat {dummyMaterialRecord.Id} crossSect {dummyCrossSectionRecord.Id}");
 				//		input.AddOrUpdateElementRecord(updatedElementRecord);
 				//	}
 				//}
+			}
+
+			// add boundary condition for mitc4shell element nodes (rotation in normal direction must be fixed)
+			{
+				// NOTE: very Very VERY ugly code; does not work for elements having normal that does not align with GCS
+				// TODO: rethink and rewrite using e.g. lcs on nodes
+
+				HashSet<int> nodesThatNeedToBeFixed = new HashSet<int>();
+				foreach (var mitc4shellElementRecords in input.ElementRecords.Values.Where(e => e.Name == ElementNames.mitc4shell))
+				{
+					foreach (int nodeId in mitc4shellElementRecords.NodeIds)
+					{
+						nodesThatNeedToBeFixed.Add(nodeId);
+					}
+				}
+				var nodeRecordsThatNeedToBeFixed = nodesThatNeedToBeFixed.Select(id => input.DofManagerRecords[id]).ToList();
+				if (nodeRecordsThatNeedToBeFixed.Count > 0)
+				{
+					int dofId;
+					var first = nodeRecordsThatNeedToBeFixed[0];
+					if (nodeRecordsThatNeedToBeFixed.All(n => n.X == first.X))      // this is ugly, I know
+						dofId = 4; // rotation X
+					else if (nodeRecordsThatNeedToBeFixed.All(n => n.Y == first.Y)) // don't look please
+						dofId = 5; // rotation Y
+					else if (nodeRecordsThatNeedToBeFixed.All(n => n.Z == first.Z)) // I am very sorry :(
+						dofId = 6; // rotation Z
+					else                                                            // get rid of the misery
+						throw new NotSupportedException("Elements having normal that does not align with GCS are not currently supported");
+					/* 
+						yay! ✿ (◠‿◠) ♥
+					*/
+					var setRecord = new SetRecord(new Set(input.MaxSetId + 1).WithNodes(nodesThatNeedToBeFixed.OrderBy(id => id).ToArray()));
+					var timeFunctionRecord = new TimeFunctionRecord(TimeFunctionNames.ConstantFunction, id: input.MaxTimeFunctionId + 1, value: 1);
+					string parameters = $"dofs 1 {dofId} values 1 0";
+					var boundaryConditionRecord = new BoundaryConditionRecord(BoundaryConditionNames.BoundaryCondition, input.MaxBoundaryConditionId + 1, parameters, timeFunctionRecord.Id, setRecord.Id);
+
+					input.AddBoundaryConditionRecord(boundaryConditionRecord);
+					input.AddTimeFunctionRecord(timeFunctionRecord);
+					input.AddSetRecord(setRecord);
+				}
 			}
 
 			// create input file
@@ -357,10 +400,63 @@ namespace OofemLink.Services.Export.OOFEM
 			return new MaterialRecord(MaterialNames.DummyMat, id, parameters: "");
 		}
 
-		private void getNodesOfEdge(int elementId, short edgeRank, out int node1Id, out int node2Id)
+		private void getNodesOfEdge(ElementRecord elementRecord, short edgeRank, out int node1Id, out int node2Id)
 		{
 			// TODO: extract this method to ModelService, create special class EdgeDto
-			throw new NotImplementedException();
+
+			switch (elementRecord.Type)
+			{
+				case CellType.LineLinear:
+					if (edgeRank == 1)
+					{
+						node1Id = elementRecord.NodeIds[0];
+						node2Id = elementRecord.NodeIds[1];
+						return;
+					}
+					break;
+				case CellType.TriangleLinear:
+					switch (edgeRank)
+					{
+						case 1:
+							node1Id = elementRecord.NodeIds[0];
+							node2Id = elementRecord.NodeIds[1];
+							return;
+						case 2:
+							node1Id = elementRecord.NodeIds[1];
+							node2Id = elementRecord.NodeIds[2];
+							return;
+						case 3:
+							node1Id = elementRecord.NodeIds[2];
+							node2Id = elementRecord.NodeIds[0];
+							return;
+					}
+					break;
+				case CellType.QuadLinear:
+					switch (edgeRank)
+					{
+						case 1:
+							node1Id = elementRecord.NodeIds[0];
+							node2Id = elementRecord.NodeIds[1];
+							return;
+						case 2:
+							node1Id = elementRecord.NodeIds[1];
+							node2Id = elementRecord.NodeIds[2];
+							return;
+						case 3:
+							node1Id = elementRecord.NodeIds[2];
+							node2Id = elementRecord.NodeIds[3];
+							return;
+						case 4:
+							node1Id = elementRecord.NodeIds[3];
+							node2Id = elementRecord.NodeIds[0];
+							return;
+					}
+					break;
+				default:
+					throw new NotSupportedException($"{elementRecord.Type} element type is not supported");
+			}
+
+			throw new InvalidDataException($"Unexpected edge rank {edgeRank} for element type {elementRecord.Type}");
 		}
 
 		private string getDefaultZAxisParameterBeam3d(ModelDimensions dimensionFlags)

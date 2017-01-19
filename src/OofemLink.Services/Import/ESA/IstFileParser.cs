@@ -223,7 +223,7 @@ namespace OofemLink.Services.Import.ESA
 						Type = AttributeType.BoundaryCondition,
 						Name = BoundaryConditionNames.BoundaryCondition,
 						Target = AttributeTarget.Node,
-						Parameters = Invariant($"values {fixes.Count} {string.Join(" ", Enumerable.Repeat(0, fixes.Count))} dofs {fixes.Count} {string.Join(" ", fixes.Select(f => f.DofId.ToString(CultureInfo.InvariantCulture)))}")
+						Parameters = Invariant($"dofs {fixes.Count} {string.Join(" ", fixes.Select(f => f.DofId.ToString(CultureInfo.InvariantCulture)))} values {fixes.Count} {string.Join(" ", Enumerable.Repeat(0, fixes.Count))}")
 					};
 					attributeMapper.MapToVertex(bc, pointFixGroup.Key);
 					attributes.Add(bc);
@@ -242,7 +242,7 @@ namespace OofemLink.Services.Import.ESA
 						Type = AttributeType.BoundaryCondition,
 						Name = BoundaryConditionNames.BoundaryCondition,
 						Target = AttributeTarget.Node,
-						Parameters = Invariant($"values {fixes.Count} {string.Join(" ", Enumerable.Repeat(0, fixes.Count))} dofs {fixes.Count} {string.Join(" ", fixes.Select(f => f.DofId.ToString(CultureInfo.InvariantCulture)))}")
+						Parameters = Invariant($"dofs {fixes.Count} {string.Join(" ", fixes.Select(f => f.DofId.ToString(CultureInfo.InvariantCulture)))} values {fixes.Count} {string.Join(" ", Enumerable.Repeat(0, fixes.Count))}")
 					};
 					attributeMapper.MapToCurve(bc, lineFixGroup.Key);
 					attributes.Add(bc);
@@ -279,7 +279,7 @@ namespace OofemLink.Services.Import.ESA
 					{
 						Type = AttributeType.Spring,
 						Name = ElementNames.LineDistributedSpring,
-						Target = AttributeTarget.Volume,
+						Target = AttributeTarget.Edge,
 						Parameters = Invariant($"dofs {springs.Count} {string.Join(" ", springs.Select(s => s.DofId.ToString(CultureInfo.InvariantCulture)))} k {springs.Count} {string.Join(" ", springs.Select(f => f.Value.ToString(CultureInfo.InvariantCulture)))}")
 					};
 					attributeMapper.MapToCurve(springAttribute, curveId: lineSpringGroup.Key);
