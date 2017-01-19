@@ -9,6 +9,6 @@ namespace OofemLink.Services.DataAccess
 {
     public interface IProjectService : IQuery<ProjectDto, int>, ICommand<ProjectDto, int>
     {
-		void ImportSimulation(IImportService importService);
+		int ImportSimulation(IImportService importService);
 	}
 }

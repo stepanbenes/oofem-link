@@ -5,16 +5,19 @@ using System.Threading.Tasks;
 using AutoMapper.QueryableExtensions;
 using OofemLink.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace OofemLink.Services.DataAccess
 {
     public abstract class DataService
 	{
 		protected DataContext Context { get; }
+		protected ILogger Logger { get; }
 
-		protected DataService(DataContext context)
+		protected DataService(DataContext context, ILoggerFactory loggerFactory)
 		{
 			Context = context;
+			Logger = loggerFactory.CreateLogger(GetType());
 		}
 
 		protected IQueryable<TDto> GetQuery<TEntity, TDto>(Func<IQueryable<TDto>, IQueryable<TDto>> queryExtensionFunc) where TEntity : class

@@ -10,16 +10,17 @@ using OofemLink.Services.Import;
 using OofemLink.Common.Encoding;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace OofemLink.Services.DataAccess
 {
 	public class ProjectService : DataService, IProjectService
 	{
-		public ProjectService(DataContext context)
-			: base(context)
+		public ProjectService(DataContext context, ILoggerFactory loggerFactory)
+			: base(context, loggerFactory)
 		{ }
 
-		public void ImportSimulation(IImportService importService)
+		public int ImportSimulation(IImportService importService)
 		{
 			var simulation = importService.ImportSimulation();
 			if (simulation.Project == null || string.IsNullOrEmpty(simulation.Project.Name))
@@ -40,6 +41,10 @@ namespace OofemLink.Services.DataAccess
 
 			Context.Simulations.Add(simulation);
 			Context.SaveChanges();
+
+			Logger.LogInformation($"Simulation db record with id {simulation.Id} was successfully created.");
+
+			return simulation.Id;
 		}
 
 		public async Task<IReadOnlyList<ProjectDto>> GetAllAsync(Func<IQueryable<ProjectDto>, IQueryable<ProjectDto>> filter = null)

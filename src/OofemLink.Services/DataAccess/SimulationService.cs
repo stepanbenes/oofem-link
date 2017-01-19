@@ -9,13 +9,14 @@ using OofemLink.Data.DataTransferObjects;
 using OofemLink.Services.Export;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
+using Microsoft.Extensions.Logging;
 
 namespace OofemLink.Services.DataAccess
 {
 	public class SimulationService : DataService, ISimulationService
 	{
-		public SimulationService(DataContext context)
-			: base(context)
+		public SimulationService(DataContext context, ILoggerFactory loggerFactory)
+			: base(context, loggerFactory)
 		{ }
 
 		public async Task<IReadOnlyList<ViewSimulationDto>> GetAllAsync(Func<IQueryable<ViewSimulationDto>, IQueryable<ViewSimulationDto>> filter = null)
