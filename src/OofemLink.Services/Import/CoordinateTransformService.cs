@@ -33,15 +33,8 @@ namespace OofemLink.Services.Import
 
 		public Vector3d CalculateLocalZAxisForLineFromGlobalYAxisTargetPoint(int lineId, Vector3d yTargetPoint)
 		{
-			int vertex1Id, vertex2Id;
-			if (!tryGetLineVertices(lineId, out vertex1Id, out vertex2Id))
-				throw new KeyNotFoundException($"Line with id {lineId} was not found");
-
 			Vertex v1, v2;
-			if (!tryGetVertex(vertex1Id, out v1))
-				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
-			if (!tryGetVertex(vertex2Id, out v2))
-				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
+			GetVerticesOfLine(lineId, out v1, out v2);
 
 			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
 			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
@@ -57,15 +50,8 @@ namespace OofemLink.Services.Import
 
 		public Vector3d CalculateLocalZAxisForLineFromGlobalZAxisTargetPoint(int lineId, Vector3d zTargetPoint)
 		{
-			int vertex1Id, vertex2Id;
-			if (!tryGetLineVertices(lineId, out vertex1Id, out vertex2Id))
-				throw new KeyNotFoundException($"Line with id {lineId} was not found");
-
 			Vertex v1, v2;
-			if (!tryGetVertex(vertex1Id, out v1))
-				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
-			if (!tryGetVertex(vertex2Id, out v2))
-				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
+			GetVerticesOfLine(lineId, out v1, out v2);
 
 			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
 			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
@@ -85,6 +71,18 @@ namespace OofemLink.Services.Import
 			xAxis = lcs.XAxis;
 			yAxis = lcs.YAxis;
 			zAxis = lcs.ZAxis;
+		}
+
+		public void GetVerticesOfLine(int lineId, out Vertex v1, out Vertex v2)
+		{
+			int vertex1Id, vertex2Id;
+			if (!tryGetLineVertices(lineId, out vertex1Id, out vertex2Id))
+				throw new KeyNotFoundException($"Line with id {lineId} was not found");
+
+			if (!tryGetVertex(vertex1Id, out v1))
+				throw new KeyNotFoundException($"Vertex with id {vertex1Id} was not found");
+			if (!tryGetVertex(vertex2Id, out v2))
+				throw new KeyNotFoundException($"Vertex with id {vertex2Id} was not found");
 		}
 
 		#region Private methods

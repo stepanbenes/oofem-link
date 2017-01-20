@@ -596,7 +596,7 @@ namespace OofemLink.Services.Import.ESA
 							throw new InvalidDataException($"{Codes.PHYS} {Codes.FLAT} can be applied only to {Codes.MACR} selection");
 						int matId = (materialId.Value != 0) ? materialId.Value : subsoilId.Value; // standard material or subsoil?
 						var materialAttribute = materialMap[matId];
-						attributeMapper.MapToMacro(materialAttribute, macroId: number);
+						attributeMapper.MapToSurfaceMacro(materialAttribute, macroId: number);
 					}
 					break;
 				case Codes.PLAT:

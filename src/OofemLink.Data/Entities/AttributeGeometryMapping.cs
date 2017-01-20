@@ -29,6 +29,9 @@ namespace OofemLink.Data.Entities
 		public virtual Curve Curve { get; set; }
 		public int MacroId { get; set; }
 		public virtual Macro Macro { get; set; }
+
+		public double? RelativeStart { get; set; }
+		public double? RelativeEnd { get; set; }
 	}
 
 	public class SurfaceAttribute : AttributeGeometryMapping

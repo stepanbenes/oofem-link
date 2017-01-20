@@ -176,7 +176,7 @@ namespace OofemLink.Services.Import.ESA
 			}
 
 			attributeMapper.MapToAllMacros(deadWeight);
-			
+
 			return deadWeight;
 		}
 
@@ -246,40 +246,73 @@ namespace OofemLink.Services.Import.ESA
 							Target = AttributeTarget.Edge,
 							Parameters = Invariant($"loadType 3 dofs 1 {dofId} components 1 {value} csType {csType}")
 						};
+
+						int? macroId = null, lineId = null;
 						switch (firstLine.SelectionType)
 						{
 							case Codes.MACR:
+								macroId = firstLine.Number.Value;
+								lineId = null;
+								if (lines.Count > 1)
 								{
-									int macroId = firstLine.Number.Value;
-									int? lineId = null;
-									if (lines.Count > 1)
+									var secondLine = lines[1];
+									if (secondLine.SelectionType == Codes.LINE)
 									{
-										var secondLine = lines[1];
-										if (secondLine.SelectionType == Codes.LINE)
-										{
-											lineId = secondLine.Number.Value;
-										}
-										// TODO: parse rest of lines
-									}
-									if (lineId.HasValue)
-									{
-										attributeMapper.MapToCurve(lineLoadAttribute, lineId.Value, macroId);
-									}
-									else
-									{
-										attributeMapper.MapToMacro(lineLoadAttribute, macroId);
+										lineId = secondLine.Number.Value;
 									}
 								}
 								break;
 							case Codes.LINE:
-								{
-									int lineId = firstLine.Number.Value;
-									attributeMapper.MapToCurve(lineLoadAttribute, lineId);
-								}
+								lineId = firstLine.Number.Value;
 								break;
 							default:
 								throw new NotSupportedException($"selection type '{firstLine.SelectionType}' is not supported");
 						}
+
+						double? relativeStart = null, relativeEnd = null;
+						if (firstLine[4] == Codes.VAR)
+						{
+							switch (firstLine[8])
+							{
+								case Codes.RELAT:
+									{
+										var secondLine = lines[1];
+										relativeStart = ParseFloat64(firstLine[9]);
+										relativeEnd = ParseFloat64(secondLine[9]);
+									}
+									break;
+								case Codes.ABS:
+									{
+										var secondLine = lines[1];
+										double absoluteStart = ParseFloat64(firstLine[9]);
+										double absoluteEnd = ParseFloat64(secondLine[9]);
+										double lineLength = attributeMapper.GetLengthOfBeam(macroId, lineId);
+										relativeStart = absoluteStart / lineLength;
+										relativeEnd = absoluteEnd / lineLength;
+									}
+									break;
+								default:
+									throw new NotSupportedException($"Force application using {firstLine[8]} is not supported");
+							}
+						}
+
+						if (macroId.HasValue && lineId.HasValue)
+						{
+							attributeMapper.MapToCurve(lineLoadAttribute, lineId.Value, macroId.Value, relativeStart, relativeEnd);
+						}
+						else if (macroId.HasValue)
+						{
+							attributeMapper.MapToBeamMacro(lineLoadAttribute, macroId.Value, relativeStart, relativeEnd);
+						}
+						else if (lineId.HasValue)
+						{
+							attributeMapper.MapToCurve(lineLoadAttribute, lineId.Value, relativeStart, relativeEnd);
+						}
+						else
+						{
+							throw new InvalidDataException($"{Codes.LIN} {Codes.FORC} location was not specified");
+						}
+
 						return lineLoadAttribute;
 					}
 				default:
@@ -316,7 +349,7 @@ namespace OofemLink.Services.Import.ESA
 							case Codes.MACR:
 								{
 									int macroId = firstLine.Number.Value;
-									attributeMapper.MapToMacro(surfaceLoadAttribute, macroId);
+									attributeMapper.MapToSurfaceMacro(surfaceLoadAttribute, macroId);
 								}
 								break;
 							default:
@@ -353,6 +386,12 @@ namespace OofemLink.Services.Import.ESA
 			public const string MACR = nameof(MACR);
 			public const string LINE = nameof(LINE);
 			public const string NODE = nameof(NODE);
+
+			public const string UNIF = nameof(UNIF);
+			public const string VAR = nameof(VAR);
+
+			public const string ABS = nameof(ABS);
+			public const string RELAT = nameof(RELAT);
 		}
 
 		#endregion

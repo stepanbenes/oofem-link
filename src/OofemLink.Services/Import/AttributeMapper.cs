@@ -19,27 +19,33 @@ namespace OofemLink.Services.Import
 			this.model = model;
 		}
 
-		public void MapToMacro(ModelAttribute attribute, int macroId)
+		public void MapToBeamMacro(ModelAttribute attribute, int macroId, double? relativeStart = null, double? relativeEnd = null)
 		{
 			foreach (int curveId in from macro in model.Macros
+									where macro.Id == macroId
 									from macroCurve in macro.MacroCurves
-									where macroCurve.MacroId == macroId
 									select macroCurve.CurveId)
 			{
-				MapToCurve(attribute, curveId, macroId);
+				MapToCurve(attribute, curveId, macroId, relativeStart, relativeEnd);
 			}
+		}
 
+		public void MapToSurfaceMacro(ModelAttribute attribute, int macroId)
+		{
 			foreach (int surfaceId in from macro in model.Macros
+									  where macro.Id == macroId
 									  from macroSurface in macro.MacroSurfaces
-									  where macroSurface.MacroId == macroId
 									  select macroSurface.SurfaceId)
 			{
 				MapToSurface(attribute, surfaceId, macroId);
 			}
+		}
 
+		public void MapToVolumeMacro(ModelAttribute attribute, int macroId)
+		{
 			foreach (int volumeId in from macro in model.Macros
+									 where macro.Id == macroId
 									 from macroVolume in macro.MacroVolumes
-									 where macroVolume.MacroId == macroId
 									 select macroVolume.VolumeId)
 			{
 				MapToVolume(attribute, volumeId, macroId);
@@ -50,7 +56,9 @@ namespace OofemLink.Services.Import
 		{
 			foreach (var macro in model.Macros)
 			{
-				MapToMacro(attribute, macro.Id);
+				MapToBeamMacro(attribute, macro.Id);
+				MapToSurfaceMacro(attribute, macro.Id);
+				MapToVolumeMacro(attribute, macro.Id);
 			}
 		}
 
@@ -59,12 +67,12 @@ namespace OofemLink.Services.Import
 			attribute.VertexAttributes.Add(new VertexAttribute { VertexId = vertexId });
 		}
 
-		public void MapToCurve(ModelAttribute attribute, int curveId, int macroId)
+		public void MapToCurve(ModelAttribute attribute, int curveId, int macroId, double? relativeStart = null, double? relativeEnd = null)
 		{
-			attribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = curveId });
+			attribute.CurveAttributes.Add(new CurveAttribute { MacroId = macroId, CurveId = curveId, RelativeStart = relativeStart, RelativeEnd = relativeEnd });
 		}
 
-		public void MapToCurve(ModelAttribute attribute, int curveId)
+		public void MapToCurve(ModelAttribute attribute, int curveId, double? relativeStart = null, double? relativeEnd = null)
 		{
 			// look in macro boundary curves
 			foreach (int macroId in from macro in model.Macros
@@ -72,7 +80,7 @@ namespace OofemLink.Services.Import
 									where macroCurve.CurveId == curveId
 									select macroCurve.MacroId)
 			{
-				MapToCurve(attribute, curveId, macroId);
+				MapToCurve(attribute, curveId, macroId, relativeStart, relativeEnd);
 			}
 
 			// look in macro opening curves
@@ -81,7 +89,7 @@ namespace OofemLink.Services.Import
 									where macroCurve.OpeningCurveId == curveId
 									select macroCurve.MacroId)
 			{
-				MapToCurve(attribute, curveId, macroId);
+				MapToCurve(attribute, curveId, macroId, relativeStart, relativeEnd);
 			}
 
 			// look in macro internal curves
@@ -90,7 +98,7 @@ namespace OofemLink.Services.Import
 									where macroCurve.InternalCurveId == curveId
 									select macroCurve.MacroId)
 			{
-				MapToCurve(attribute, curveId, macroId);
+				MapToCurve(attribute, curveId, macroId, relativeStart, relativeEnd);
 			}
 
 			// look in macro surfaces
@@ -101,7 +109,7 @@ namespace OofemLink.Services.Import
 									where surfaceCurve.CurveId == curveId
 									select macro.Id)
 			{
-				MapToCurve(attribute, curveId, macroId);
+				MapToCurve(attribute, curveId, macroId, relativeStart, relativeEnd);
 			}
 		}
 
@@ -164,6 +172,27 @@ namespace OofemLink.Services.Import
 		public void GetEndCurveAndVertexOfBeamMacro(int macroId, out int curveId, out int vertexId)
 		{
 			getStartCurveAndVertexOfBeamMacro(macroId, false, out curveId, out vertexId);
+		}
+
+		public double GetLengthOfBeam(int? macroId, int? lineId)
+		{
+			var coordinateTransformService = new CoordinateTransformService(model); // TODO: needs refactoring
+
+			if (!lineId.HasValue)
+			{
+				var macro = model.Macros.SingleOrDefault(m => m.Id == macroId);
+				if (macro == null)
+					throw new KeyNotFoundException($"Macro with id {macroId} was not found");
+				lineId = macro.MacroCurves.Single().CurveId;
+			}
+
+			Vertex v1, v2;
+			coordinateTransformService.GetVerticesOfLine(lineId.Value, out v1, out v2);
+
+			Vector3d point1 = new Vector3d(v1.X, v1.Y, v1.Z);
+			Vector3d point2 = new Vector3d(v2.X, v2.Y, v2.Z);
+
+			return (point2 - point1).Length;
 		}
 
 		#region Private methods
