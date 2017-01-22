@@ -33,6 +33,7 @@ namespace OofemLink.Data.Entities
 		public virtual ICollection<VertexCurve> CurveVertices { get; set; } = new List<VertexCurve>();
 		public virtual ICollection<SurfaceCurve> CurveSurfaces { get; set; } = new List<SurfaceCurve>();
 		public virtual ICollection<CurveElement> CurveElements { get; set; } = new List<CurveElement>();
+		public virtual ICollection<CurveNode> CurveNodes { get; set; } = new List<CurveNode>();
 
 		public virtual ICollection<CurveAttribute> CurveAttributes { get; set; } = new List<CurveAttribute>();
 	}

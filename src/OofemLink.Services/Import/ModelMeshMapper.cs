@@ -95,6 +95,12 @@ namespace OofemLink.Services.Import
 			}
 		}
 
+		public void MapCurveToNode(int curveId, int nodeId)
+		{
+			var curveNode = new CurveNode { Model = model, Mesh = mesh, CurveId = curveId, NodeId = nodeId };
+			mesh.CurveNodes.Add(curveNode);
+		}
+
 		#region Private methods
 
 		private Macro getMacroWithId(int macroId)

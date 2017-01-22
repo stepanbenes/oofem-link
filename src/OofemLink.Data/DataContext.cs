@@ -197,6 +197,13 @@ namespace OofemLink.Data
 			modelBuilder.Entity<VolumeElement>().HasOne(m => m.Model).WithMany().HasForeignKey(m => m.ModelId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeElement>().HasOne(m => m.Mesh).WithMany(m => m.VolumeElements).HasForeignKey(m => m.MeshId).OnDelete(DeleteBehavior.Restrict);
 			modelBuilder.Entity<VolumeElement>().ToTable("VolumeElements");
+
+			modelBuilder.Entity<CurveNode>().HasKey(e => new { e.ModelId, e.CurveId, e.MeshId, e.NodeId });
+			modelBuilder.Entity<CurveNode>().HasOne(e => e.Curve).WithMany(c => c.CurveNodes).HasForeignKey(e => new { e.ModelId, e.CurveId });
+			modelBuilder.Entity<CurveNode>().HasOne(e => e.Node).WithMany().HasForeignKey(e => new { e.MeshId, e.NodeId }).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<CurveNode>().HasOne(e => e.Model).WithMany().HasForeignKey(e => e.ModelId).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<CurveNode>().HasOne(e => e.Mesh).WithMany(m => m.CurveNodes).HasForeignKey(e => e.MeshId).OnDelete(DeleteBehavior.Restrict);
+			modelBuilder.Entity<CurveNode>().ToTable("CurveNodes");
 		}
 
 		public DbSet<Project> Projects { get; set; }

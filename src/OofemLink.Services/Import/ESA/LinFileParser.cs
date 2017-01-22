@@ -39,10 +39,12 @@ namespace OofemLink.Services.Import.ESA
 						if (tokens.Length > 2)
 						{
 							int firstNodeId = ParseInt32(tokens[2]);
+							modelMeshMapper.MapCurveToNode(lineId, firstNodeId);
 							for (int i = 3; i < tokens.Length; i++)
 							{
 								int secondNodeId = ParseInt32(tokens[i]);
 								modelMeshMapper.MapCurveTo2dOr3dElementEdge(lineId, firstNodeId, secondNodeId);
+								modelMeshMapper.MapCurveToNode(lineId, secondNodeId);
 								firstNodeId = secondNodeId;
 							}
 						}
