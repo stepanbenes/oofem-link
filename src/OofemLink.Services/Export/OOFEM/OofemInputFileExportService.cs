@@ -570,10 +570,9 @@ namespace OofemLink.Services.Export.OOFEM
 				var curveQuery = from curveAttribute in dataContext.Set<CurveAttribute>() // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
 								 where curveAttribute.ModelId == modelId
 								 where curveAttribute.Attribute.Target == AttributeTarget.Node
-								 from curveVertex in curveAttribute.Curve.CurveVertices
-								 from vertexNode in curveVertex.Vertex.VertexNodes
-								 where vertexNode.MeshId == meshId
-								 group vertexNode.NodeId by curveAttribute.AttributeId;
+								 from curveNode in curveAttribute.Curve.CurveNodes
+								 where curveNode.MeshId == meshId
+								 group curveNode.NodeId by curveAttribute.AttributeId;
 
 				var query = vertexQuery.Concat(curveQuery);
 
