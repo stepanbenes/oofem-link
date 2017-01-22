@@ -15,8 +15,9 @@ namespace OofemLink.Services.Export.OOFEM
 		#region Fields, constructor
 
 		readonly List<HeaderRecord> headerRecords;
-		readonly List<BoundaryConditionRecord> boundaryConditionRecords;
-		readonly List<TimeFunctionRecord> timeFunctionRecords;
+
+		readonly Dictionary<int, BoundaryConditionRecord> boundaryConditionRecords;
+		readonly Dictionary<int, TimeFunctionRecord> timeFunctionRecords;
 		
 		readonly Dictionary<int, DofManagerRecord> dofManagerRecords;
 		readonly Dictionary<int, ElementRecord> elementRecords;
@@ -32,8 +33,8 @@ namespace OofemLink.Services.Export.OOFEM
 			headerRecords = new List<HeaderRecord>();
 			crossSectionRecords = new Dictionary<int, CrossSectionRecord>();
 			materialRecords = new Dictionary<int, MaterialRecord>();
-			boundaryConditionRecords = new List<BoundaryConditionRecord>();
-			timeFunctionRecords = new List<TimeFunctionRecord>();
+			boundaryConditionRecords = new Dictionary<int, BoundaryConditionRecord>();
+			timeFunctionRecords = new Dictionary<int, TimeFunctionRecord>();
 			setRecords = new Dictionary<int, SetRecord>();
 
 			dofManagerRecords = new Dictionary<int, DofManagerRecord>();
@@ -82,11 +83,11 @@ namespace OofemLink.Services.Export.OOFEM
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# BOUNDARY CONDITIONS");
-				foreach (var record in boundaryConditionRecords)
+				foreach (var record in boundaryConditionRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# TIME FUNCTIONS");
-				foreach (var record in timeFunctionRecords)
+				foreach (var record in timeFunctionRecords.Values.OrderBy(r => r.Id))
 					streamWriter.WriteLine(record.ToString());
 
 				streamWriter.WriteLine($"# SETS");
@@ -126,19 +127,19 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public void AddBoundaryConditionRecord(BoundaryConditionRecord record)
 		{
-			boundaryConditionRecords.Add(record);
+			boundaryConditionRecords.Add(record.Id, record);
 			maxBoundaryConditionId = Math.Max(maxBoundaryConditionId, record.Id);
 		}
 
 		public void AddTimeFunctionRecord(TimeFunctionRecord record)
 		{
-			timeFunctionRecords.Add(record);
+			timeFunctionRecords.Add(record.Id, record);
 			maxTimeFunctionId = Math.Max(maxTimeFunctionId, record.Id);
 		}
 
-		public void AddSetRecord(SetRecord record)
+		public void AddOrUpdateSetRecord(SetRecord record)
 		{
-			setRecords.Add(record.Id, record);
+			setRecords[record.Id] = record;
 			maxSetId = Math.Max(maxSetId, record.Id);
 		}
 
@@ -147,6 +148,9 @@ namespace OofemLink.Services.Export.OOFEM
 		public IReadOnlyDictionary<int, CrossSectionRecord> CrossSectionRecords => crossSectionRecords;
 		public IReadOnlyDictionary<int, MaterialRecord> MaterialRecords => materialRecords;
 		public IReadOnlyDictionary<int, SetRecord> SetRecords => setRecords;
+
+		public IReadOnlyDictionary<int, BoundaryConditionRecord> BoundaryConditionRecords => boundaryConditionRecords;
+		public IReadOnlyDictionary<int, TimeFunctionRecord> TimeFunctionRecords => timeFunctionRecords;
 
 		#endregion
 

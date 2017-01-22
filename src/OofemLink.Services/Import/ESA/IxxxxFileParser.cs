@@ -277,8 +277,8 @@ namespace OofemLink.Services.Import.ESA
 								case Codes.RELAT:
 									{
 										var secondLine = lines[1];
-										relativeStart = ParseFloat64(firstLine[9]);
-										relativeEnd = ParseFloat64(secondLine[9]);
+										relativeStart = ParseFloat64(firstLine[9]) * 0.01; // transform from percentage
+										relativeEnd = ParseFloat64(secondLine[9]) * 0.01;
 									}
 									break;
 								case Codes.ABS:

@@ -10,6 +10,7 @@ using OofemLink.Common.Enumerations;
 using OofemLink.Common.Extensions;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
+using OofemLink.Common.MathPhys;
 
 namespace OofemLink.Services.Export.OOFEM
 {
@@ -150,6 +151,13 @@ namespace OofemLink.Services.Export.OOFEM
 				attributeIdToMaterialIdMap.Add(materialAttributes[index].Id, index + 1);
 			}
 
+			// build attribute id to boundaryCondition id map
+			var attributeIdToBoundaryConditionIdMap = new Dictionary<int, int>();
+			for (int index = 0; index < boundaryConditionAttributes.Count; index++)
+			{
+				attributeIdToBoundaryConditionIdMap.Add(boundaryConditionAttributes[index].Id, index + 1);
+			}
+
 			// =========================================================================================
 
 			var input = new InputBuilder();
@@ -284,10 +292,9 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			// BOUNDARY CONDITIONS
-			for (int i = 0; i < boundaryConditionAttributes.Count; i++) // write Boundary Conditions (including Loads)
+			foreach (var bcAttribute in boundaryConditionAttributes) // write Boundary Conditions (including Loads)
 			{
-				var bc = boundaryConditionAttributes[i];
-				input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bc.Name, id: i + 1, parameters: bc.Parameters, timeFunctionId: bc.TimeFunctionId, setId: attributeIdSetMap[bc.Id].Id));
+				input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: attributeIdToBoundaryConditionIdMap[bcAttribute.Id], parameters: bcAttribute.Parameters, timeFunctionId: bcAttribute.TimeFunctionId, setId: attributeIdSetMap[bcAttribute.Id].Id));
 			}
 
 			// TIME FUNCTIONS
@@ -315,7 +322,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// SETS
 			foreach (var set in sets)
 			{
-				input.AddSetRecord(new SetRecord(set));
+				input.AddOrUpdateSetRecord(new SetRecord(set));
 			}
 
 			// append dummy cross-section and material if needed
@@ -328,7 +335,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 				input.AddOrUpdateCrossSectionRecord(dummyCrossSectionRecord);
 				input.AddMaterialRecord(dummyMaterialRecord);
-				input.AddSetRecord(setRecord);
+				input.AddOrUpdateSetRecord(setRecord);
 
 				// Uncomment following to append "mat X crossSect Y" to Spring elements' parameters
 				//foreach (int elementId in elementsWithDummyCS)
@@ -378,7 +385,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 					input.AddBoundaryConditionRecord(boundaryConditionRecord);
 					input.AddTimeFunctionRecord(timeFunctionRecord);
-					input.AddSetRecord(setRecord);
+					input.AddOrUpdateSetRecord(setRecord);
 				}
 			}
 
@@ -399,10 +406,49 @@ namespace OofemLink.Services.Export.OOFEM
 						soilElementIds.Add(soilElementRecord.Id);
 					}
 					var newSetRecord = new SetRecord(new Set(input.MaxSetId + 1).WithElements(soilElementIds.ToArray()));
-					input.AddSetRecord(newSetRecord);
+					input.AddOrUpdateSetRecord(newSetRecord);
 					var updatedCrossSectionRecord = crossSectionRecord.WithSet(newSetRecord.Id);
 					input.AddOrUpdateCrossSectionRecord(updatedCrossSectionRecord);
 				}
+			}
+
+			// split beams under partially applied loads
+			{
+				var partiallyAppliedLoadsQuery = from attribute in dataContext.Attributes
+												 where attribute.ModelId == model.Id
+												 where attribute.Type == AttributeType.BoundaryCondition
+												 from curveAttribute in attribute.CurveAttributes
+												 where (curveAttribute.RelativeStart != null && curveAttribute.RelativeStart > 0) || (curveAttribute.RelativeEnd != null && curveAttribute.RelativeEnd < 1)
+												 from curveElement in curveAttribute.Curve.CurveElements
+												 select new { AttributeId = attribute.Id, curveElement.ElementId, curveAttribute.RelativeStart, curveAttribute.RelativeEnd };
+				foreach (var partiallyAppliedLoad in partiallyAppliedLoadsQuery)
+				{
+					int boundaryConditionId = attributeIdToBoundaryConditionIdMap[partiallyAppliedLoad.AttributeId];
+
+					if (partiallyAppliedLoad.RelativeStart.HasValue && partiallyAppliedLoad.RelativeStart.Value > 0)
+					{
+						int secondElementId = splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeStart.Value);
+						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondElementId);
+						removeBoundaryConditionFromElement(input, boundaryConditionId, partiallyAppliedLoad.ElementId);
+
+						if (partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1)
+						{
+							double relativePosition = (partiallyAppliedLoad.RelativeEnd.Value - partiallyAppliedLoad.RelativeStart.Value) / (1.0 - partiallyAppliedLoad.RelativeStart.Value);
+							int thirdElementId = splitBeamElement(input, secondElementId, relativePosition);
+							copyAllAttributesFromElementToElement(input, secondElementId, thirdElementId);
+							removeBoundaryConditionFromElement(input, boundaryConditionId, thirdElementId);
+						}
+					}
+					else if (partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1)
+					{
+						int secondElementId = splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeEnd.Value);
+						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondElementId);
+						removeBoundaryConditionFromElement(input, boundaryConditionId, secondElementId);
+					}
+					else
+						throw new InvalidOperationException();
+				}
+
 			}
 
 			// create input file
@@ -657,6 +703,90 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			return map;
+		}
+
+		private int splitBeamElement(InputBuilder input, int elementId, double relativePosition)
+		{
+			if (relativePosition <= 0 || relativePosition >= 1)
+				throw new ArgumentOutOfRangeException(nameof(relativePosition), $"Argument is expected to be in range (0, 1), but has value {relativePosition}");
+
+			ElementRecord elementRecord = input.ElementRecords[elementId];
+
+			if (elementRecord.Name != ElementNames.beam3d)
+				throw new InvalidOperationException($"Element is expected to be of type {ElementNames.beam3d}");
+
+			DofManagerRecord node1 = input.DofManagerRecords[elementRecord.NodeIds[0]];
+			DofManagerRecord node2 = input.DofManagerRecords[elementRecord.NodeIds[1]];
+
+			Vector3d point1 = new Vector3d(node1.X, node1.Y, node1.Z);
+			Vector3d point2 = new Vector3d(node2.X, node2.Y, node2.Z);
+			Vector3d direction = point2 - point1;
+			Vector3d splitPoint = point1 + direction * relativePosition;
+
+			NodeRecord splitNodeRecord = new NodeRecord(input.MaxDofManagerId + 1, splitPoint.X, splitPoint.Y, splitPoint.Z);
+			input.AddOrUpdateDofManagerRecord(splitNodeRecord);
+
+			ElementRecord updatedElementRecord = elementRecord.WithReplacedNode(node2.Id, splitNodeRecord.Id);
+			ElementRecord newElementRecord = new ElementRecord(elementRecord.Name, input.MaxElementId + 1, elementRecord.Type, new[] { splitNodeRecord.Id, node2.Id }, elementRecord.Parameters);
+			input.AddOrUpdateElementRecord(updatedElementRecord);
+			input.AddOrUpdateElementRecord(newElementRecord);
+
+			return newElementRecord.Id;
+		}
+
+		private void copyAllAttributesFromElementToElement(InputBuilder input, int sourceElementId, int targetElementId)
+		{
+			foreach (var setRecord in input.SetRecords.Values.ToList())
+			{
+				if (setRecord.Set.Elements.Contains(sourceElementId))
+				{
+					int[] newElementSet = setRecord.Set.Elements.Append(targetElementId).OrderBy(id => id).Distinct().ToArray();
+					var newSetRecord = new SetRecord(setRecord.Set.WithElements(newElementSet));
+					input.AddOrUpdateSetRecord(newSetRecord);
+				}
+
+				if (setRecord.Set.ElementEdges.Any(edge => edge.Key == sourceElementId))
+				{
+					List<KeyValuePair<int, short>> newEdgeSet = new List<KeyValuePair<int, short>>();
+					foreach (var edge in setRecord.Set.ElementEdges)
+					{
+						newEdgeSet.Add(edge);
+						if (edge.Key == sourceElementId)
+						{
+							newEdgeSet.Add(new KeyValuePair<int, short>(targetElementId, edge.Value)); // TODO: why the rank should be the same?
+						}
+					}
+					var newSetRecord = new SetRecord(setRecord.Set.WithElementEdges(newEdgeSet.ToArray()));
+					input.AddOrUpdateSetRecord(newSetRecord);
+				}
+
+				if (setRecord.Set.ElementSurfaces.Any(surface => surface.Key == sourceElementId))
+				{
+					List<KeyValuePair<int, short>> newSurfaceSet = new List<KeyValuePair<int, short>>();
+					foreach (var surface in setRecord.Set.ElementSurfaces)
+					{
+						newSurfaceSet.Add(surface);
+						if (surface.Key == sourceElementId)
+						{
+							newSurfaceSet.Add(new KeyValuePair<int, short>(targetElementId, surface.Value)); // TODO: why the rank should be the same?
+						}
+					}
+					var newSetRecord = new SetRecord(setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray()));
+					input.AddOrUpdateSetRecord(newSetRecord);
+				}
+			}
+		}
+
+		private void removeBoundaryConditionFromElement(InputBuilder input, int boundaryConditionId, int elementId)
+		{
+			// WARNING: this works if the set is applied only to this attribute!
+
+			BoundaryConditionRecord bcRecord = input.BoundaryConditionRecords[boundaryConditionId];
+			SetRecord setRecord = input.SetRecords[bcRecord.SetId];
+			Set set = setRecord.Set;
+			Set updatedSet = set.WithElements(set.Elements.Where(id => id != elementId).ToArray()).WithElementEdges(set.ElementEdges.Where(edge => edge.Key != elementId).ToArray()).WithElementSurfaces(set.ElementSurfaces.Where(surface => surface.Key != elementId).ToArray());
+			SetRecord updatedSetRecord = new SetRecord(updatedSet);
+			input.AddOrUpdateSetRecord(updatedSetRecord);
 		}
 
 		#endregion
