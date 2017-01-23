@@ -14,9 +14,10 @@ namespace OofemLink.Data
 		public DataContext(DbContextOptions<DataContext> options)
 			: base(options)
 		{
-#if DEBUG
+//#if DEBUG
+			// TODO: do not call this in RELEASE configuration
 			Database.EnsureCreated();
-#endif
+//#endif
 		}
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
