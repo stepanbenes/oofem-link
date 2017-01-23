@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Globalization;
 using Microsoft.Extensions.Logging;
 using OofemLink.Data.Entities;
 using OofemLink.Common.OofemNames;
@@ -239,12 +240,13 @@ namespace OofemLink.Services.Import.ESA
 						int dofId = ParseDofId(firstLine.Direction, out isLcs);
 						int csType = isLcs ? 1 : 0;
 						double value = firstLine.Value.Value;
+						IEnumerable<string> components = Enumerable.Range(1, 6).Select(id => id == dofId ? value.ToString(CultureInfo.InvariantCulture) : "0");
 						var lineLoadAttribute = new ModelAttribute
 						{
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.ConstantEdgeLoad,
 							Target = AttributeTarget.Edge,
-							Parameters = Invariant($"loadType 3 dofs 1 {dofId} components 1 {value} csType {csType}")
+							Parameters = Invariant($"loadType 3 ndofs 6 components 6 {string.Join(" ", components)} csType {csType}")
 						};
 
 						int? macroId = null, lineId = null;
@@ -337,12 +339,13 @@ namespace OofemLink.Services.Import.ESA
 						if (isLcs)
 							throw new InvalidDataException($"Local coordinate system not supported in {Codes.MULT} {Codes.SURF} {Codes.FORC} section");
 						double value = firstLine.Value.Value;
+						IEnumerable<string> components = Enumerable.Range(1, 6).Select(id => id == dofId ? value.ToString(CultureInfo.InvariantCulture) : "0");
 						var surfaceLoadAttribute = new ModelAttribute
 						{
 							Type = AttributeType.BoundaryCondition,
 							Name = BoundaryConditionNames.ConstantSurfaceLoad,
 							Target = AttributeTarget.Surface,
-							Parameters = Invariant($"loadType 3 dofs 1 {dofId} components 1 {value}")
+							Parameters = Invariant($"loadType 3 ndofs 6 components 6 {string.Join(" ", components)}")
 						};
 						switch (firstLine.SelectionType)
 						{
