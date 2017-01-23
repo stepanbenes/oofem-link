@@ -162,27 +162,6 @@ namespace OofemLink.Services.Export.OOFEM
 
 			var input = new InputBuilder();
 
-			// OUTPUT FILE NAME
-			input.AddHeaderRecord(new OutputFileRecord(outputFileFullPath));
-			// DESCRIPTION
-			input.AddHeaderRecord(new DescriptionRecord($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}"));
-
-			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
-			input.AddHeaderRecord(new EngineeringModelRecord(
-					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
-					numberOfTimeSteps: simulation.TimeSteps.Count,
-					numberOfExportModules: 1 /**/
-				));
-
-			// the export module is vtk
-			input.AddHeaderRecord(new VtkXmlExportModuleRecord());
-
-			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
-			input.AddHeaderRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
-
-			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
-			input.AddHeaderRecord(new OutputManagerRecord());
-
 			// NODES
 			foreach (var node in nodes)
 			{
@@ -448,9 +427,31 @@ namespace OofemLink.Services.Export.OOFEM
 					else
 						throw new InvalidOperationException();
 				}
-
 			}
 
+			// HEADER >>>
+
+			// OUTPUT FILE NAME
+			input.AddHeaderRecord(new OutputFileRecord(outputFileFullPath));
+			// DESCRIPTION
+			input.AddHeaderRecord(new DescriptionRecord($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}"));
+
+			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+			input.AddHeaderRecord(new EngineeringModelRecord(
+					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+					numberOfTimeSteps: simulation.TimeSteps.Count,
+					numberOfExportModules: 1 /**/
+				));
+
+			// the export module
+			addExportModuleRecord(input);
+
+			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
+			input.AddHeaderRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
+
+			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
+			input.AddHeaderRecord(new OutputManagerRecord());
+			
 			// create input file
 			input.WriteToFile(inputFileFullPath);
 		}
@@ -458,6 +459,35 @@ namespace OofemLink.Services.Export.OOFEM
 		#endregion
 
 		#region Private methods
+
+		private void addExportModuleRecord(InputBuilder input)
+		{
+			var mitc4shellElementIds = input.ElementRecords.Values.Where(r => r.Name == ElementNames.mitc4shell).Select(r => r.Id).ToArray();
+			ExportModuleRecord exportModuleRecord;
+			if (mitc4shellElementIds.Length == 0)
+			{
+				exportModuleRecord = new VtkXmlExportModuleRecord(
+					primVars: Array.Empty<int>(),
+					vars: new[] { 7 },
+					cellVars: Array.Empty<int>(),
+					regionSets: Array.Empty<int>());
+			}
+			else
+			{
+				var regionSet = new Set(input.MaxSetId + 1).WithElements(mitc4shellElementIds);
+				var regionSetRecord = new SetRecord(regionSet);
+
+				input.AddOrUpdateSetRecord(regionSetRecord);
+
+				exportModuleRecord = new VtkXmlExportModuleRecord(
+					primVars: new[] { 1 },
+					vars: Array.Empty<int>(),
+					cellVars: new[] { 9, 10 },
+					regionSets: new[] { regionSetRecord.Id });
+			}
+
+			input.AddHeaderRecord(exportModuleRecord);
+		}
 
 		private CrossSectionRecord createDummyCrossSectionRecord(int id, int materialId, int setId)
 		{

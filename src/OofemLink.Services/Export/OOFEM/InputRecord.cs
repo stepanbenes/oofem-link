@@ -55,7 +55,39 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class VtkXmlExportModuleRecord : ExportModuleRecord
 	{
-		public override string ToString() => "vtkxml tstep_all domain_all primvars 0 vars 1 7"; // TODO: this is hard-coded now, enable this to be configurable
+		public VtkXmlExportModuleRecord(IReadOnlyList<int> primVars, IReadOnlyList<int> vars, IReadOnlyList<int> cellVars, IReadOnlyList<int> regionSets)
+		{
+			PrimVars = primVars;
+			Vars = vars;
+			CellVars = cellVars;
+			RegionSets = regionSets;
+		}
+
+		public IReadOnlyList<int> PrimVars { get; }
+		public IReadOnlyList<int> Vars { get; }
+		public IReadOnlyList<int> CellVars { get; }
+		public IReadOnlyList<int> RegionSets { get; }
+
+		public override string ToString()
+		{
+			StringBuilder text = new StringBuilder();
+			text.Append("vtkxml tstep_all domain_all");
+			text.Append($" primvars {PrimVars.Count}");
+			if (PrimVars.Count > 0)
+				text.Append(" " + string.Join(" ", PrimVars));
+			text.Append($" vars {Vars.Count}");
+			if (Vars.Count > 0)
+				text.Append(" " + string.Join(" ", Vars));
+			text.Append($" cellvars {CellVars.Count}");
+			if (CellVars.Count > 0)
+				text.Append(" " + string.Join(" ", CellVars));
+			if (RegionSets.Count > 0)
+			{
+				text.Append($" regionsets {RegionSets.Count}");
+				text.Append(" " + string.Join(" ", RegionSets));
+			}
+			return text.ToString();
+		}
 	}
 
 	class DomainRecord : HeaderRecord
