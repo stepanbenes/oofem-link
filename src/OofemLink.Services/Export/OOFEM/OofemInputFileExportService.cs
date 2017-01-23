@@ -769,7 +769,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				if (setRecord.Set.Elements.Contains(sourceElementId))
 				{
-					int[] newElementSet = setRecord.Set.Elements.Append(targetElementId).OrderBy(id => id).Distinct().ToArray();
+					int[] newElementSet = setRecord.Set.Elements.AppendItem(targetElementId).OrderBy(id => id).Distinct().ToArray();
 					var newSetRecord = new SetRecord(setRecord.Set.WithElements(newElementSet));
 					input.AddOrUpdateSetRecord(newSetRecord);
 				}
