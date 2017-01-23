@@ -1,10 +1,10 @@
 {
     "title": "OofemLink.Services",
-    "version": "0.2.0-*",
+    "version": "0.3.0-*",
 
     "dependencies": {
-        "OofemLink.Common": "0.2.0-*",
-        "OofemLink.Data": "0.2.0-*",
+        "OofemLink.Common": "0.3.0-*",
+        "OofemLink.Data": "0.3.0-*",
         "NETStandard.Library": "1.6.1",
         "AutoMapper": "5.2.0",
         "System.Diagnostics.Process": "4.3.0"
