@@ -138,8 +138,7 @@ namespace OofemLink.Services.Export.OOFEM
 				hingeSpringAttributeMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
 			}
 
-			int maxSetId = 0;
-			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id, ref maxSetId);
+			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			List<int> elementsWithDummyCS = new List<int>();
@@ -165,7 +164,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// NODES
 			foreach (var node in nodes)
 			{
-				input.AddOrUpdateDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
+				input.AddDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
 			}
 
 			// ELEMENTS
@@ -205,7 +204,7 @@ namespace OofemLink.Services.Export.OOFEM
 					default:
 						throw new NotSupportedException($"Element type {element.Type} is not supported.");
 				}
-				input.AddOrUpdateElementRecord(elementRecord);
+				input.AddElementRecord(elementRecord);
 			}
 
 			// SPRINGS
@@ -215,7 +214,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var nodeId in set.Nodes)
 				{
 					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
-					input.AddOrUpdateElementRecord(springElementRecord);
+					input.AddElementRecord(springElementRecord);
 					elementsWithDummyCS.Add(springElementRecord.Id);
 				}
 				foreach (var edge in set.ElementEdges)
@@ -226,7 +225,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int node1Id, node2Id;
 					getNodesOfEdge(parentElementRecord, edgeRank, out node1Id, out node2Id);
 					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
-					input.AddOrUpdateElementRecord(springElementRecord);
+					input.AddElementRecord(springElementRecord);
 					elementsWithDummyCS.Add(springElementRecord.Id);
 				}
 			}
@@ -237,11 +236,11 @@ namespace OofemLink.Services.Export.OOFEM
 				var set = attributeIdSetMap[hinge.Id];
 				var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
 				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
-				input.AddOrUpdateDofManagerRecord(slaveNodeRecord);
+				input.AddDofManagerRecord(slaveNodeRecord);
 
 				var beamElementRecord = input.ElementRecords[set.Elements.Single()];
 				var updatedElementRecord = beamElementRecord.WithReplacedNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
-				input.AddOrUpdateElementRecord(updatedElementRecord);
+				input.UpdateElementRecord(updatedElementRecord);
 
 				// hinge springs
 				List<ModelAttribute> hingeSprings;
@@ -250,7 +249,7 @@ namespace OofemLink.Services.Export.OOFEM
 					foreach (var spring in hingeSprings)
 					{
 						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters);
-						input.AddOrUpdateElementRecord(springElementRecord);
+						input.AddElementRecord(springElementRecord);
 						elementsWithDummyCS.Add(springElementRecord.Id);
 					}
 				}
@@ -261,7 +260,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
 				int childAttributeId = crossSectionAttribute.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
-				input.AddOrUpdateCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
+				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
 			}
 
 			// MATERIALS
@@ -301,20 +300,20 @@ namespace OofemLink.Services.Export.OOFEM
 			// SETS
 			foreach (var set in sets)
 			{
-				input.AddOrUpdateSetRecord(new SetRecord(set));
+				input.AddSetRecord(new SetRecord(set));
 			}
 
 			// append dummy cross-section and material if needed
 			if (elementsWithDummyCS.Count > 0)
 			{
-				var set = new Set(++maxSetId).WithElements(elementsWithDummyCS.ToArray());
+				var set = new Set(input.MaxSetId + 1).WithElements(elementsWithDummyCS.ToArray());
 				var setRecord = new SetRecord(set);
 				var dummyMaterialRecord = createDummyMaterialRecord(id: input.MaxMaterialId + 1);
 				var dummyCrossSectionRecord = createDummyCrossSectionRecord(id: input.MaxCrossSectionId + 1, materialId: dummyMaterialRecord.Id, setId: set.Id);
 
-				input.AddOrUpdateCrossSectionRecord(dummyCrossSectionRecord);
+				input.AddCrossSectionRecord(dummyCrossSectionRecord);
 				input.AddMaterialRecord(dummyMaterialRecord);
-				input.AddOrUpdateSetRecord(setRecord);
+				input.AddSetRecord(setRecord);
 
 				// Uncomment following to append "mat X crossSect Y" to Spring elements' parameters
 				//foreach (int elementId in elementsWithDummyCS)
@@ -364,7 +363,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 					input.AddBoundaryConditionRecord(boundaryConditionRecord);
 					input.AddTimeFunctionRecord(timeFunctionRecord);
-					input.AddOrUpdateSetRecord(setRecord);
+					input.AddSetRecord(setRecord);
 				}
 			}
 
@@ -381,13 +380,13 @@ namespace OofemLink.Services.Export.OOFEM
 												  select input.ElementRecords[elementId])
 					{
 						var soilElementRecord = new ElementRecord(ElementNames.quad1platesubsoil, input.MaxElementId + 1, elementRecord.Type, elementRecord.NodeIds);
-						input.AddOrUpdateElementRecord(soilElementRecord);
+						input.AddElementRecord(soilElementRecord);
 						soilElementIds.Add(soilElementRecord.Id);
 					}
 					var newSetRecord = new SetRecord(new Set(input.MaxSetId + 1).WithElements(soilElementIds.ToArray()));
-					input.AddOrUpdateSetRecord(newSetRecord);
+					input.AddSetRecord(newSetRecord);
 					var updatedCrossSectionRecord = crossSectionRecord.WithSet(newSetRecord.Id);
-					input.AddOrUpdateCrossSectionRecord(updatedCrossSectionRecord);
+					input.UpdateCrossSectionRecord(updatedCrossSectionRecord);
 				}
 			}
 
@@ -477,7 +476,7 @@ namespace OofemLink.Services.Export.OOFEM
 				var regionSet = new Set(input.MaxSetId + 1).WithElements(mitc4shellElementIds);
 				var regionSetRecord = new SetRecord(regionSet);
 
-				input.AddOrUpdateSetRecord(regionSetRecord);
+				input.AddSetRecord(regionSetRecord);
 
 				exportModuleRecord = new VtkXmlExportModuleRecord(
 					primVars: new[] { 1 },
@@ -583,10 +582,11 @@ namespace OofemLink.Services.Export.OOFEM
 			return resultQuery.ToList();
 		}
 
-		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId, ref int maxSetId)
+		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId)
 		{
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
 
+			int setId = 0;
 			var map = new Dictionary<int, Set>();
 
 			// AttributeTarget.Node:
@@ -611,7 +611,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++maxSetId);
+						set = new Set(++setId);
 					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -628,7 +628,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(++maxSetId).WithElementEdges(group.ToArray());
+					Set set = new Set(++setId).WithElementEdges(group.ToArray());
 					map.Add(attributeId, set);
 				}
 			}
@@ -645,7 +645,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(++maxSetId).WithElementSurfaces(group.ToArray());
+					Set set = new Set(++setId).WithElementSurfaces(group.ToArray());
 					map.Add(attributeId, set);
 				}
 			}
@@ -677,7 +677,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++maxSetId);
+						set = new Set(++setId);
 					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -715,7 +715,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++maxSetId);
+						set = new Set(++setId);
 					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 
@@ -726,7 +726,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++maxSetId);
+						set = new Set(++setId);
 					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -753,12 +753,12 @@ namespace OofemLink.Services.Export.OOFEM
 			Vector3d splitPoint = point1 + direction * relativePosition;
 
 			NodeRecord splitNodeRecord = new NodeRecord(input.MaxDofManagerId + 1, splitPoint.X, splitPoint.Y, splitPoint.Z);
-			input.AddOrUpdateDofManagerRecord(splitNodeRecord);
+			input.AddDofManagerRecord(splitNodeRecord);
 
 			ElementRecord updatedElementRecord = elementRecord.WithReplacedNode(node2.Id, splitNodeRecord.Id);
 			ElementRecord newElementRecord = new ElementRecord(elementRecord.Name, input.MaxElementId + 1, elementRecord.Type, new[] { splitNodeRecord.Id, node2.Id }, elementRecord.Parameters);
-			input.AddOrUpdateElementRecord(updatedElementRecord);
-			input.AddOrUpdateElementRecord(newElementRecord);
+			input.UpdateElementRecord(updatedElementRecord);
+			input.AddElementRecord(newElementRecord);
 
 			return newElementRecord.Id;
 		}
@@ -770,8 +770,8 @@ namespace OofemLink.Services.Export.OOFEM
 				if (setRecord.Set.Elements.Contains(sourceElementId))
 				{
 					int[] newElementSet = setRecord.Set.Elements.AppendItem(targetElementId).OrderBy(id => id).Distinct().ToArray();
-					var newSetRecord = new SetRecord(setRecord.Set.WithElements(newElementSet));
-					input.AddOrUpdateSetRecord(newSetRecord);
+					var updatedSetRecord = new SetRecord(setRecord.Set.WithElements(newElementSet));
+					input.UpdateSetRecord(updatedSetRecord);
 				}
 
 				if (setRecord.Set.ElementEdges.Any(edge => edge.Key == sourceElementId))
@@ -785,8 +785,8 @@ namespace OofemLink.Services.Export.OOFEM
 							newEdgeSet.Add(new KeyValuePair<int, short>(targetElementId, edge.Value)); // TODO: why the rank should be the same?
 						}
 					}
-					var newSetRecord = new SetRecord(setRecord.Set.WithElementEdges(newEdgeSet.ToArray()));
-					input.AddOrUpdateSetRecord(newSetRecord);
+					var updatedSetRecord = new SetRecord(setRecord.Set.WithElementEdges(newEdgeSet.ToArray()));
+					input.UpdateSetRecord(updatedSetRecord);
 				}
 
 				if (setRecord.Set.ElementSurfaces.Any(surface => surface.Key == sourceElementId))
@@ -800,8 +800,8 @@ namespace OofemLink.Services.Export.OOFEM
 							newSurfaceSet.Add(new KeyValuePair<int, short>(targetElementId, surface.Value)); // TODO: why the rank should be the same?
 						}
 					}
-					var newSetRecord = new SetRecord(setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray()));
-					input.AddOrUpdateSetRecord(newSetRecord);
+					var updatedSetRecord = new SetRecord(setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray()));
+					input.UpdateSetRecord(updatedSetRecord);
 				}
 			}
 		}
@@ -815,7 +815,7 @@ namespace OofemLink.Services.Export.OOFEM
 			Set set = setRecord.Set;
 			Set updatedSet = set.WithElements(set.Elements.Where(id => id != elementId).ToArray()).WithElementEdges(set.ElementEdges.Where(edge => edge.Key != elementId).ToArray()).WithElementSurfaces(set.ElementSurfaces.Where(surface => surface.Key != elementId).ToArray());
 			SetRecord updatedSetRecord = new SetRecord(updatedSet);
-			input.AddOrUpdateSetRecord(updatedSetRecord);
+			input.UpdateSetRecord(updatedSetRecord);
 		}
 
 		#endregion

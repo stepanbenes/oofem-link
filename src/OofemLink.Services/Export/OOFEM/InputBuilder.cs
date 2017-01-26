@@ -101,20 +101,44 @@ namespace OofemLink.Services.Export.OOFEM
 			headerRecords.Add(record);
 		}
 
-		public void AddOrUpdateDofManagerRecord(DofManagerRecord record)
+		public void AddDofManagerRecord(DofManagerRecord record)
 		{
+			dofManagerRecords.Add(record.Id, record);
+			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
+		}
+
+		public void UpdateDofManagerRecord(DofManagerRecord record)
+		{
+			if (!dofManagerRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"DofManager record with id {record.Id} was not found");
 			dofManagerRecords[record.Id] = record;
 			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
 		}
 
-		public void AddOrUpdateElementRecord(ElementRecord record)
+		public void AddElementRecord(ElementRecord record)
 		{
 			elementRecords[record.Id] = record;
 			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
-		public void AddOrUpdateCrossSectionRecord(CrossSectionRecord record)
+		public void UpdateElementRecord(ElementRecord record)
 		{
+			if (!elementRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"Element record with id {record.Id} was not found");
+			elementRecords.Add(record.Id, record);
+			maxElementId = Math.Max(maxElementId, record.Id);
+		}
+
+		public void AddCrossSectionRecord(CrossSectionRecord record)
+		{
+			crossSectionRecords.Add(record.Id, record);
+			maxCrossSectionId = Math.Max(maxCrossSectionId, record.Id);
+		}
+
+		public void UpdateCrossSectionRecord(CrossSectionRecord record)
+		{
+			if (!crossSectionRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"Cross-section record with id {record.Id} was not found");
 			crossSectionRecords[record.Id] = record;
 			maxCrossSectionId = Math.Max(maxCrossSectionId, record.Id);
 		}
@@ -125,9 +149,25 @@ namespace OofemLink.Services.Export.OOFEM
 			maxMaterialId = Math.Max(maxMaterialId, record.Id);
 		}
 
+		public void UpdateMaterialRecord(MaterialRecord record)
+		{
+			if (!materialRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"Material record with id {record.Id} was not found");
+			materialRecords[record.Id] = record;
+			maxMaterialId = Math.Max(maxMaterialId, record.Id);
+		}
+
 		public void AddBoundaryConditionRecord(BoundaryConditionRecord record)
 		{
 			boundaryConditionRecords.Add(record.Id, record);
+			maxBoundaryConditionId = Math.Max(maxBoundaryConditionId, record.Id);
+		}
+
+		public void UpdateBoundaryConditionRecord(BoundaryConditionRecord record)
+		{
+			if (!boundaryConditionRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"Boundary condition record with id {record.Id} was not found");
+			boundaryConditionRecords[record.Id] = record;
 			maxBoundaryConditionId = Math.Max(maxBoundaryConditionId, record.Id);
 		}
 
@@ -137,8 +177,24 @@ namespace OofemLink.Services.Export.OOFEM
 			maxTimeFunctionId = Math.Max(maxTimeFunctionId, record.Id);
 		}
 
-		public void AddOrUpdateSetRecord(SetRecord record)
+		public void UpdateTimeFunctionRecord(TimeFunctionRecord record)
 		{
+			if (!timeFunctionRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"Time function record with id {record.Id} was not found");
+			timeFunctionRecords[record.Id] = record;
+			maxTimeFunctionId = Math.Max(maxTimeFunctionId, record.Id);
+		}
+
+		public void AddSetRecord(SetRecord record)
+		{
+			setRecords.Add(record.Id, record);
+			maxSetId = Math.Max(maxSetId, record.Id);
+		}
+
+		public void UpdateSetRecord(SetRecord record)
+		{
+			if (!setRecords.ContainsKey(record.Id))
+				throw new KeyNotFoundException($"Set record with id {record.Id} was not found");
 			setRecords[record.Id] = record;
 			maxSetId = Math.Max(maxSetId, record.Id);
 		}
