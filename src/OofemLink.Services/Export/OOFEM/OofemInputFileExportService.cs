@@ -161,6 +161,26 @@ namespace OofemLink.Services.Export.OOFEM
 
 			var input = new InputBuilder();
 
+			// HEADER >>>
+
+			// OUTPUT FILE NAME
+			input.AddOutputFileRecord(new OutputFileRecord(outputFileFullPath));
+			// DESCRIPTION
+			input.AddDescriptionRecord(new DescriptionRecord($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}"));
+
+			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+			input.AddEngineeringModelRecord(new EngineeringModelRecord(
+					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+					numberOfTimeSteps: simulation.TimeSteps.Count
+				));
+
+			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
+			input.AddDomainRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
+
+			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
+			input.AddOutputManagerRecord(new OutputManagerRecord());
+
+
 			// NODES
 			foreach (var node in nodes)
 			{
@@ -428,29 +448,9 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
-			// HEADER >>>
-
-			// OUTPUT FILE NAME
-			input.AddHeaderRecord(new OutputFileRecord(outputFileFullPath));
-			// DESCRIPTION
-			input.AddHeaderRecord(new DescriptionRecord($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}"));
-
-			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
-			input.AddHeaderRecord(new EngineeringModelRecord(
-					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
-					numberOfTimeSteps: simulation.TimeSteps.Count,
-					numberOfExportModules: 1 /**/
-				));
-
 			// the export module
 			addExportModuleRecord(input);
 
-			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
-			input.AddHeaderRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
-
-			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
-			input.AddHeaderRecord(new OutputManagerRecord());
-			
 			// create input file
 			input.WriteToFile(inputFileFullPath);
 		}
@@ -485,7 +485,7 @@ namespace OofemLink.Services.Export.OOFEM
 					regionSets: new[] { regionSetRecord.Id });
 			}
 
-			input.AddHeaderRecord(exportModuleRecord);
+			input.AddExportModuleRecord(exportModuleRecord);
 		}
 
 		private CrossSectionRecord createDummyCrossSectionRecord(int id, int materialId, int setId)

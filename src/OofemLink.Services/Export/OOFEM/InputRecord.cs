@@ -13,10 +13,7 @@ namespace OofemLink.Services.Export.OOFEM
 	abstract class InputRecord
 	{ }
 
-	abstract class HeaderRecord : InputRecord
-	{ }
-
-	class OutputFileRecord : HeaderRecord
+	class OutputFileRecord : InputRecord
 	{
 		public OutputFileRecord(string outputFileFullPath)
 		{
@@ -26,7 +23,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString() => OutputFileFullPath;
 	}
 
-	class DescriptionRecord : HeaderRecord
+	class DescriptionRecord : InputRecord
 	{
 		public DescriptionRecord(string description)
 		{
@@ -36,21 +33,19 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString() => Description;
 	}
 
-	class EngineeringModelRecord : HeaderRecord
+	class EngineeringModelRecord : InputRecord
 	{
-		public EngineeringModelRecord(string engineeringModelName, int numberOfTimeSteps, int numberOfExportModules)
+		public EngineeringModelRecord(string engineeringModelName, int numberOfTimeSteps)
 		{
 			EngineeringModelName = engineeringModelName;
 			NumberOfTimeSteps = numberOfTimeSteps;
-			NumberOfExportModules = numberOfExportModules;
 		}
 		public string EngineeringModelName { get; }
 		public int NumberOfTimeSteps { get; }
-		public int NumberOfExportModules { get; }
-		public override string ToString() => $"{EngineeringModelName} {Keyword.nsteps} {NumberOfTimeSteps} {Keyword.nmodules} {NumberOfExportModules}";
+		public override string ToString() => $"{EngineeringModelName} {Keyword.nsteps} {NumberOfTimeSteps}";
 	}
 
-	abstract class ExportModuleRecord : HeaderRecord
+	abstract class ExportModuleRecord : InputRecord
 	{ }
 
 	class VtkXmlExportModuleRecord : ExportModuleRecord
@@ -90,7 +85,7 @@ namespace OofemLink.Services.Export.OOFEM
 		}
 	}
 
-	class DomainRecord : HeaderRecord
+	class DomainRecord : InputRecord
 	{
 		public DomainRecord(string domainType)
 		{
@@ -100,7 +95,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString() => $"{Keyword.domain} {DomainType}";
 	}
 
-	class OutputManagerRecord : HeaderRecord
+	class OutputManagerRecord : InputRecord
 	{
 		public override string ToString() => "OutputManager tstep_all dofman_all element_all"; // TODO: avoid hard-coded string
 	}
