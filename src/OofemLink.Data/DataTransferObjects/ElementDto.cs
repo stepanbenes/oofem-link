@@ -6,10 +6,11 @@ using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Data.DataTransferObjects
 {
-	public class CurveDto
-	{
+    public class ElementDto
+    {
 		public int Id { get; set; }
-		public CurveType Type { get; set; }
-		public IReadOnlyList<int> VertexIds { get; set; }
-    }
+		public CellType Type { get; set; }
+
+		public IReadOnlyList<int> NodeIds { get; set; }
+	}
 }

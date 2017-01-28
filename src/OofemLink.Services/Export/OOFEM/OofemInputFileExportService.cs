@@ -11,6 +11,8 @@ using OofemLink.Common.Extensions;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 using OofemLink.Common.MathPhys;
+using OofemLink.Services.DataAccess;
+using OofemLink.Data.DataTransferObjects;
 
 namespace OofemLink.Services.Export.OOFEM
 {
@@ -20,10 +22,14 @@ namespace OofemLink.Services.Export.OOFEM
 
 		readonly string inputFileFullPath, outputFileFullPath;
 		readonly DataContext dataContext;
+		readonly ISimulationService simulationService;
+		readonly IModelService modelService;
 
-		public OofemInputFileExportService(DataContext dataContext, string inputFileFullPath, string outputFileDirectory = null)
+		public OofemInputFileExportService(DataContext dataContext, ISimulationService simulationService, IModelService modelService, string inputFileFullPath, string outputFileDirectory = null)
 		{
 			this.dataContext = dataContext;
+			this.simulationService = simulationService;
+			this.modelService = modelService;
 			Debug.Assert(!string.IsNullOrEmpty(inputFileFullPath));
 			this.inputFileFullPath = inputFileFullPath;
 			if (string.IsNullOrEmpty(outputFileDirectory))
@@ -35,34 +41,30 @@ namespace OofemLink.Services.Export.OOFEM
 
 		#region Public methods
 
-		public void ExportSimulation(int simulationId)
+		public async Task ExportSimulationAsync(int simulationId)
 		{
-			// TODO: refactor this method to DataAccess.ModelService class
+			// TODO: refactor this method to DataAccess.ModelService class, avoid DataContext dependency
 
 			// load simulation from db
-			var simulation = dataContext.Simulations
-								.Include(s => s.Project)
-								.Include(s => s.TimeSteps)
-								.Include(s => s.Model)
-								.ThenInclude(m => m.Meshes)
-								.FirstOrDefault(s => s.Id == simulationId);
+			var simulation = await simulationService.GetOneAsync(simulationId);
 
 			if (simulation == null)
 				throw new KeyNotFoundException($"Simulation with id {simulationId} was not found.");
-			if (simulation.Model == null)
+			if (simulation.ModelId == null)
 				throw new InvalidDataException($"Simulation {simulationId} does not contain any model.");
 
-			var model = simulation.Model;
+			int modelId = simulation.ModelId.Value;
 
-			if (model.Meshes.Count == 0)
-				throw new InvalidDataException($"No mesh found for model {model.Id}.");
-			if (model.Meshes.Count > 1)
-				throw new NotSupportedException($"Multiple meshes for single model are not yet supported (model {model.Id}).");
+			// load all meshes related to this simulation
+			var modelMeshes = await modelService.GetAllMeshesAsync(modelId);
 
-			var mesh = model.Meshes.Single();
+			if (modelMeshes.Count == 0)
+				throw new InvalidDataException($"No mesh found for model {modelId}.");
+			if (modelMeshes.Count > 1)
+				throw new NotSupportedException($"Multiple meshes for single model are not yet supported (model {modelId}).");
 
-			List<Node> nodes;
-			List<Element> elements;
+			var mesh = modelMeshes.Single();
+
 			List<ModelAttribute> crossSectionAttributes;
 			List<ModelAttribute> materialAttributes;
 			List<ModelAttribute> boundaryConditionAttributes;
@@ -74,60 +76,50 @@ namespace OofemLink.Services.Export.OOFEM
 
 			// load all model entities from db
 			{
-				var nodesQuery = from node in dataContext.Nodes
-								 where node.MeshId == mesh.Id
-								 orderby node.Id
-								 select node;
-				var elementsQuery = from element in dataContext.Elements.Include(e => e.ElementNodes)
-									where element.MeshId == mesh.Id
-									orderby element.Id
-									select element;
 				var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
-										 where attribute.ModelId == model.Id
+										 where attribute.ModelId == modelId
 										 where attribute.Type == AttributeType.CrossSection
 										 orderby attribute.Id
 										 select attribute;
 				var materialsQuery = from attribute in dataContext.Attributes
-									 where attribute.ModelId == model.Id
+									 where attribute.ModelId == modelId
 									 where attribute.Type == AttributeType.Material
 									 orderby attribute.Id
 									 select attribute;
 				var boundaryConditionsQuery = from attribute in dataContext.Attributes
-											  where attribute.ModelId == model.Id
+											  where attribute.ModelId == modelId
 											  where attribute.Type == AttributeType.BoundaryCondition
 											  orderby attribute.Id
 											  select attribute;
 				var timeFunctionsQuery = from timeFunction in dataContext.TimeFunctions.Include(tf => tf.Values)
-										 where timeFunction.ModelId == model.Id
+										 where timeFunction.ModelId == modelId
 										 orderby timeFunction.Id
 										 select timeFunction;
 				var lcsQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
-							   where curveAttribute.ModelId == model.Id
+							   where curveAttribute.ModelId == modelId
 							   where curveAttribute.Attribute.Type == AttributeType.LocalCoordinateSystem
 							   from curveElement in curveAttribute.Curve.CurveElements
 							   where curveElement.MeshId == mesh.Id
 							   group curveAttribute.Attribute by new KeyValuePair<int, short>(curveElement.ElementId, curveElement.Rank);
 				var independentSpringsQuery = from attribute in dataContext.Attributes
-											  where attribute.ModelId == model.Id
+											  where attribute.ModelId == modelId
 											  where attribute.Type == AttributeType.Spring
 											  where !attribute.ParentAttributes.Any()
 											  orderby attribute.Id
 											  select attribute;
 				var hingesQuery = from attribute in dataContext.Attributes
-								  where attribute.ModelId == model.Id
+								  where attribute.ModelId == modelId
 								  where attribute.Type == AttributeType.Hinge
 								  orderby attribute.Id
 								  select attribute;
 				var hingeStringQuery = from attribute in dataContext.Attributes
-									   where attribute.ModelId == model.Id
+									   where attribute.ModelId == modelId
 									   where attribute.Type == AttributeType.Hinge
 									   from attributeComposition in attribute.ChildAttributes
 									   where attributeComposition.ChildAttribute.Type == AttributeType.Spring
 									   group attributeComposition.ChildAttribute by attribute.Id;
 
 				// materialize queries
-				nodes = nodesQuery.ToList();
-				elements = elementsQuery.ToList();
 				crossSectionAttributes = crossSectionsQuery.ToList();
 				materialAttributes = materialsQuery.ToList();
 				boundaryConditionAttributes = boundaryConditionsQuery.ToList();
@@ -138,7 +130,7 @@ namespace OofemLink.Services.Export.OOFEM
 				hingeSpringAttributeMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
 			}
 
-			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(model.Id, mesh.Id);
+			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(modelId, mesh.Id);
 			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			List<int> elementsWithDummyCS = new List<int>();
@@ -166,7 +158,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// OUTPUT FILE NAME
 			input.AddOutputFileRecord(new OutputFileRecord(outputFileFullPath));
 			// DESCRIPTION
-			input.AddDescriptionRecord(new DescriptionRecord($"Project: {simulation.Project?.Name}, Task: {simulation.TaskName}"));
+			input.AddDescriptionRecord(new DescriptionRecord($"Project: {simulation.ProjectName}, Task: {simulation.TaskName}"));
 
 			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
 			input.AddEngineeringModelRecord(new EngineeringModelRecord(
@@ -180,25 +172,21 @@ namespace OofemLink.Services.Export.OOFEM
 			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
 			input.AddOutputManagerRecord(new OutputManagerRecord());
 
-
 			// NODES
-			foreach (var node in nodes)
+			foreach (var node in mesh.Nodes)
 			{
 				input.AddDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
 			}
 
 			// ELEMENTS
-			foreach (var element in elements)
+			foreach (var element in mesh.Elements)
 			{
-				var nodeIds = (from elementNode in element.ElementNodes
-							   orderby elementNode.Rank
-							   select elementNode.NodeId).ToArray();
 				ElementRecord elementRecord;
 				switch (element.Type)
 				{
 					case CellType.LineLinear:
 						{
-							Debug.Assert(nodeIds.Length == 2);
+							Debug.Assert(element.NodeIds.Count == 2);
 							ModelAttribute lcsAttribute;
 							string lcsParameter;
 							var edge = new KeyValuePair<int, short>(element.Id, 1); // there is only one edge for 1D element (has rank 1)
@@ -206,19 +194,19 @@ namespace OofemLink.Services.Export.OOFEM
 								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
 							else
 								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, nodeIds, lcsParameter);
+							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, element.NodeIds, lcsParameter);
 						}
 						break;
 					case CellType.TriangleLinear:
 						{
-							Debug.Assert(nodeIds.Length == 3);
-							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds: new[] { nodeIds[0], nodeIds[1], nodeIds[2], nodeIds[2] }); // last node is doubled
+							Debug.Assert(element.NodeIds.Count == 3);
+							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds: new[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[2] }); // last node is doubled
 						}
 						break;
 					case CellType.QuadLinear:
 						{
-							Debug.Assert(nodeIds.Length == 4);
-							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds);
+							Debug.Assert(element.NodeIds.Count == 4);
+							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, element.NodeIds);
 						}
 						break;
 					default:
@@ -309,7 +297,7 @@ namespace OofemLink.Services.Export.OOFEM
 						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, time: tfValue.TimeStep.Time ?? tfValue.TimeStep.Number, value: tfValue.Value);
 						break;
 					case TimeFunctionNames.PiecewiseLinFunction:
-						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, createTimeStepFunctionValuePairs(simulation, timeFunction));
+						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, createTimeStepFunctionValuePairs(simulation.TimeSteps, timeFunction));
 						break;
 					default:
 						throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
@@ -413,7 +401,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// split beams under partially applied loads
 			{
 				var partiallyAppliedLoadsQuery = from attribute in dataContext.Attributes
-												 where attribute.ModelId == model.Id
+												 where attribute.ModelId == modelId
 												 where attribute.Type == AttributeType.BoundaryCondition
 												 from curveAttribute in attribute.CurveAttributes
 												 where (curveAttribute.RelativeStart != null && curveAttribute.RelativeStart > 0) || (curveAttribute.RelativeEnd != null && curveAttribute.RelativeEnd < 1)
@@ -573,10 +561,10 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 		}
 
-		private List<KeyValuePair<double, double>> createTimeStepFunctionValuePairs(Simulation simulation, TimeFunction timeFunction)
+		private List<KeyValuePair<double, double>> createTimeStepFunctionValuePairs(IReadOnlyList<TimeStepDto> timeSteps, TimeFunction timeFunction)
 		{
 			var valueMap = timeFunction.Values.ToDictionary(v => v.TimeStepId, v => v.Value);
-			var resultQuery = from timeStep in simulation.TimeSteps
+			var resultQuery = from timeStep in timeSteps
 							  orderby timeStep.Time ?? timeStep.Number // The particular time values in t array should be sorted according to time scale
 							  select new KeyValuePair<double, double>(timeStep.Time ?? timeStep.Number, valueMap.GetValueOrDefault(timeStep.Id));
 			return resultQuery.ToList();

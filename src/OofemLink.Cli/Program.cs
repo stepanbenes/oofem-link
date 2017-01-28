@@ -133,6 +133,7 @@ namespace OofemLink.Cli
 
 			services.AddScoped<IProjectService, ProjectService>();
 			services.AddScoped<ISimulationService, SimulationService>();
+			services.AddScoped<IModelService, ModelService>();
 			services.AddScoped<IImportServiceFactory, ImportServiceFactory>();
 			services.AddScoped<IExportServiceFactory, ExportServiceFactory>();
 			services.AddScoped<IExecutionService, OofemExecutionService>();
@@ -186,7 +187,7 @@ namespace OofemLink.Cli
 			return Task.FromResult(0);
 		}
 
-		private Task<int> runExportCommandAsync(ExportOptions options)
+		private async Task<int> runExportCommandAsync(ExportOptions options)
 		{
 			string fileFullPath;
 			if (!string.IsNullOrEmpty(options.FileName))
@@ -199,8 +200,8 @@ namespace OofemLink.Cli
 				fileFullPath = Path.Combine(Directory.GetCurrentDirectory(), "oofem.in"); // choose default file name in current directory
 			}
 			var exportService = serviceProvider.GetRequiredService<IExportServiceFactory>().Create(fileFullPath);
-			exportService.ExportSimulation(options.SimulationId);
-			return Task.FromResult(0);
+			await exportService.ExportSimulationAsync(options.SimulationId);
+			return 0;
 		}
 
 		private async Task<int> runRunCommandAsync(RunOptions options)

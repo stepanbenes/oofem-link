@@ -42,5 +42,10 @@ namespace OofemLink.Services.DataAccess
 		{
 			return await context.Curves.AsNoTracking().Where(c => c.ModelId == modelId).ProjectTo<CurveDto>().ToListAsync();
 		}
+
+		public async Task<IReadOnlyList<MeshDto>> GetAllMeshesAsync(int modelId)
+		{
+			return await context.Meshes.AsNoTracking().Where(m => m.ModelId == modelId).ProjectTo<MeshDto>().ToListAsync();
+		}
 	}
 }

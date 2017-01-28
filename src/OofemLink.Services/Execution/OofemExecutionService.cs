@@ -9,6 +9,7 @@ using Microsoft.Extensions.Options;
 using OofemLink.Common.Enumerations;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
+using OofemLink.Services.DataAccess;
 using OofemLink.Services.Export.OOFEM;
 
 namespace OofemLink.Services.Execution
@@ -17,13 +18,17 @@ namespace OofemLink.Services.Execution
 	{
 		#region Fields, constructor
 
+		readonly ISimulationService simulationService;
+		readonly IModelService modelService;
 		readonly DataContext dataContext;
 		readonly ExecutionOptions options;
 		readonly ILogger logger;
 
-		public OofemExecutionService(DataContext dataContext, IOptions<ExecutionOptions> options, ILoggerFactory loggerFactory)
+		public OofemExecutionService(DataContext dataContext, ISimulationService simulationService, IModelService modelService, IOptions<ExecutionOptions> options, ILoggerFactory loggerFactory)
 		{
 			this.dataContext = dataContext;
+			this.simulationService = simulationService;
+			this.modelService = modelService;
 			this.options = options.Value;
 			this.logger = loggerFactory.CreateLogger<OofemExecutionService>();
 		}
@@ -45,7 +50,7 @@ namespace OofemLink.Services.Execution
 				throw new InvalidOperationException("Simulation is not ready to run. Current state: " + simulation.State);
 			}
 
-			string inputFileFullPath = prepareInputFile(simulationId);
+			string inputFileFullPath = await prepareInputFileAsync(simulationId);
 			logger.LogInformation($"Input file generated at '{inputFileFullPath}'");
 
 			logger.LogInformation($"Starting simulation at '{options.OofemExecutableFilePath}'");
@@ -83,7 +88,7 @@ namespace OofemLink.Services.Execution
 
 		#region Private methods
 
-		private string prepareInputFile(int simulationId)
+		private async Task<string> prepareInputFileAsync(int simulationId)
 		{
 			string inputFileFullPath;
 			string outputFileDirectory;
@@ -95,8 +100,8 @@ namespace OofemLink.Services.Execution
 				outputFileDirectory = options.DefaultOutputLocation;
 			else
 				outputFileDirectory = Path.GetTempPath();
-			var oofemExportService = new OofemInputFileExportService(dataContext, inputFileFullPath, outputFileDirectory);
-			oofemExportService.ExportSimulation(simulationId);
+			var oofemExportService = new OofemInputFileExportService(dataContext, simulationService, modelService, inputFileFullPath, outputFileDirectory);
+			await oofemExportService.ExportSimulationAsync(simulationId);
 			return inputFileFullPath;
 		}
 

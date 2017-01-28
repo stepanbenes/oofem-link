@@ -13,5 +13,7 @@ namespace OofemLink.Services.DataAccess
 		Task CreateVertexAsync(int modelId, VertexDto dto);
 
 		Task<IReadOnlyList<CurveDto>> GetAllCurvesAsync(int modelId);
+
+		Task<IReadOnlyList<MeshDto>> GetAllMeshesAsync(int modelId);
 	}
 }
