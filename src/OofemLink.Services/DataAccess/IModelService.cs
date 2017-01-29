@@ -17,5 +17,6 @@ namespace OofemLink.Services.DataAccess
 		Task<IReadOnlyList<MeshDto>> GetAllMeshesAsync(int modelId);
 		Task<IReadOnlyList<AttributeDto>> GetAllAttributesAsync(int modelId, Func<IQueryable<AttributeDto>, IQueryable<AttributeDto>> filter = null);
 		Task<AttributeDto> GetAttributeAsync(int modelId, int attributeId);
+		Task<TimeFunctionDto> GetTimeFunctionAsync(int modelId, int timeFunctionId);
 	}
 }

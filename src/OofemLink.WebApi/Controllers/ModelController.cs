@@ -50,6 +50,10 @@ namespace OofemLink.WebApi.Controllers
 
 		// GET api/model/1/attribute/4
 		[HttpGet("{modelId}/attribute/{attributeId}")]
-		public Task<AttributeDto> GetAttributes(int modelId, int attributeId) => service.GetAttributeAsync(modelId, attributeId);
+		public Task<AttributeDto> GetAttribute(int modelId, int attributeId) => service.GetAttributeAsync(modelId, attributeId);
+
+		// GET api/model/1/timefunction/4
+		[HttpGet("{modelId}/timefunction/{timeFunctionId}")]
+		public Task<TimeFunctionDto> GetTimeFunction(int modelId, int timeFunctionId) => service.GetTimeFunctionAsync(modelId, timeFunctionId);
 	}
 }

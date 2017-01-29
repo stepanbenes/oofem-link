@@ -9,6 +9,7 @@ using OofemLink.Data.DataTransferObjects;
 using OofemLink.Data;
 using OofemLink.Data.Entities;
 using Microsoft.Extensions.Logging;
+using OofemLink.Common.OofemNames;
 
 namespace OofemLink.Services.DataAccess
 {
@@ -58,5 +59,52 @@ namespace OofemLink.Services.DataAccess
 		{
 			return await Context.Attributes.Where(a => a.ModelId == modelId && a.Id == attributeId).ProjectTo<AttributeDto>().SingleOrDefaultAsync();
 		}
+
+		public async Task<TimeFunctionDto> GetTimeFunctionAsync(int modelId, int timeFunctionId)
+		{
+			var timeFunction = await Context.TimeFunctions
+												.Include(tf => tf.Values)
+												.ThenInclude(tv => tv.TimeStep)
+												.SingleOrDefaultAsync(tf => tf.ModelId == modelId && tf.Id == timeFunctionId);
+			if (timeFunction == null)
+				return null;
+
+			// manually map entities to dtos
+			switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
+			{
+				case TimeFunctionNames.ConstantFunction:
+					return new ConstantFunctionDto { Id = timeFunction.Id, ConstantValue = ((ConstantFunction)timeFunction).ConstantValue };
+				case TimeFunctionNames.PeakFunction:
+					var tfValue = timeFunction.Values.Single();
+					return new PeakFunctionDto
+					{
+						Id = timeFunction.Id,
+						Time = tfValue.TimeStep.Time ?? tfValue.TimeStep.Number,
+						Value = tfValue.Value
+					};
+				case TimeFunctionNames.PiecewiseLinFunction:
+					var timeValues = getTimeStepFunctionValuePairs(timeFunction);
+					return new PiecewiseLinFunctionDto
+					{
+						Id = timeFunction.Id,
+						Times = timeValues.Select(tv => tv.Key).ToList(),
+						Values = timeValues.Select(tv => tv.Value).ToList()
+					};
+				default:
+					throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
+			}
+		}
+
+		#region Private methods
+
+		private List<KeyValuePair<double, double>> getTimeStepFunctionValuePairs(TimeFunction timeFunction)
+		{
+			var resultQuery = from tfValue in timeFunction.Values
+							  orderby tfValue.TimeStep.Time ?? tfValue.TimeStep.Number // The particular time values in t array should be sorted according to time scale
+							  select new KeyValuePair<double, double>(tfValue.TimeStep.Time ?? tfValue.TimeStep.Number, tfValue.Value);
+			return resultQuery.ToList();
+		}
+
+		#endregion
 	}
 }
