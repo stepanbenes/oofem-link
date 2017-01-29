@@ -79,7 +79,7 @@ namespace OofemLink.Services.DataAccess
 					return new PeakFunctionDto
 					{
 						Id = timeFunction.Id,
-						Time = tfValue.TimeStep.Time ?? tfValue.TimeStep.Number,
+						TimeNumber = tfValue.TimeStep.Number,
 						Value = tfValue.Value
 					};
 				case TimeFunctionNames.PiecewiseLinFunction:
@@ -87,7 +87,7 @@ namespace OofemLink.Services.DataAccess
 					return new PiecewiseLinFunctionDto
 					{
 						Id = timeFunction.Id,
-						Times = timeValues.Select(tv => tv.Key).ToList(),
+						TimeNumbers = timeValues.Select(tv => tv.Key).ToList(),
 						Values = timeValues.Select(tv => tv.Value).ToList()
 					};
 				default:
@@ -97,11 +97,11 @@ namespace OofemLink.Services.DataAccess
 
 		#region Private methods
 
-		private List<KeyValuePair<double, double>> getTimeStepFunctionValuePairs(TimeFunction timeFunction)
+		private List<KeyValuePair<int, double>> getTimeStepFunctionValuePairs(TimeFunction timeFunction)
 		{
 			var resultQuery = from tfValue in timeFunction.Values
-							  orderby tfValue.TimeStep.Time ?? tfValue.TimeStep.Number // The particular time values in t array should be sorted according to time scale
-							  select new KeyValuePair<double, double>(tfValue.TimeStep.Time ?? tfValue.TimeStep.Number, tfValue.Value);
+							  orderby tfValue.TimeStep.Number // The particular time values in t array should be sorted according to time scale
+							  select new KeyValuePair<int, double>(tfValue.TimeStep.Number, tfValue.Value);
 			return resultQuery.ToList();
 		}
 

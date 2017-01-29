@@ -22,14 +22,14 @@ namespace OofemLink.Data.DataTransferObjects
 	public class PeakFunctionDto : TimeFunctionDto
 	{
 		public override string Name => TimeFunctionNames.PeakFunction;
-		public double Time { get; set; }
+		public int TimeNumber { get; set; }
 		public double Value { get; set; }
 	}
 
 	public class PiecewiseLinFunctionDto : TimeFunctionDto
 	{
 		public override string Name => TimeFunctionNames.PiecewiseLinFunction;
-		public IReadOnlyList<double> Times { get; set; }
+		public IReadOnlyList<int> TimeNumbers { get; set; }
 		public IReadOnlyList<double> Values { get; set; }
 	}
 }
