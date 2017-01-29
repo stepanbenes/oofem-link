@@ -23,6 +23,8 @@ namespace OofemLink.Data.DataTransferObjects
 			CreateMap<Element, ElementDto>()
 				.ForMember(e => e.NodeIds, options => options.MapFrom(e => e.ElementNodes.OrderBy(en => en.Rank).Select(en => en.NodeId).ToList()));
 			CreateMap<TimeStep, TimeStepDto>();
+			CreateMap<ModelAttribute, AttributeDto>()
+				.ForMember(a => a.ChildAttributeIds, options => options.MapFrom(a => a.ChildAttributes.Select(ca => ca.ChildAttributeId).ToList()));
 			// DTO -> ENTITY
 			CreateMap<ProjectDto, Project>();
 			CreateMap<EditSimulationDto, Simulation>();
