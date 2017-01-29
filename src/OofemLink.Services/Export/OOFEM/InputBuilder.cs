@@ -172,7 +172,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public void AddElementRecord(ElementRecord record)
 		{
-			elementRecords[record.Id] = record;
+			elementRecords.Add(record.Id, record);
 			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
@@ -180,7 +180,7 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			if (!elementRecords.ContainsKey(record.Id))
 				throw new KeyNotFoundException($"Element record with id {record.Id} was not found");
-			elementRecords.Add(record.Id, record);
+			elementRecords[record.Id] = record;
 			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
