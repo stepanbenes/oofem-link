@@ -33,5 +33,9 @@ namespace OofemLink.WebApi.Controllers
 		// GET api/model/1/curve
 		[HttpGet("{modelId}/curve")]
 		public Task<IReadOnlyList<CurveDto>> GetCurves(int modelId) => service.GetAllCurvesAsync(modelId);
+
+		// GET api/model/1/mesh
+		[HttpGet("{modelId}/mesh")]
+		public Task<IReadOnlyList<MeshDto>> GetMeshes(int modelId) => service.GetAllMeshesAsync(modelId);
 	}
 }
