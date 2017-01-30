@@ -65,36 +65,17 @@ namespace OofemLink.Services.Export.OOFEM
 
 			var mesh = modelMeshes.Single();
 
-			List<ModelAttribute> crossSectionAttributes;
-			List<ModelAttribute> materialAttributes;
-			List<ModelAttribute> boundaryConditionAttributes;
-			List<TimeFunction> timeFunctions;
+			var crossSectionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.CrossSection));
+			var materialAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Material));
+			var boundaryConditionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.BoundaryCondition));
+			var hingeAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Hinge));
+
 			Dictionary<KeyValuePair<int, short>, ModelAttribute> edgeLcsAttributeMap;
 			List<ModelAttribute> independentSpringAttributes;
-			List<ModelAttribute> hingeAttributes;
 			Dictionary<int, List<ModelAttribute>> hingeSpringAttributeMap;
 
 			// load all model entities from db
 			{
-				var crossSectionsQuery = from attribute in dataContext.Attributes.Include(a => a.ChildAttributes)
-										 where attribute.ModelId == modelId
-										 where attribute.Type == AttributeType.CrossSection
-										 orderby attribute.Id
-										 select attribute;
-				var materialsQuery = from attribute in dataContext.Attributes
-									 where attribute.ModelId == modelId
-									 where attribute.Type == AttributeType.Material
-									 orderby attribute.Id
-									 select attribute;
-				var boundaryConditionsQuery = from attribute in dataContext.Attributes
-											  where attribute.ModelId == modelId
-											  where attribute.Type == AttributeType.BoundaryCondition
-											  orderby attribute.Id
-											  select attribute;
-				var timeFunctionsQuery = from timeFunction in dataContext.TimeFunctions.Include(tf => tf.Values)
-										 where timeFunction.ModelId == modelId
-										 orderby timeFunction.Id
-										 select timeFunction;
 				var lcsQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
 							   where curveAttribute.ModelId == modelId
 							   where curveAttribute.Attribute.Type == AttributeType.LocalCoordinateSystem
@@ -107,11 +88,6 @@ namespace OofemLink.Services.Export.OOFEM
 											  where !attribute.ParentAttributes.Any()
 											  orderby attribute.Id
 											  select attribute;
-				var hingesQuery = from attribute in dataContext.Attributes
-								  where attribute.ModelId == modelId
-								  where attribute.Type == AttributeType.Hinge
-								  orderby attribute.Id
-								  select attribute;
 				var hingeStringQuery = from attribute in dataContext.Attributes
 									   where attribute.ModelId == modelId
 									   where attribute.Type == AttributeType.Hinge
@@ -120,13 +96,8 @@ namespace OofemLink.Services.Export.OOFEM
 									   group attributeComposition.ChildAttribute by attribute.Id;
 
 				// materialize queries
-				crossSectionAttributes = crossSectionsQuery.ToList();
-				materialAttributes = materialsQuery.ToList();
-				boundaryConditionAttributes = boundaryConditionsQuery.ToList();
-				timeFunctions = timeFunctionsQuery.ToList();
 				edgeLcsAttributeMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple LCS attributes per edge
 				independentSpringAttributes = independentSpringsQuery.ToList();
-				hingeAttributes = hingesQuery.ToList();
 				hingeSpringAttributeMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
 			}
 
@@ -267,7 +238,7 @@ namespace OofemLink.Services.Export.OOFEM
 			for (int i = 0; i < crossSectionAttributes.Count; i++)
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
-				int childAttributeId = crossSectionAttribute.ChildAttributes.Single(a => a.ChildAttribute.Type == AttributeType.Material).ChildAttributeId; // TODO: handle cases with non-single referenced materials
+				int childAttributeId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
 				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
 			}
 
@@ -277,32 +248,23 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddMaterialRecord(new MaterialRecord(materialAttribute.Name, id: attributeIdToMaterialIdMap[materialAttribute.Id], parameters: materialAttribute.Parameters));
 			}
 
-			// BOUNDARY CONDITIONS
-			foreach (var bcAttribute in boundaryConditionAttributes) // write Boundary Conditions (including Loads)
-			{
-				input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: attributeIdToBoundaryConditionIdMap[bcAttribute.Id], parameters: bcAttribute.Parameters, timeFunctionId: bcAttribute.TimeFunctionId, setId: attributeIdSetMap[bcAttribute.Id].Id));
-			}
 
-			// TIME FUNCTIONS
-			foreach (var timeFunction in timeFunctions)
+			// BOUNDARY CONDITIONS
 			{
-				TimeFunctionRecord timeFunctionRecord;
-				switch (timeFunction.Name) // TODO: replace with type switch when C# 7 is available
+				var timeFunctionIdToRecordMap = new Dictionary<int, TimeFunctionRecord>();
+				foreach (var bcAttribute in boundaryConditionAttributes) // write Boundary Conditions (including Loads)
 				{
-					case TimeFunctionNames.ConstantFunction:
-						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, value: ((ConstantFunction)timeFunction).ConstantValue);
-						break;
-					case TimeFunctionNames.PeakFunction:
-						var tfValue = timeFunction.Values.Single();
-						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, time: tfValue.TimeStep.Time ?? tfValue.TimeStep.Number, value: tfValue.Value);
-						break;
-					case TimeFunctionNames.PiecewiseLinFunction:
-						timeFunctionRecord = new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, createTimeStepFunctionValuePairs(simulation.TimeSteps, timeFunction));
-						break;
-					default:
-						throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
+					TimeFunctionRecord timeFunctionRecord;
+					if (!timeFunctionIdToRecordMap.TryGetValue(bcAttribute.TimeFunctionId, out timeFunctionRecord)) // TODO: extract this caching to local function when C# 7 is available
+					{
+						TimeFunctionDto timeFunction = await modelService.GetTimeFunctionAsync(modelId, bcAttribute.TimeFunctionId);
+						timeFunctionRecord = createTimeFunctionRecord(input.MaxTimeFunctionId + 1, timeFunction, simulation.TimeSteps);
+
+						input.AddTimeFunctionRecord(timeFunctionRecord);
+						timeFunctionIdToRecordMap.Add(bcAttribute.TimeFunctionId, timeFunctionRecord);
+					}
+					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: attributeIdToBoundaryConditionIdMap[bcAttribute.Id], parameters: bcAttribute.Parameters, timeFunctionId: timeFunctionRecord.Id, setId: attributeIdSetMap[bcAttribute.Id].Id));
 				}
-				input.AddTimeFunctionRecord(timeFunctionRecord);
 			}
 
 			// SETS
@@ -561,13 +523,36 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 		}
 
-		private List<KeyValuePair<double, double>> createTimeStepFunctionValuePairs(IReadOnlyList<TimeStepDto> timeSteps, TimeFunction timeFunction)
+		private TimeFunctionRecord createTimeFunctionRecord(int id, TimeFunctionDto timeFunction, IReadOnlyList<TimeStepDto> timeSteps)
 		{
-			var valueMap = timeFunction.Values.ToDictionary(v => v.TimeStepId, v => v.Value);
-			var resultQuery = from timeStep in timeSteps
-							  orderby timeStep.Time ?? timeStep.Number // The particular time values in t array should be sorted according to time scale
-							  select new KeyValuePair<double, double>(timeStep.Time ?? timeStep.Number, valueMap.GetValueOrDefault(timeStep.Id));
-			return resultQuery.ToList();
+			// TODO: replace with type switch when C# 7 is available
+
+			var constantFunction = timeFunction as ConstantFunctionDto;
+			if (constantFunction != null)
+			{
+				return new TimeFunctionRecord(constantFunction.Name, id, value: constantFunction.ConstantValue);
+			}
+
+			var peakFunction = timeFunction as PeakFunctionDto;
+			if (peakFunction != null)
+			{
+				var timeStep = timeSteps.Single(ts => ts.Number == peakFunction.TimeNumber);
+				return new TimeFunctionRecord(peakFunction.Name, id, time: timeStep.Time ?? timeStep.Number, value: peakFunction.Value);
+			}
+
+			var piecewiseLinFunction = timeFunction as PiecewiseLinFunctionDto;
+			if (piecewiseLinFunction != null)
+			{
+				var timeValueMap = new Dictionary<int, double>();
+				for (int i = 0; i < piecewiseLinFunction.TimeNumbers.Count; i++)
+					timeValueMap.Add(piecewiseLinFunction.TimeNumbers[i], piecewiseLinFunction.Values[i]);
+				var timeValuePairs = from timeStep in timeSteps
+									 orderby timeStep.Time ?? timeStep.Number // The particular time values in t array should be sorted according to time scale
+									 select new KeyValuePair<double, double>(timeStep.Time ?? timeStep.Number, timeValueMap.GetValueOrDefault(timeStep.Number));
+				return new TimeFunctionRecord(timeFunction.Name, id, timeValuePairs.ToList());
+			}
+
+			throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
 		}
 
 		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId)
