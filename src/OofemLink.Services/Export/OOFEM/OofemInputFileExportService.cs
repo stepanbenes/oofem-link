@@ -102,23 +102,8 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(modelId, mesh.Id);
-			List<Set> sets = attributeIdSetMap.Values.Distinct().OrderBy(s => s.Id).ToList();
 
 			List<int> elementsWithDummyCS = new List<int>();
-
-			// build attribute id to material id map
-			var attributeIdToMaterialIdMap = new Dictionary<int, int>();
-			for (int index = 0; index < materialAttributes.Count; index++)
-			{
-				attributeIdToMaterialIdMap.Add(materialAttributes[index].Id, index + 1);
-			}
-
-			// build attribute id to boundaryCondition id map
-			var attributeIdToBoundaryConditionIdMap = new Dictionary<int, int>();
-			for (int index = 0; index < boundaryConditionAttributes.Count; index++)
-			{
-				attributeIdToBoundaryConditionIdMap.Add(boundaryConditionAttributes[index].Id, index + 1);
-			}
 
 			// =========================================================================================
 
@@ -130,12 +115,6 @@ namespace OofemLink.Services.Export.OOFEM
 			input.AddOutputFileRecord(new OutputFileRecord(outputFileFullPath));
 			// DESCRIPTION
 			input.AddDescriptionRecord(new DescriptionRecord($"Project: {simulation.ProjectName}, Task: {simulation.TaskName}"));
-
-			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
-			input.AddEngineeringModelRecord(new EngineeringModelRecord(
-					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
-					numberOfTimeSteps: simulation.TimeSteps.Count
-				));
 
 			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
 			input.AddDomainRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
@@ -234,20 +213,21 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
+			// MATERIALS
+			foreach (var materialAttribute in materialAttributes)
+			{
+				input.AddMaterialRecord(new MaterialRecord(materialAttribute.Name, id: materialAttribute.Id, parameters: materialAttribute.Parameters));
+			}
+
 			// CROSS-SECTIONS
 			for (int i = 0; i < crossSectionAttributes.Count; i++)
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
-				int childAttributeId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
-				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, materialId: attributeIdToMaterialIdMap[childAttributeId], setId: attributeIdSetMap[crossSectionAttribute.Id].Id));
+				int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
+				var setRecord = new SetRecord(attributeIdSetMap[crossSectionAttribute.Id]);
+				input.AddSetRecord(setRecord);
+				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
 			}
-
-			// MATERIALS
-			foreach (var materialAttribute in materialAttributes)
-			{
-				input.AddMaterialRecord(new MaterialRecord(materialAttribute.Name, id: attributeIdToMaterialIdMap[materialAttribute.Id], parameters: materialAttribute.Parameters));
-			}
-
 
 			// BOUNDARY CONDITIONS
 			{
@@ -258,28 +238,24 @@ namespace OofemLink.Services.Export.OOFEM
 					if (!timeFunctionIdToRecordMap.TryGetValue(bcAttribute.TimeFunctionId, out timeFunctionRecord)) // TODO: extract this caching to local function when C# 7 is available
 					{
 						TimeFunctionDto timeFunction = await modelService.GetTimeFunctionAsync(modelId, bcAttribute.TimeFunctionId);
-						timeFunctionRecord = createTimeFunctionRecord(input.MaxTimeFunctionId + 1, timeFunction, simulation.TimeSteps);
+						timeFunctionRecord = createTimeFunctionRecord(timeFunction, simulation.TimeSteps);
 
 						input.AddTimeFunctionRecord(timeFunctionRecord);
 						timeFunctionIdToRecordMap.Add(bcAttribute.TimeFunctionId, timeFunctionRecord);
 					}
-					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: attributeIdToBoundaryConditionIdMap[bcAttribute.Id], parameters: bcAttribute.Parameters, timeFunctionId: timeFunctionRecord.Id, setId: attributeIdSetMap[bcAttribute.Id].Id));
+					var setRecord = new SetRecord(attributeIdSetMap[bcAttribute.Id]);
+					input.AddSetRecord(setRecord);
+					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: bcAttribute.Id, parameters: bcAttribute.Parameters, timeFunction: timeFunctionRecord, set: setRecord));
 				}
-			}
-
-			// SETS
-			foreach (var set in sets)
-			{
-				input.AddSetRecord(new SetRecord(set));
 			}
 
 			// append dummy cross-section and material if needed
 			if (elementsWithDummyCS.Count > 0)
 			{
-				var set = new Set(input.MaxSetId + 1).WithElements(elementsWithDummyCS.ToArray());
+				var set = new Set().WithElements(elementsWithDummyCS.ToArray());
 				var setRecord = new SetRecord(set);
-				var dummyMaterialRecord = createDummyMaterialRecord(id: input.MaxMaterialId + 1);
-				var dummyCrossSectionRecord = createDummyCrossSectionRecord(id: input.MaxCrossSectionId + 1, materialId: dummyMaterialRecord.Id, setId: set.Id);
+				var dummyMaterialRecord = createDummyMaterialRecord();
+				var dummyCrossSectionRecord = createDummyCrossSectionRecord(dummyMaterialRecord, setRecord);
 
 				input.AddCrossSectionRecord(dummyCrossSectionRecord);
 				input.AddMaterialRecord(dummyMaterialRecord);
@@ -326,10 +302,10 @@ namespace OofemLink.Services.Export.OOFEM
 					/* 
 						yay! ✿ (◠‿◠) ♥
 					*/
-					var setRecord = new SetRecord(new Set(input.MaxSetId + 1).WithNodes(nodesThatNeedToBeFixed.OrderBy(id => id).ToArray()));
-					var timeFunctionRecord = new TimeFunctionRecord(TimeFunctionNames.ConstantFunction, id: input.MaxTimeFunctionId + 1, value: 1);
+					var setRecord = new SetRecord(new Set().WithNodes(nodesThatNeedToBeFixed.OrderBy(id => id).ToArray()));
+					var timeFunctionRecord = new TimeFunctionRecord(TimeFunctionNames.ConstantFunction, id: 0, value: 1);
 					string parameters = $"dofs 1 {dofId} values 1 0";
-					var boundaryConditionRecord = new BoundaryConditionRecord(BoundaryConditionNames.BoundaryCondition, input.MaxBoundaryConditionId + 1, parameters, timeFunctionRecord.Id, setRecord.Id);
+					var boundaryConditionRecord = new BoundaryConditionRecord(BoundaryConditionNames.BoundaryCondition, 0, parameters, timeFunctionRecord, setRecord);
 
 					input.AddBoundaryConditionRecord(boundaryConditionRecord);
 					input.AddTimeFunctionRecord(timeFunctionRecord);
@@ -341,10 +317,10 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				foreach (var crossSectionRecord in from materialRecord in input.MaterialRecords.Values
 												   where materialRecord.Name == MaterialNames.WinklerPasternak
-												   join crossSection in input.CrossSectionRecords.Values on materialRecord.Id equals crossSection.MaterialId
+												   join crossSection in input.CrossSectionRecords.Values on materialRecord.Id equals crossSection.Material.Id
 												   select crossSection)
 				{
-					var setRecord = input.SetRecords[crossSectionRecord.SetId];
+					var setRecord = crossSectionRecord.Set;
 					var soilElementIds = new List<int>();
 					foreach (var elementRecord in from elementId in setRecord.Set.Elements
 												  select input.ElementRecords[elementId])
@@ -353,9 +329,9 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddElementRecord(soilElementRecord);
 						soilElementIds.Add(soilElementRecord.Id);
 					}
-					var newSetRecord = new SetRecord(new Set(input.MaxSetId + 1).WithElements(soilElementIds.ToArray()));
+					var newSetRecord = new SetRecord(new Set().WithElements(soilElementIds.ToArray()));
 					input.AddSetRecord(newSetRecord);
-					var updatedCrossSectionRecord = crossSectionRecord.WithSet(newSetRecord.Id);
+					var updatedCrossSectionRecord = crossSectionRecord.WithSet(newSetRecord);
 					input.UpdateCrossSectionRecord(updatedCrossSectionRecord);
 				}
 			}
@@ -371,7 +347,7 @@ namespace OofemLink.Services.Export.OOFEM
 												 select new { AttributeId = attribute.Id, curveElement.ElementId, curveAttribute.RelativeStart, curveAttribute.RelativeEnd };
 				foreach (var partiallyAppliedLoad in partiallyAppliedLoadsQuery)
 				{
-					int boundaryConditionId = attributeIdToBoundaryConditionIdMap[partiallyAppliedLoad.AttributeId];
+					int boundaryConditionId = partiallyAppliedLoad.AttributeId;
 
 					if (partiallyAppliedLoad.RelativeStart.HasValue && partiallyAppliedLoad.RelativeStart.Value > 0)
 					{
@@ -398,8 +374,12 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
-			// the export module
-			addExportModuleRecord(input);
+			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+			input.AddEngineeringModelRecord(new EngineeringModelRecord(
+					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+					numberOfTimeSteps: simulation.TimeSteps.Count,
+					exportModules: new[] { createVtkXmlExportModuleRecord(input) }
+				));
 
 			// create input file
 			input.WriteToFile(inputFileFullPath);
@@ -409,43 +389,38 @@ namespace OofemLink.Services.Export.OOFEM
 
 		#region Private methods
 
-		private void addExportModuleRecord(InputBuilder input)
+		private VtkXmlExportModuleRecord createVtkXmlExportModuleRecord(InputBuilder input)
 		{
 			var mitc4shellElementIds = input.ElementRecords.Values.Where(r => r.Name == ElementNames.mitc4shell).Select(r => r.Id).ToArray();
-			ExportModuleRecord exportModuleRecord;
 			if (mitc4shellElementIds.Length == 0)
 			{
-				exportModuleRecord = new VtkXmlExportModuleRecord(
+				return new VtkXmlExportModuleRecord(
 					primVars: Array.Empty<int>(),
 					vars: new[] { 7 },
 					cellVars: Array.Empty<int>(),
-					regionSets: Array.Empty<int>());
-			}
-			else
-			{
-				var regionSet = new Set(input.MaxSetId + 1).WithElements(mitc4shellElementIds);
-				var regionSetRecord = new SetRecord(regionSet);
-
-				input.AddSetRecord(regionSetRecord);
-
-				exportModuleRecord = new VtkXmlExportModuleRecord(
-					primVars: new[] { 1 },
-					vars: Array.Empty<int>(),
-					cellVars: new[] { 9, 10 },
-					regionSets: new[] { regionSetRecord.Id });
+					regionSets: Array.Empty<SetRecord>());
 			}
 
-			input.AddExportModuleRecord(exportModuleRecord);
+			var regionSet = new Set().WithElements(mitc4shellElementIds);
+			var regionSetRecord = new SetRecord(regionSet);
+
+			input.AddSetRecord(regionSetRecord);
+
+			return new VtkXmlExportModuleRecord(
+				primVars: new[] { 1 },
+				vars: Array.Empty<int>(),
+				cellVars: new[] { 9, 10 },
+				regionSets: new[] { regionSetRecord });
 		}
 
-		private CrossSectionRecord createDummyCrossSectionRecord(int id, int materialId, int setId)
+		private CrossSectionRecord createDummyCrossSectionRecord(MaterialRecord materialRecord, SetRecord setRecord)
 		{
-			return new CrossSectionRecord(CrossSectionNames.SimpleCS, id, /*parameters:*/ "", materialId, setId);
+			return new CrossSectionRecord(CrossSectionNames.SimpleCS, id: 0, parameters: "", material: materialRecord, set: setRecord);
 		}
 
-		private MaterialRecord createDummyMaterialRecord(int id)
+		private MaterialRecord createDummyMaterialRecord()
 		{
-			return new MaterialRecord(MaterialNames.DummyMat, id, parameters: "");
+			return new MaterialRecord(MaterialNames.DummyMat, id: 0, parameters: "");
 		}
 
 		private void getNodesOfEdge(ElementRecord elementRecord, short edgeRank, out int node1Id, out int node2Id)
@@ -523,21 +498,21 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 		}
 
-		private TimeFunctionRecord createTimeFunctionRecord(int id, TimeFunctionDto timeFunction, IReadOnlyList<TimeStepDto> timeSteps)
+		private TimeFunctionRecord createTimeFunctionRecord(TimeFunctionDto timeFunction, IReadOnlyList<TimeStepDto> timeSteps)
 		{
 			// TODO: replace with type switch when C# 7 is available
 
 			var constantFunction = timeFunction as ConstantFunctionDto;
 			if (constantFunction != null)
 			{
-				return new TimeFunctionRecord(constantFunction.Name, id, value: constantFunction.ConstantValue);
+				return new TimeFunctionRecord(constantFunction.Name, timeFunction.Id, value: constantFunction.ConstantValue);
 			}
 
 			var peakFunction = timeFunction as PeakFunctionDto;
 			if (peakFunction != null)
 			{
 				var timeStep = timeSteps.Single(ts => ts.Number == peakFunction.TimeNumber);
-				return new TimeFunctionRecord(peakFunction.Name, id, time: timeStep.Time ?? timeStep.Number, value: peakFunction.Value);
+				return new TimeFunctionRecord(peakFunction.Name, timeFunction.Id, time: timeStep.Time ?? timeStep.Number, value: peakFunction.Value);
 			}
 
 			var piecewiseLinFunction = timeFunction as PiecewiseLinFunctionDto;
@@ -549,7 +524,7 @@ namespace OofemLink.Services.Export.OOFEM
 				var timeValuePairs = from timeStep in timeSteps
 									 orderby timeStep.Time ?? timeStep.Number // The particular time values in t array should be sorted according to time scale
 									 select new KeyValuePair<double, double>(timeStep.Time ?? timeStep.Number, timeValueMap.GetValueOrDefault(timeStep.Number));
-				return new TimeFunctionRecord(timeFunction.Name, id, timeValuePairs.ToList());
+				return new TimeFunctionRecord(timeFunction.Name, timeFunction.Id, timeValuePairs.ToList());
 			}
 
 			throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
@@ -559,7 +534,6 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
 
-			int setId = 0;
 			var map = new Dictionary<int, Set>();
 
 			// AttributeTarget.Node:
@@ -584,7 +558,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++setId);
+						set = new Set();
 					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -601,7 +575,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(++setId).WithElementEdges(group.ToArray());
+					Set set = new Set().WithElementEdges(group.ToArray());
 					map.Add(attributeId, set);
 				}
 			}
@@ -618,7 +592,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var group in query)
 				{
 					int attributeId = group.Key;
-					Set set = new Set(++setId).WithElementSurfaces(group.ToArray());
+					Set set = new Set().WithElementSurfaces(group.ToArray());
 					map.Add(attributeId, set);
 				}
 			}
@@ -650,7 +624,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++setId);
+						set = new Set();
 					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -688,7 +662,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++setId);
+						set = new Set();
 					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 
@@ -699,7 +673,7 @@ namespace OofemLink.Services.Export.OOFEM
 					int attributeId = group.Key;
 					Set set;
 					if (!map.TryGetValue(attributeId, out set))
-						set = new Set(++setId);
+						set = new Set();
 					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
 				}
 			}
@@ -738,13 +712,12 @@ namespace OofemLink.Services.Export.OOFEM
 
 		private void copyAllAttributesFromElementToElement(InputBuilder input, int sourceElementId, int targetElementId)
 		{
-			foreach (var setRecord in input.SetRecords.Values.ToList())
+			foreach (var setRecord in input.SetRecords.ToList())
 			{
 				if (setRecord.Set.Elements.Contains(sourceElementId))
 				{
 					int[] newElementSet = setRecord.Set.Elements.AppendItem(targetElementId).OrderBy(id => id).Distinct().ToArray();
-					var updatedSetRecord = new SetRecord(setRecord.Set.WithElements(newElementSet));
-					input.UpdateSetRecord(updatedSetRecord);
+					setRecord.Set = setRecord.Set.WithElements(newElementSet); // update set record
 				}
 
 				if (setRecord.Set.ElementEdges.Any(edge => edge.Key == sourceElementId))
@@ -758,8 +731,7 @@ namespace OofemLink.Services.Export.OOFEM
 							newEdgeSet.Add(new KeyValuePair<int, short>(targetElementId, edge.Value)); // TODO: why the rank should be the same?
 						}
 					}
-					var updatedSetRecord = new SetRecord(setRecord.Set.WithElementEdges(newEdgeSet.ToArray()));
-					input.UpdateSetRecord(updatedSetRecord);
+					setRecord.Set = setRecord.Set.WithElementEdges(newEdgeSet.ToArray());
 				}
 
 				if (setRecord.Set.ElementSurfaces.Any(surface => surface.Key == sourceElementId))
@@ -773,8 +745,7 @@ namespace OofemLink.Services.Export.OOFEM
 							newSurfaceSet.Add(new KeyValuePair<int, short>(targetElementId, surface.Value)); // TODO: why the rank should be the same?
 						}
 					}
-					var updatedSetRecord = new SetRecord(setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray()));
-					input.UpdateSetRecord(updatedSetRecord);
+					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray());
 				}
 			}
 		}
@@ -784,11 +755,10 @@ namespace OofemLink.Services.Export.OOFEM
 			// WARNING: this works if the set is applied only to this attribute!
 
 			BoundaryConditionRecord bcRecord = input.BoundaryConditionRecords[boundaryConditionId];
-			SetRecord setRecord = input.SetRecords[bcRecord.SetId];
+			SetRecord setRecord = bcRecord.Set;
 			Set set = setRecord.Set;
 			Set updatedSet = set.WithElements(set.Elements.Where(id => id != elementId).ToArray()).WithElementEdges(set.ElementEdges.Where(edge => edge.Key != elementId).ToArray()).WithElementSurfaces(set.ElementSurfaces.Where(surface => surface.Key != elementId).ToArray());
-			SetRecord updatedSetRecord = new SetRecord(updatedSet);
-			input.UpdateSetRecord(updatedSetRecord);
+			setRecord.Set = updatedSet;
 		}
 
 		#endregion
