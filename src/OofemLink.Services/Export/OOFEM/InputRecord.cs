@@ -185,16 +185,10 @@ namespace OofemLink.Services.Export.OOFEM
 			return text + " " + Parameters;
 		}
 
-		public ElementRecord WithReplacedNode(int oldNodeId, int newNodeId)
+		public ElementRecord WithReplacedNode(int elementId, int oldNodeId, int newNodeId)
 		{
 			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
-			return new ElementRecord(Name, Id, Type, updatedNodeIds, Parameters);
-		}
-
-		public ElementRecord WithAppendedParameters(string parametersToAppend)
-		{
-			string newParameters = (Parameters + " " + parametersToAppend).Trim();
-			return new ElementRecord(Name, Id, Type, NodeIds, newParameters);
+			return new ElementRecord(Name, elementId, Type, updatedNodeIds, Parameters);
 		}
 	}
 
@@ -210,11 +204,9 @@ namespace OofemLink.Services.Export.OOFEM
 		int IIndexableRecord.InputIndex { get; set; }
 		public string Parameters { get; }
 		public MaterialRecord Material { get; }
-		public SetRecord Set { get; }
+		public SetRecord Set { get; internal set; }
 		
 		public override string ToString() => $"{Name} {((IIndexableRecord)this).InputIndex} {Parameters} {Keyword.material} {((IIndexableRecord)Material).InputIndex} {Keyword.set} {((IIndexableRecord)Set).InputIndex}";
-
-		public CrossSectionRecord WithSet(SetRecord set) => new CrossSectionRecord(Name, Id, Parameters, Material, set);
 	}
 
 	class MaterialRecord : NamedRecord, IIndexableRecord

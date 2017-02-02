@@ -30,9 +30,12 @@ namespace OofemLink.Services.Export.OOFEM
 
 		readonly Dictionary<int, CrossSectionRecord> crossSectionRecords;
 		readonly Dictionary<int, MaterialRecord> materialRecords;
+
+
+		// TODO: remove set record list, sets will be generated from attributes
 		readonly List<SetRecord> setRecords;
 
-		int maxDofManagerId, maxElementId;
+		int maxDofManagerId, maxElementId; // TODO: can be removed if SortedDictionaries are used
 
 		public InputBuilder()
 		{
@@ -153,26 +156,19 @@ namespace OofemLink.Services.Export.OOFEM
 			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
 		}
 
-		public void UpdateDofManagerRecord(DofManagerRecord record)
-		{
-			if (!dofManagerRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"DofManager record with id {record.Id} was not found");
-			dofManagerRecords[record.Id] = record;
-			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
-		}
-
 		public void AddElementRecord(ElementRecord record)
 		{
 			elementRecords.Add(record.Id, record);
 			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
-		public void UpdateElementRecord(ElementRecord record)
+		public void RemoveElementRecord(int recordId)
 		{
-			if (!elementRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Element record with id {record.Id} was not found");
-			elementRecords[record.Id] = record;
-			maxElementId = Math.Max(maxElementId, record.Id);
+			if (!elementRecords.ContainsKey(recordId))
+				throw new KeyNotFoundException($"Element record with id {recordId} was not found");
+			elementRecords.Remove(recordId);
+
+			// TODO: remove element from all sets
 		}
 
 		public void AddCrossSectionRecord(CrossSectionRecord record)
@@ -180,35 +176,14 @@ namespace OofemLink.Services.Export.OOFEM
 			crossSectionRecords.Add(record.Id, record);
 		}
 
-		public void UpdateCrossSectionRecord(CrossSectionRecord record)
-		{
-			if (!crossSectionRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Cross-section record with id {record.Id} was not found");
-			crossSectionRecords[record.Id] = record;
-		}
-
 		public void AddMaterialRecord(MaterialRecord record)
 		{
 			materialRecords.Add(record.Id, record);
 		}
 
-		public void UpdateMaterialRecord(MaterialRecord record)
-		{
-			if (!materialRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Material record with id {record.Id} was not found");
-			materialRecords[record.Id] = record;
-		}
-
 		public void AddBoundaryConditionRecord(BoundaryConditionRecord record)
 		{
 			boundaryConditionRecords.Add(record.Id, record);
-		}
-
-		public void UpdateBoundaryConditionRecord(BoundaryConditionRecord record)
-		{
-			if (!boundaryConditionRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Boundary condition record with id {record.Id} was not found");
-			boundaryConditionRecords[record.Id] = record;
 		}
 
 		public void AddTimeFunctionRecord(TimeFunctionRecord record)

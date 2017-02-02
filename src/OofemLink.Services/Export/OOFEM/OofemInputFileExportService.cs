@@ -197,8 +197,10 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddDofManagerRecord(slaveNodeRecord);
 
 				var beamElementRecord = input.ElementRecords[set.Elements.Single()];
-				var updatedElementRecord = beamElementRecord.WithReplacedNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
-				input.UpdateElementRecord(updatedElementRecord);
+				input.RemoveElementRecord(beamElementRecord.Id);
+				var newElementRecord = beamElementRecord.WithReplacedNode(input.MaxElementId + 1, oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
+				input.AddElementRecord(newElementRecord);
+				copyAllAttributesFromElementToElement(input, beamElementRecord.Id, newElementRecord.Id);
 
 				// hinge springs
 				List<ModelAttribute> hingeSprings;
@@ -331,8 +333,7 @@ namespace OofemLink.Services.Export.OOFEM
 					}
 					var newSetRecord = new SetRecord(new Set().WithElements(soilElementIds.ToArray()));
 					input.AddSetRecord(newSetRecord);
-					var updatedCrossSectionRecord = crossSectionRecord.WithSet(newSetRecord);
-					input.UpdateCrossSectionRecord(updatedCrossSectionRecord);
+					crossSectionRecord.Set = newSetRecord; // replace old set with new set with newly created soil elements
 				}
 			}
 
@@ -348,26 +349,30 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var partiallyAppliedLoad in partiallyAppliedLoadsQuery)
 				{
 					int boundaryConditionId = partiallyAppliedLoad.AttributeId;
-
+					int firstNewElementId, secondNewElementId;
 					if (partiallyAppliedLoad.RelativeStart.HasValue && partiallyAppliedLoad.RelativeStart.Value > 0)
 					{
-						int secondElementId = splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeStart.Value);
-						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondElementId);
-						removeBoundaryConditionFromElement(input, boundaryConditionId, partiallyAppliedLoad.ElementId);
+						splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeStart.Value, out firstNewElementId, out secondNewElementId);
+						input.RemoveElementRecord(partiallyAppliedLoad.ElementId);
+						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, firstNewElementId, exceptAttributeId: partiallyAppliedLoad.AttributeId);
+						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondNewElementId);
 
 						if (partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1)
 						{
+							int thirdNewElementId, fourthNewElementId;
 							double relativePosition = (partiallyAppliedLoad.RelativeEnd.Value - partiallyAppliedLoad.RelativeStart.Value) / (1.0 - partiallyAppliedLoad.RelativeStart.Value);
-							int thirdElementId = splitBeamElement(input, secondElementId, relativePosition);
-							copyAllAttributesFromElementToElement(input, secondElementId, thirdElementId);
-							removeBoundaryConditionFromElement(input, boundaryConditionId, thirdElementId);
+							splitBeamElement(input, secondNewElementId, relativePosition, out thirdNewElementId, out fourthNewElementId);
+							input.RemoveElementRecord(secondNewElementId); // TODO: avoid create and immeadiate delete of element record
+							copyAllAttributesFromElementToElement(input, secondNewElementId, thirdNewElementId);
+							copyAllAttributesFromElementToElement(input, secondNewElementId, fourthNewElementId, exceptAttributeId: partiallyAppliedLoad.AttributeId);
 						}
 					}
 					else if (partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1)
 					{
-						int secondElementId = splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeEnd.Value);
-						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondElementId);
-						removeBoundaryConditionFromElement(input, boundaryConditionId, secondElementId);
+						splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeEnd.Value, out firstNewElementId, out secondNewElementId);
+						input.RemoveElementRecord(partiallyAppliedLoad.ElementId);
+						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, firstNewElementId);
+						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondNewElementId, exceptAttributeId: partiallyAppliedLoad.AttributeId);
 					}
 					else
 						throw new InvalidOperationException();
@@ -532,6 +537,8 @@ namespace OofemLink.Services.Export.OOFEM
 
 		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId)
 		{
+			// TODO: generate sets at the end of all transformation in model service, this will allow to remove copyAllAttributesFromElementToElement method
+
 			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
 
 			var map = new Dictionary<int, Set>();
@@ -681,12 +688,12 @@ namespace OofemLink.Services.Export.OOFEM
 			return map;
 		}
 
-		private int splitBeamElement(InputBuilder input, int elementId, double relativePosition)
+		private void splitBeamElement(InputBuilder input, int elementToSplitId, double relativePosition, out int firstNewElementId, out int secondNewElementId)
 		{
 			if (relativePosition <= 0 || relativePosition >= 1)
 				throw new ArgumentOutOfRangeException(nameof(relativePosition), $"Argument is expected to be in range (0, 1), but has value {relativePosition}");
 
-			ElementRecord elementRecord = input.ElementRecords[elementId];
+			ElementRecord elementRecord = input.ElementRecords[elementToSplitId];
 
 			if (elementRecord.Name != ElementNames.beam3d)
 				throw new InvalidOperationException($"Element is expected to be of type {ElementNames.beam3d}");
@@ -702,17 +709,21 @@ namespace OofemLink.Services.Export.OOFEM
 			NodeRecord splitNodeRecord = new NodeRecord(input.MaxDofManagerId + 1, splitPoint.X, splitPoint.Y, splitPoint.Z);
 			input.AddDofManagerRecord(splitNodeRecord);
 
-			ElementRecord updatedElementRecord = elementRecord.WithReplacedNode(node2.Id, splitNodeRecord.Id);
-			ElementRecord newElementRecord = new ElementRecord(elementRecord.Name, input.MaxElementId + 1, elementRecord.Type, new[] { splitNodeRecord.Id, node2.Id }, elementRecord.Parameters);
-			input.UpdateElementRecord(updatedElementRecord);
-			input.AddElementRecord(newElementRecord);
+			ElementRecord firstNewElementRecord = elementRecord.WithReplacedNode(input.MaxElementId + 1, node2.Id, splitNodeRecord.Id);
+			input.AddElementRecord(firstNewElementRecord);
+			ElementRecord secondNewElementRecord = elementRecord.WithReplacedNode(input.MaxElementId + 1, node1.Id, splitNodeRecord.Id);
+			input.AddElementRecord(secondNewElementRecord);
 
-			return newElementRecord.Id;
+			firstNewElementId = firstNewElementRecord.Id;
+			secondNewElementId = secondNewElementRecord.Id;
 		}
 
-		private void copyAllAttributesFromElementToElement(InputBuilder input, int sourceElementId, int targetElementId)
+		private void copyAllAttributesFromElementToElement(InputBuilder input, int sourceElementId, int targetElementId, int? exceptAttributeId = null)
 		{
-			foreach (var setRecord in input.SetRecords.ToList())
+			var csSetRecords = input.CrossSectionRecords.Values.Where(cs => cs.Id != exceptAttributeId).Select(cs => cs.Set);
+			var bcSetRecords = input.BoundaryConditionRecords.Values.Where(bc => bc.Id != exceptAttributeId).Select(bc => bc.Set);
+
+			foreach (var setRecord in csSetRecords.Concat(bcSetRecords))
 			{
 				if (setRecord.Set.Elements.Contains(sourceElementId))
 				{
@@ -748,17 +759,6 @@ namespace OofemLink.Services.Export.OOFEM
 					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray());
 				}
 			}
-		}
-
-		private void removeBoundaryConditionFromElement(InputBuilder input, int boundaryConditionId, int elementId)
-		{
-			// WARNING: this works if the set is applied only to this attribute!
-
-			BoundaryConditionRecord bcRecord = input.BoundaryConditionRecords[boundaryConditionId];
-			SetRecord setRecord = bcRecord.Set;
-			Set set = setRecord.Set;
-			Set updatedSet = set.WithElements(set.Elements.Where(id => id != elementId).ToArray()).WithElementEdges(set.ElementEdges.Where(edge => edge.Key != elementId).ToArray()).WithElementSurfaces(set.ElementSurfaces.Where(surface => surface.Key != elementId).ToArray());
-			setRecord.Set = updatedSet;
 		}
 
 		#endregion
