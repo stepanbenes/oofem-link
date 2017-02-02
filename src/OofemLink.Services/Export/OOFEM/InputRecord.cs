@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.OofemNames;
+using OofemLink.Data.MeshEntities;
 using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
@@ -303,11 +304,11 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 			if (Set.ElementEdges.Count > 0)
 			{
-				text.Append($" {Keyword.elementedges} {Set.ElementEdges.Count * 2} {string.Join(" ", Set.ElementEdges.Select(pair => $"{pair.Key} {pair.Value}"))}");
+				text.Append($" {Keyword.elementedges} {Set.ElementEdges.Count * 2} {string.Join(" ", Set.ElementEdges.Select(edge => $"{edge.ElementId} {edge.EdgeRank}"))}");
 			}
 			if (Set.ElementSurfaces.Count > 0)
 			{
-				text.Append($" {Keyword.elementboundaries} {Set.ElementSurfaces.Count * 2} {string.Join(" ", Set.ElementSurfaces.Select(pair => $"{pair.Key} {pair.Value}"))}");
+				text.Append($" {Keyword.elementboundaries} {Set.ElementSurfaces.Count * 2} {string.Join(" ", Set.ElementSurfaces.Select(surface => $"{surface.ElementId} {surface.SurfaceRank}"))}");
 			}
 			return text.ToString();
 		}

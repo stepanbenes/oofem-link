@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using OofemLink.Services.Import;
 using OofemLink.Common.Enumerations;
 using OofemLink.Data;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 
 namespace OofemLink.Services.Import
 {

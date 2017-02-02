@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 
 namespace OofemLink.Data.DataTransferObjects
 {

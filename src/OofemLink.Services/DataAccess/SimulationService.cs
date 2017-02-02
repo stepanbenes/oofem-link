@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using OofemLink.Data.DataTransferObjects;
 using OofemLink.Services.Export;
 using OofemLink.Data;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using Microsoft.Extensions.Logging;
 
 namespace OofemLink.Services.DataAccess

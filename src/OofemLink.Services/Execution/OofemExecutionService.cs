@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OofemLink.Common.Enumerations;
 using OofemLink.Data;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using OofemLink.Services.DataAccess;
 using OofemLink.Services.Export.OOFEM;
 

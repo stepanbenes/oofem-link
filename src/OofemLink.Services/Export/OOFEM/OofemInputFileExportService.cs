@@ -9,10 +9,11 @@ using OofemLink.Common.OofemNames;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.Extensions;
 using OofemLink.Data;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using OofemLink.Common.MathPhys;
 using OofemLink.Services.DataAccess;
 using OofemLink.Data.DataTransferObjects;
+using OofemLink.Data.MeshEntities;
 
 namespace OofemLink.Services.Export.OOFEM
 {
@@ -101,8 +102,6 @@ namespace OofemLink.Services.Export.OOFEM
 				hingeSpringAttributeMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
 			}
 
-			Dictionary<int, Set> attributeIdSetMap = createSetMapForModelAttributes(modelId, mesh.Id);
-
 			List<int> elementsWithDummyCS = new List<int>();
 
 			// =========================================================================================
@@ -168,7 +167,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// SPRINGS
 			foreach (var spring in independentSpringAttributes)
 			{
-				Set set = attributeIdSetMap[spring.Id];
+				Set set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, spring.Id);
 				foreach (var nodeId in set.Nodes)
 				{
 					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
@@ -177,11 +176,9 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 				foreach (var edge in set.ElementEdges)
 				{
-					int elementId = edge.Key;
-					short edgeRank = edge.Value;
-					ElementRecord parentElementRecord = input.ElementRecords[elementId];
+					ElementRecord parentElementRecord = input.ElementRecords[edge.ElementId];
 					int node1Id, node2Id;
-					getNodesOfEdge(parentElementRecord, edgeRank, out node1Id, out node2Id);
+					getNodesOfEdge(parentElementRecord, edge.EdgeRank, out node1Id, out node2Id);
 					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
 					input.AddElementRecord(springElementRecord);
 					elementsWithDummyCS.Add(springElementRecord.Id);
@@ -191,7 +188,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// HINGES
 			foreach (var hinge in hingeAttributes)
 			{
-				var set = attributeIdSetMap[hinge.Id];
+				var set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, hinge.Id);
 				var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
 				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
 				input.AddDofManagerRecord(slaveNodeRecord);
@@ -226,7 +223,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
 				int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
-				var setRecord = new SetRecord(attributeIdSetMap[crossSectionAttribute.Id]);
+				var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, crossSectionAttribute.Id));
 				input.AddSetRecord(setRecord);
 				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
 			}
@@ -245,7 +242,7 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddTimeFunctionRecord(timeFunctionRecord);
 						timeFunctionIdToRecordMap.Add(bcAttribute.TimeFunctionId, timeFunctionRecord);
 					}
-					var setRecord = new SetRecord(attributeIdSetMap[bcAttribute.Id]);
+					var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, bcAttribute.Id));
 					input.AddSetRecord(setRecord);
 					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: bcAttribute.Id, parameters: bcAttribute.Parameters, timeFunction: timeFunctionRecord, set: setRecord));
 				}
@@ -535,159 +532,6 @@ namespace OofemLink.Services.Export.OOFEM
 			throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
 		}
 
-		private Dictionary<int, Set> createSetMapForModelAttributes(int modelId, int meshId)
-		{
-			// TODO: generate sets at the end of all transformation in model service, this will allow to remove copyAllAttributesFromElementToElement method
-
-			// TODO: [Optimization] avoid duplication of sets. If the set with same nodes, elements, etc. already exists then don't create new one
-
-			var map = new Dictionary<int, Set>();
-
-			// AttributeTarget.Node:
-			{
-				var vertexQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
-								  where vertexAttribute.ModelId == modelId
-								  where vertexAttribute.Attribute.Target == AttributeTarget.Node
-								  from vertexNode in vertexAttribute.Vertex.VertexNodes
-								  where vertexNode.MeshId == meshId
-								  group vertexNode.NodeId by vertexAttribute.AttributeId;
-				var curveQuery = from curveAttribute in dataContext.Set<CurveAttribute>() // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
-								 where curveAttribute.ModelId == modelId
-								 where curveAttribute.Attribute.Target == AttributeTarget.Node
-								 from curveNode in curveAttribute.Curve.CurveNodes
-								 where curveNode.MeshId == meshId
-								 group curveNode.NodeId by curveAttribute.AttributeId;
-
-				var query = vertexQuery.Concat(curveQuery);
-
-				foreach (var group in query)
-				{
-					int attributeId = group.Key;
-					Set set;
-					if (!map.TryGetValue(attributeId, out set))
-						set = new Set();
-					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
-				}
-			}
-
-			// AttributeTarget.Edge:
-			{
-				var query = from curveAttribute in dataContext.Set<CurveAttribute>()
-							where curveAttribute.ModelId == modelId
-							where curveAttribute.Attribute.Target == AttributeTarget.Edge
-							from curveElement in curveAttribute.Curve.CurveElements
-							where curveElement.MeshId == meshId
-							orderby curveElement.ElementId, curveElement.Rank
-							group new KeyValuePair<int, short>(curveElement.ElementId, /*EdgeId:*/ curveElement.Rank) by curveAttribute.AttributeId;
-				foreach (var group in query)
-				{
-					int attributeId = group.Key;
-					Set set = new Set().WithElementEdges(group.ToArray());
-					map.Add(attributeId, set);
-				}
-			}
-
-			// AttributeTarget.Surface:
-			{
-				var query = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
-							where surfaceAttribute.ModelId == modelId
-							where surfaceAttribute.Attribute.Target == AttributeTarget.Surface
-							from surfaceElement in surfaceAttribute.Surface.SurfaceElements
-							where surfaceElement.MeshId == meshId
-							orderby surfaceElement.ElementId, surfaceElement.Rank
-							group new KeyValuePair<int, short>(surfaceElement.ElementId, /*SurfaceId:*/ surfaceElement.Rank) by surfaceAttribute.AttributeId;
-				foreach (var group in query)
-				{
-					int attributeId = group.Key;
-					Set set = new Set().WithElementSurfaces(group.ToArray());
-					map.Add(attributeId, set);
-				}
-			}
-
-			// AttributeTarget.Volume:
-			{
-				var elements1dQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
-									  where curveAttribute.ModelId == modelId
-									  where curveAttribute.Attribute.Target == AttributeTarget.Volume
-									  from curveElement in curveAttribute.Curve.CurveElements
-									  where curveElement.MeshId == meshId
-									  group curveElement.ElementId by curveAttribute.AttributeId;
-				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
-									  where surfaceAttribute.ModelId == modelId
-									  where surfaceAttribute.Attribute.Target == AttributeTarget.Volume
-									  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
-									  where surfaceElement.MeshId == meshId
-									  group surfaceElement.ElementId by surfaceAttribute.AttributeId;
-				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
-									  where volumeAttribute.ModelId == modelId
-									  where volumeAttribute.Attribute.Target == AttributeTarget.Volume
-									  from volumeElement in volumeAttribute.Volume.VolumeElements
-									  where volumeElement.MeshId == meshId
-									  group volumeElement.ElementId by volumeAttribute.AttributeId;
-				var query = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
-
-				foreach (var group in query)
-				{
-					int attributeId = group.Key;
-					Set set;
-					if (!map.TryGetValue(attributeId, out set))
-						set = new Set();
-					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
-				}
-			}
-
-			// AttributeTarget.Undefined:
-			{
-				var nodesQuery = from vertexAttribute in dataContext.Set<VertexAttribute>()
-								 where vertexAttribute.ModelId == modelId
-								 where vertexAttribute.Attribute.Target == AttributeTarget.Undefined
-								 from vertexNode in vertexAttribute.Vertex.VertexNodes
-								 where vertexNode.MeshId == meshId
-								 group vertexNode.NodeId by vertexAttribute.AttributeId;
-				var elements1dQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
-									  where curveAttribute.ModelId == modelId
-									  where curveAttribute.Attribute.Target == AttributeTarget.Undefined
-									  from curveElement in curveAttribute.Curve.CurveElements
-									  where curveElement.MeshId == meshId
-									  group curveElement.ElementId by curveAttribute.AttributeId;
-				var elements2dQuery = from surfaceAttribute in dataContext.Set<SurfaceAttribute>()
-									  where surfaceAttribute.ModelId == modelId
-									  where surfaceAttribute.Attribute.Target == AttributeTarget.Undefined
-									  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
-									  where surfaceElement.MeshId == meshId
-									  group surfaceElement.ElementId by surfaceAttribute.AttributeId;
-				var elements3dQuery = from volumeAttribute in dataContext.Set<VolumeAttribute>()
-									  where volumeAttribute.ModelId == modelId
-									  where volumeAttribute.Attribute.Target == AttributeTarget.Undefined
-									  from volumeElement in volumeAttribute.Volume.VolumeElements
-									  where volumeElement.MeshId == meshId
-									  group volumeElement.ElementId by volumeAttribute.AttributeId;
-
-
-				foreach (var group in nodesQuery)
-				{
-					int attributeId = group.Key;
-					Set set;
-					if (!map.TryGetValue(attributeId, out set))
-						set = new Set();
-					map[attributeId] = set.WithNodes(set.Nodes.Concat(group).OrderBy(id => id).Distinct().ToArray());
-				}
-
-				var elementsQuery = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
-
-				foreach (var group in elementsQuery)
-				{
-					int attributeId = group.Key;
-					Set set;
-					if (!map.TryGetValue(attributeId, out set))
-						set = new Set();
-					map[attributeId] = set.WithElements(set.Elements.Concat(group).OrderBy(id => id).Distinct().ToArray());
-				}
-			}
-
-			return map;
-		}
-
 		private void splitBeamElement(InputBuilder input, int elementToSplitId, double relativePosition, out int firstNewElementId, out int secondNewElementId)
 		{
 			if (relativePosition <= 0 || relativePosition >= 1)
@@ -731,32 +575,32 @@ namespace OofemLink.Services.Export.OOFEM
 					setRecord.Set = setRecord.Set.WithElements(newElementSet); // update set record
 				}
 
-				if (setRecord.Set.ElementEdges.Any(edge => edge.Key == sourceElementId))
+				if (setRecord.Set.ElementEdges.Any(edge => edge.ElementId == sourceElementId))
 				{
-					List<KeyValuePair<int, short>> newEdgeSet = new List<KeyValuePair<int, short>>();
+					var newEdgeList = new List<ElementEdge>();
 					foreach (var edge in setRecord.Set.ElementEdges)
 					{
-						newEdgeSet.Add(edge);
-						if (edge.Key == sourceElementId)
+						newEdgeList.Add(edge);
+						if (edge.ElementId == sourceElementId)
 						{
-							newEdgeSet.Add(new KeyValuePair<int, short>(targetElementId, edge.Value)); // TODO: why the rank should be the same?
+							newEdgeList.Add(new ElementEdge(targetElementId, edge.EdgeRank)); // TODO: why the rank should be the same?
 						}
 					}
-					setRecord.Set = setRecord.Set.WithElementEdges(newEdgeSet.ToArray());
+					setRecord.Set = setRecord.Set.WithElementEdges(newEdgeList.ToArray());
 				}
 
-				if (setRecord.Set.ElementSurfaces.Any(surface => surface.Key == sourceElementId))
+				if (setRecord.Set.ElementSurfaces.Any(surface => surface.ElementId == sourceElementId))
 				{
-					List<KeyValuePair<int, short>> newSurfaceSet = new List<KeyValuePair<int, short>>();
+					var newSurfaceList = new List<ElementSurface>();
 					foreach (var surface in setRecord.Set.ElementSurfaces)
 					{
-						newSurfaceSet.Add(surface);
-						if (surface.Key == sourceElementId)
+						newSurfaceList.Add(surface);
+						if (surface.ElementId == sourceElementId)
 						{
-							newSurfaceSet.Add(new KeyValuePair<int, short>(targetElementId, surface.Value)); // TODO: why the rank should be the same?
+							newSurfaceList.Add(new ElementSurface(targetElementId, surface.SurfaceRank)); // TODO: why the rank should be the same?
 						}
 					}
-					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceSet.ToArray());
+					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceList.ToArray());
 				}
 			}
 		}

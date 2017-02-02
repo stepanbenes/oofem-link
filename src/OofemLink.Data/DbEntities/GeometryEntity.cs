@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using OofemLink.Common.Enumerations;
 
-namespace OofemLink.Data.Entities
+namespace OofemLink.Data.DbEntities
 {
     public abstract class GeometryEntity : IModelEntity
     {

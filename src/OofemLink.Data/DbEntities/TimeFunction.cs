@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.OofemNames;
 
-namespace OofemLink.Data.Entities
+namespace OofemLink.Data.DbEntities
 {
 	public abstract class TimeFunction : IModelEntity
 	{
