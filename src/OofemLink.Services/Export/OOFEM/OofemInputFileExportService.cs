@@ -71,7 +71,7 @@ namespace OofemLink.Services.Export.OOFEM
 			var boundaryConditionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.BoundaryCondition));
 			var hingeAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Hinge));
 
-			Dictionary<KeyValuePair<int, short>, ModelAttribute> edgeLcsAttributeMap;
+			Dictionary<ElementEdge, ModelAttribute> edgeLcsAttributeMap;
 			List<ModelAttribute> independentSpringAttributes;
 			Dictionary<int, List<ModelAttribute>> hingeSpringAttributeMap;
 
@@ -82,7 +82,7 @@ namespace OofemLink.Services.Export.OOFEM
 							   where curveAttribute.Attribute.Type == AttributeType.LocalCoordinateSystem
 							   from curveElement in curveAttribute.Curve.CurveElements
 							   where curveElement.MeshId == mesh.Id
-							   group curveAttribute.Attribute by new KeyValuePair<int, short>(curveElement.ElementId, curveElement.Rank);
+							   group curveAttribute.Attribute by new ElementEdge(curveElement.ElementId, curveElement.Rank);
 				var independentSpringsQuery = from attribute in dataContext.Attributes
 											  where attribute.ModelId == modelId
 											  where attribute.Type == AttributeType.Spring
@@ -138,7 +138,7 @@ namespace OofemLink.Services.Export.OOFEM
 							Debug.Assert(element.NodeIds.Count == 2);
 							ModelAttribute lcsAttribute;
 							string lcsParameter;
-							var edge = new KeyValuePair<int, short>(element.Id, 1); // there is only one edge for 1D element (has rank 1)
+							var edge = new ElementEdge(element.Id, 1); // there is only one edge for 1D element (has rank 1)
 							if (edgeLcsAttributeMap.TryGetValue(edge, out lcsAttribute))
 								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
 							else
@@ -167,7 +167,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// SPRINGS
 			foreach (var spring in independentSpringAttributes)
 			{
-				Set set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, spring.Id);
+				Set set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, spring.Id, mesh.Id);
 				foreach (var nodeId in set.Nodes)
 				{
 					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
@@ -188,7 +188,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// HINGES
 			foreach (var hinge in hingeAttributes)
 			{
-				var set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, hinge.Id);
+				var set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, hinge.Id, mesh.Id);
 				var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
 				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
 				input.AddDofManagerRecord(slaveNodeRecord);
@@ -223,7 +223,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
 				int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
-				var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, crossSectionAttribute.Id));
+				var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, crossSectionAttribute.Id, mesh.Id));
 				input.AddSetRecord(setRecord);
 				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
 			}
@@ -242,7 +242,7 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddTimeFunctionRecord(timeFunctionRecord);
 						timeFunctionIdToRecordMap.Add(bcAttribute.TimeFunctionId, timeFunctionRecord);
 					}
-					var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, bcAttribute.Id));
+					var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, bcAttribute.Id, mesh.Id));
 					input.AddSetRecord(setRecord);
 					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: bcAttribute.Id, parameters: bcAttribute.Parameters, timeFunction: timeFunctionRecord, set: setRecord));
 				}

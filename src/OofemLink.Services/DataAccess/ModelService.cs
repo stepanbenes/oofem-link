@@ -97,7 +97,7 @@ namespace OofemLink.Services.DataAccess
 			}
 		}
 
-		public async Task<Set> GetMeshEntitiesWithAttributeAsync(int modelId, int attributeId)
+		public async Task<Set> GetMeshEntitiesWithAttributeAsync(int modelId, int attributeId, int meshId)
 		{
 			var attribute = await Context.Attributes.FindAsync(modelId, attributeId);
 
@@ -110,12 +110,14 @@ namespace OofemLink.Services.DataAccess
 										  where vertexAttribute.AttributeId == attributeId
 										  where vertexAttribute.Attribute.Target == AttributeTarget.Node
 										  from vertexNode in vertexAttribute.Vertex.VertexNodes
+										  where vertexNode.MeshId == meshId
 										  select vertexNode.NodeId;
 						var curveQuery = from curveAttribute in Context.Set<CurveAttribute>() // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
 										 where curveAttribute.ModelId == modelId
 										 where curveAttribute.AttributeId == attributeId
 										 where curveAttribute.Attribute.Target == AttributeTarget.Node
 										 from curveNode in curveAttribute.Curve.CurveNodes
+										 where curveNode.MeshId == meshId
 										 select curveNode.NodeId;
 						var query = vertexQuery.Concat(curveQuery).OrderBy(id => id).Distinct();
 						var nodes = await query.ToListAsync();
@@ -128,6 +130,7 @@ namespace OofemLink.Services.DataAccess
 									where curveAttribute.AttributeId == attributeId
 									where curveAttribute.Attribute.Target == AttributeTarget.Edge
 									from curveElement in curveAttribute.Curve.CurveElements
+									where curveElement.MeshId == meshId
 									orderby curveElement.ElementId, curveElement.Rank
 									select new ElementEdge(curveElement.ElementId, curveElement.Rank);
 						var edges = await query.ToListAsync();
@@ -140,6 +143,7 @@ namespace OofemLink.Services.DataAccess
 									where surfaceAttribute.AttributeId == attributeId
 									where surfaceAttribute.Attribute.Target == AttributeTarget.Surface
 									from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+									where surfaceElement.MeshId == meshId
 									orderby surfaceElement.ElementId, surfaceElement.Rank
 									select new ElementSurface(surfaceElement.ElementId, surfaceElement.Rank);
 						var surfaces = await query.ToListAsync();
@@ -151,16 +155,19 @@ namespace OofemLink.Services.DataAccess
 											  where curveAttribute.ModelId == modelId
 											  where curveAttribute.Attribute.Target == AttributeTarget.Volume
 											  from curveElement in curveAttribute.Curve.CurveElements
+											  where curveElement.MeshId == meshId
 											  select curveElement.ElementId;
 						var elements2dQuery = from surfaceAttribute in Context.Set<SurfaceAttribute>()
 											  where surfaceAttribute.ModelId == modelId
 											  where surfaceAttribute.Attribute.Target == AttributeTarget.Volume
 											  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+											  where surfaceElement.MeshId == meshId
 											  select surfaceElement.ElementId;
 						var elements3dQuery = from volumeAttribute in Context.Set<VolumeAttribute>()
 											  where volumeAttribute.ModelId == modelId
 											  where volumeAttribute.Attribute.Target == AttributeTarget.Volume
 											  from volumeElement in volumeAttribute.Volume.VolumeElements
+											  where volumeElement.MeshId == meshId
 											  select volumeElement.ElementId;
 						var query = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery).OrderBy(id => id).Distinct();
 						var elements = await query.ToListAsync();
@@ -173,6 +180,7 @@ namespace OofemLink.Services.DataAccess
 										 where vertexAttribute.AttributeId == attributeId
 										 where vertexAttribute.Attribute.Target == AttributeTarget.Undefined
 										 from vertexNode in vertexAttribute.Vertex.VertexNodes
+										 where vertexNode.MeshId == meshId
 										 orderby vertexNode.NodeId
 										 select vertexNode.NodeId;
 						var elements1dQuery = from curveAttribute in Context.Set<CurveAttribute>()
@@ -180,18 +188,21 @@ namespace OofemLink.Services.DataAccess
 											  where curveAttribute.AttributeId == attributeId
 											  where curveAttribute.Attribute.Target == AttributeTarget.Undefined
 											  from curveElement in curveAttribute.Curve.CurveElements
+											  where curveElement.MeshId == meshId
 											  select curveElement.ElementId;
 						var elements2dQuery = from surfaceAttribute in Context.Set<SurfaceAttribute>()
 											  where surfaceAttribute.ModelId == modelId
 											  where surfaceAttribute.AttributeId == attributeId
 											  where surfaceAttribute.Attribute.Target == AttributeTarget.Undefined
 											  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+											  where surfaceElement.MeshId == meshId
 											  select surfaceElement.ElementId;
 						var elements3dQuery = from volumeAttribute in Context.Set<VolumeAttribute>()
 											  where volumeAttribute.ModelId == modelId
 											  where volumeAttribute.AttributeId == attributeId
 											  where volumeAttribute.Attribute.Target == AttributeTarget.Undefined
 											  from volumeElement in volumeAttribute.Volume.VolumeElements
+											  where volumeElement.MeshId == meshId
 											  select volumeElement.ElementId;
 						var elementsQuery = elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery).OrderBy(id => id).Distinct();
 						var nodes = await nodesQuery.ToListAsync();
