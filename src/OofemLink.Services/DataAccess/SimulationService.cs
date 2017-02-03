@@ -10,6 +10,7 @@ using OofemLink.Services.Export;
 using OofemLink.Data;
 using OofemLink.Data.DbEntities;
 using Microsoft.Extensions.Logging;
+using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Services.DataAccess
 {
@@ -47,6 +48,14 @@ namespace OofemLink.Services.DataAccess
 		{
 			var entityToDelete = new Simulation { Id = primaryKey };
 			Context.Simulations.Remove(entityToDelete);
+			await Context.SaveChangesAsync();
+		}
+
+		public async Task ChangeSimulationState(int simulationId, SimulationState newState)
+		{
+			var entity = new Simulation { Id = simulationId, State = newState };
+			Context.Simulations.Attach(entity);
+			Context.Entry(entity).Property(s => s.State).IsModified = true;
 			await Context.SaveChangesAsync();
 		}
 	}

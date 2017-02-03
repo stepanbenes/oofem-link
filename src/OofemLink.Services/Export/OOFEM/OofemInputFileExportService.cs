@@ -22,13 +22,11 @@ namespace OofemLink.Services.Export.OOFEM
 		#region Fields, constructor
 
 		readonly string inputFileFullPath, outputFileFullPath;
-		readonly DataContext dataContext;
 		readonly ISimulationService simulationService;
 		readonly IModelService modelService;
 
-		public OofemInputFileExportService(DataContext dataContext, ISimulationService simulationService, IModelService modelService, string inputFileFullPath, string outputFileDirectory = null)
+		public OofemInputFileExportService(ISimulationService simulationService, IModelService modelService, string inputFileFullPath, string outputFileDirectory = null)
 		{
-			this.dataContext = dataContext;
 			this.simulationService = simulationService;
 			this.modelService = modelService;
 			Debug.Assert(!string.IsNullOrEmpty(inputFileFullPath));

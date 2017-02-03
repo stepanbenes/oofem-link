@@ -20,13 +20,11 @@ namespace OofemLink.Services.Execution
 
 		readonly ISimulationService simulationService;
 		readonly IModelService modelService;
-		readonly DataContext dataContext;
 		readonly ExecutionOptions options;
 		readonly ILogger logger;
 
-		public OofemExecutionService(DataContext dataContext, ISimulationService simulationService, IModelService modelService, IOptions<ExecutionOptions> options, ILoggerFactory loggerFactory)
+		public OofemExecutionService(ISimulationService simulationService, IModelService modelService, IOptions<ExecutionOptions> options, ILoggerFactory loggerFactory)
 		{
-			this.dataContext = dataContext;
 			this.simulationService = simulationService;
 			this.modelService = modelService;
 			this.options = options.Value;
@@ -39,7 +37,7 @@ namespace OofemLink.Services.Execution
 
 		public async Task<bool> ExecuteAsync(int simulationId)
 		{
-			var simulation = await dataContext.Simulations.FindAsync(simulationId);
+			var simulation = await simulationService.GetOneAsync(simulationId);
 			if (simulation == null)
 			{
 				throw new KeyNotFoundException($"Simulation with id {simulationId} does not exist.");
@@ -76,8 +74,7 @@ namespace OofemLink.Services.Execution
 
 			if (success)
 			{
-				simulation.State = SimulationState.Finished;
-				await dataContext.SaveChangesAsync();
+				await simulationService.ChangeSimulationState(simulationId, SimulationState.Finished);
 			}
 
 			//logger.LogInformation("Simulation finished " + (success ? "successfully" : "with errors"));
@@ -100,7 +97,7 @@ namespace OofemLink.Services.Execution
 				outputFileDirectory = options.DefaultOutputLocation;
 			else
 				outputFileDirectory = Path.GetTempPath();
-			var oofemExportService = new OofemInputFileExportService(dataContext, simulationService, modelService, inputFileFullPath, outputFileDirectory);
+			var oofemExportService = new OofemInputFileExportService(simulationService, modelService, inputFileFullPath, outputFileDirectory);
 			await oofemExportService.ExportSimulationAsync(simulationId);
 			return inputFileFullPath;
 		}
