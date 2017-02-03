@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using OofemLink.Common.Enumerations;
 using OofemLink.Data.DataTransferObjects;
 using OofemLink.Data.MeshEntities;
 
@@ -21,6 +22,7 @@ namespace OofemLink.Services.DataAccess
 		Task<AttributeDto> GetAttributeAsync(int modelId, int attributeId);
 		Task<TimeFunctionDto> GetTimeFunctionAsync(int modelId, int timeFunctionId);
 
-		Task<Set> GetMeshEntitiesWithAttributeAsync(int modelId, int attributeId, int meshId);
+		Task<MeshEntitySet> GetAttributeSetAsync(int modelId, int attributeId, int meshId);
+		Task<IReadOnlyList<PartialAttributeApplication>> GetAllPartialAttributeOnCurveApplicationsAsync(int modelId, int meshId, AttributeType attributeType);
 	}
 }

@@ -70,37 +70,8 @@ namespace OofemLink.Services.Export.OOFEM
 			var materialAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Material));
 			var boundaryConditionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.BoundaryCondition));
 			var hingeAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Hinge));
-
-			Dictionary<ElementEdge, ModelAttribute> edgeLcsAttributeMap;
-			List<ModelAttribute> independentSpringAttributes;
-			Dictionary<int, List<ModelAttribute>> hingeSpringAttributeMap;
-
-			// load all model entities from db
-			{
-				var lcsQuery = from curveAttribute in dataContext.Set<CurveAttribute>()
-							   where curveAttribute.ModelId == modelId
-							   where curveAttribute.Attribute.Type == AttributeType.LocalCoordinateSystem
-							   from curveElement in curveAttribute.Curve.CurveElements
-							   where curveElement.MeshId == mesh.Id
-							   group curveAttribute.Attribute by new ElementEdge(curveElement.ElementId, curveElement.Rank);
-				var independentSpringsQuery = from attribute in dataContext.Attributes
-											  where attribute.ModelId == modelId
-											  where attribute.Type == AttributeType.Spring
-											  where !attribute.ParentAttributes.Any()
-											  orderby attribute.Id
-											  select attribute;
-				var hingeStringQuery = from attribute in dataContext.Attributes
-									   where attribute.ModelId == modelId
-									   where attribute.Type == AttributeType.Hinge
-									   from attributeComposition in attribute.ChildAttributes
-									   where attributeComposition.ChildAttribute.Type == AttributeType.Spring
-									   group attributeComposition.ChildAttribute by attribute.Id;
-
-				// materialize queries
-				edgeLcsAttributeMap = lcsQuery.ToDictionary(g => g.Key, g => g.Single()); // TODO: handle multiple LCS attributes per edge
-				independentSpringAttributes = independentSpringsQuery.ToList();
-				hingeSpringAttributeMap = hingeStringQuery.ToDictionary(g => g.Key, g => g.ToList());
-			}
+			var lcsAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.LocalCoordinateSystem));
+			var independentSpringAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Spring && !a.ParentAttributeIds.Any()));
 
 			List<int> elementsWithDummyCS = new List<int>();
 
@@ -127,6 +98,8 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
 			}
 
+			string defaultZAxisParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
+
 			// ELEMENTS
 			foreach (var element in mesh.Elements)
 			{
@@ -136,14 +109,7 @@ namespace OofemLink.Services.Export.OOFEM
 					case CellType.LineLinear:
 						{
 							Debug.Assert(element.NodeIds.Count == 2);
-							ModelAttribute lcsAttribute;
-							string lcsParameter;
-							var edge = new ElementEdge(element.Id, 1); // there is only one edge for 1D element (has rank 1)
-							if (edgeLcsAttributeMap.TryGetValue(edge, out lcsAttribute))
-								lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
-							else
-								lcsParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
-							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, element.NodeIds, lcsParameter);
+							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, element.NodeIds, defaultZAxisParameter);
 						}
 						break;
 					case CellType.TriangleLinear:
@@ -164,10 +130,26 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddElementRecord(elementRecord);
 			}
 
+			// LOCAL COORDINATE SYSTEMS
+			foreach (var lcsAttribute in lcsAttributes)
+			{
+				MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, lcsAttribute.Id, mesh.Id);
+				Debug.Assert(set.Nodes.Count == 0);
+				Debug.Assert(set.ElementEdges.Count == 0);
+				Debug.Assert(set.ElementSurfaces.Count == 0);
+				Debug.Assert(set.Elements.Count > 0);
+				string lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+				foreach (int elementId in set.Elements)
+				{
+					var elementRecord = input.ElementRecords[elementId];
+					elementRecord.Parameters = lcsParameter;
+				}
+			}
+
 			// SPRINGS
 			foreach (var spring in independentSpringAttributes)
 			{
-				Set set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, spring.Id, mesh.Id);
+				MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, spring.Id, mesh.Id);
 				foreach (var nodeId in set.Nodes)
 				{
 					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
@@ -188,7 +170,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// HINGES
 			foreach (var hinge in hingeAttributes)
 			{
-				var set = await modelService.GetMeshEntitiesWithAttributeAsync(modelId, hinge.Id, mesh.Id);
+				var set = await modelService.GetAttributeSetAsync(modelId, hinge.Id, mesh.Id);
 				var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
 				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
 				input.AddDofManagerRecord(slaveNodeRecord);
@@ -200,12 +182,12 @@ namespace OofemLink.Services.Export.OOFEM
 				copyAllAttributesFromElementToElement(input, beamElementRecord.Id, newElementRecord.Id);
 
 				// hinge springs
-				List<ModelAttribute> hingeSprings;
-				if (hingeSpringAttributeMap.TryGetValue(hinge.Id, out hingeSprings))
+				foreach (int childAttributeId in hinge.ChildAttributeIds)
 				{
-					foreach (var spring in hingeSprings)
+					var childAttribute = await modelService.GetAttributeAsync(modelId, childAttributeId);
+					if (childAttribute.Type == AttributeType.Spring)
 					{
-						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: spring.Parameters);
+						var springElementRecord = new ElementRecord(childAttribute.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: childAttribute.Parameters);
 						input.AddElementRecord(springElementRecord);
 						elementsWithDummyCS.Add(springElementRecord.Id);
 					}
@@ -223,7 +205,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				var crossSectionAttribute = crossSectionAttributes[i];
 				int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
-				var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, crossSectionAttribute.Id, mesh.Id));
+				var setRecord = new SetRecord(await modelService.GetAttributeSetAsync(modelId, crossSectionAttribute.Id, mesh.Id));
 				input.AddSetRecord(setRecord);
 				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
 			}
@@ -242,7 +224,7 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddTimeFunctionRecord(timeFunctionRecord);
 						timeFunctionIdToRecordMap.Add(bcAttribute.TimeFunctionId, timeFunctionRecord);
 					}
-					var setRecord = new SetRecord(await modelService.GetMeshEntitiesWithAttributeAsync(modelId, bcAttribute.Id, mesh.Id));
+					var setRecord = new SetRecord(await modelService.GetAttributeSetAsync(modelId, bcAttribute.Id, mesh.Id));
 					input.AddSetRecord(setRecord);
 					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: bcAttribute.Id, parameters: bcAttribute.Parameters, timeFunction: timeFunctionRecord, set: setRecord));
 				}
@@ -251,7 +233,7 @@ namespace OofemLink.Services.Export.OOFEM
 			// append dummy cross-section and material if needed
 			if (elementsWithDummyCS.Count > 0)
 			{
-				var set = new Set().WithElements(elementsWithDummyCS.ToArray());
+				var set = new MeshEntitySet().WithElements(elementsWithDummyCS.ToArray());
 				var setRecord = new SetRecord(set);
 				var dummyMaterialRecord = createDummyMaterialRecord();
 				var dummyCrossSectionRecord = createDummyCrossSectionRecord(dummyMaterialRecord, setRecord);
@@ -301,7 +283,7 @@ namespace OofemLink.Services.Export.OOFEM
 					/* 
 						yay! ✿ (◠‿◠) ♥
 					*/
-					var setRecord = new SetRecord(new Set().WithNodes(nodesThatNeedToBeFixed.OrderBy(id => id).ToArray()));
+					var setRecord = new SetRecord(new MeshEntitySet().WithNodes(nodesThatNeedToBeFixed.OrderBy(id => id).ToArray()));
 					var timeFunctionRecord = new TimeFunctionRecord(TimeFunctionNames.ConstantFunction, id: 0, value: 1);
 					string parameters = $"dofs 1 {dofId} values 1 0";
 					var boundaryConditionRecord = new BoundaryConditionRecord(BoundaryConditionNames.BoundaryCondition, 0, parameters, timeFunctionRecord, setRecord);
@@ -328,7 +310,7 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddElementRecord(soilElementRecord);
 						soilElementIds.Add(soilElementRecord.Id);
 					}
-					var newSetRecord = new SetRecord(new Set().WithElements(soilElementIds.ToArray()));
+					var newSetRecord = new SetRecord(new MeshEntitySet().WithElements(soilElementIds.ToArray()));
 					input.AddSetRecord(newSetRecord);
 					crossSectionRecord.Set = newSetRecord; // replace old set with new set with newly created soil elements
 				}
@@ -336,14 +318,8 @@ namespace OofemLink.Services.Export.OOFEM
 
 			// split beams under partially applied loads
 			{
-				var partiallyAppliedLoadsQuery = from attribute in dataContext.Attributes
-												 where attribute.ModelId == modelId
-												 where attribute.Type == AttributeType.BoundaryCondition
-												 from curveAttribute in attribute.CurveAttributes
-												 where (curveAttribute.RelativeStart != null && curveAttribute.RelativeStart > 0) || (curveAttribute.RelativeEnd != null && curveAttribute.RelativeEnd < 1)
-												 from curveElement in curveAttribute.Curve.CurveElements
-												 select new { AttributeId = attribute.Id, curveElement.ElementId, curveAttribute.RelativeStart, curveAttribute.RelativeEnd };
-				foreach (var partiallyAppliedLoad in partiallyAppliedLoadsQuery)
+				var partiallyAppliedLoads = await modelService.GetAllPartialAttributeOnCurveApplicationsAsync(modelId, mesh.Id, AttributeType.BoundaryCondition);
+				foreach (var partiallyAppliedLoad in partiallyAppliedLoads)
 				{
 					int boundaryConditionId = partiallyAppliedLoad.AttributeId;
 					int firstNewElementId, secondNewElementId;
@@ -403,7 +379,7 @@ namespace OofemLink.Services.Export.OOFEM
 					regionSets: Array.Empty<SetRecord>());
 			}
 
-			var regionSet = new Set().WithElements(mitc4shellElementIds);
+			var regionSet = new MeshEntitySet().WithElements(mitc4shellElementIds);
 			var regionSetRecord = new SetRecord(regionSet);
 
 			input.AddSetRecord(regionSetRecord);

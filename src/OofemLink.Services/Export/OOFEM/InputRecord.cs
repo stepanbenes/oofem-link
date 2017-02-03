@@ -176,7 +176,7 @@ namespace OofemLink.Services.Export.OOFEM
 		}
 		public CellType Type { get; }
 		public IReadOnlyList<int> NodeIds { get; }
-		public string Parameters { get; }
+		public string Parameters { get; internal set; }
 
 		public override string ToString()
 		{
@@ -284,12 +284,12 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class SetRecord : InputRecord, IIndexableRecord
 	{
-		public SetRecord(Set set)
+		public SetRecord(MeshEntitySet set)
 		{
 			Set = set;
 		}
 		int IIndexableRecord.InputIndex { get; set; }
-		public Set Set { get; internal set; }
+		public MeshEntitySet Set { get; internal set; }
 		public override string ToString()
 		{
 			var text = new StringBuilder();
