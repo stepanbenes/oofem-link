@@ -130,10 +130,10 @@ namespace OofemLink.Services.DataAccess
 						var elements = await elementsQuery.ToListAsync();
 						return MeshEntitySet.Empty.WithElements(elements);
 					}
-				case AttributeTarget.Undefined:
+				case AttributeTarget.NodeAndVolume:
 					{
-						var nodesQuery = createVertexNodeAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Undefined);
-						var elementsQuery = createElementAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Undefined);
+						var nodesQuery = createVertexNodeAttributeQuery(modelId, attributeId, meshId, AttributeTarget.NodeAndVolume);
+						var elementsQuery = createElementAttributeQuery(modelId, attributeId, meshId, AttributeTarget.NodeAndVolume);
 						var nodes = await nodesQuery.ToListAsync();
 						var elements = await elementsQuery.ToListAsync();
 						return MeshEntitySet.Empty.WithNodes(nodes).WithElements(elements);
@@ -173,12 +173,12 @@ namespace OofemLink.Services.DataAccess
 				addElementGroupsToSetMap(map, elementGroups2);
 				addElementGroupsToSetMap(map, elementGroups3);
 			}
-			// AttributeTarget.Undefined:
+			// AttributeTarget.NodeAndVolume:
 			{
-				var nodeGroups = await createVertexNodeAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
-				var elementGroups1 = await createCurveElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
-				var elementGroups2 = await createSurfaceElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
-				var elementGroups3 = await createVolumeElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
+				var nodeGroups = await createVertexNodeAttributeGroupQuery(modelId, meshId, AttributeTarget.NodeAndVolume).ToListAsync();
+				var elementGroups1 = await createCurveElementAttributeGroupQuery(modelId, meshId, AttributeTarget.NodeAndVolume).ToListAsync();
+				var elementGroups2 = await createSurfaceElementAttributeGroupQuery(modelId, meshId, AttributeTarget.NodeAndVolume).ToListAsync();
+				var elementGroups3 = await createVolumeElementAttributeGroupQuery(modelId, meshId, AttributeTarget.NodeAndVolume).ToListAsync();
 				addNodeGroupsToSetMap(map, nodeGroups);
 				addElementGroupsToSetMap(map, elementGroups1);
 				addElementGroupsToSetMap(map, elementGroups2);

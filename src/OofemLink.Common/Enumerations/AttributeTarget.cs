@@ -11,6 +11,7 @@ namespace OofemLink.Common.Enumerations
 		Node = 1,
 		Edge = 2,
 		Surface = 3,
-		Volume = 4
+		Volume = 4,
+		NodeAndVolume = 5
     }
 }
