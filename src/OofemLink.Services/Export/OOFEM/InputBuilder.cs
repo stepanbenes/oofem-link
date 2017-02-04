@@ -31,8 +31,7 @@ namespace OofemLink.Services.Export.OOFEM
 		readonly Dictionary<int, CrossSectionRecord> crossSectionRecords;
 		readonly Dictionary<int, MaterialRecord> materialRecords;
 
-
-		// TODO: remove set record list, sets will be generated from attributes
+		// TODO: remove set record list, sets can be generated from attributes
 		readonly List<SetRecord> setRecords;
 
 		int maxDofManagerId, maxElementId; // TODO: can be removed if SortedDictionaries are used
@@ -160,13 +159,6 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			elementRecords.Add(record.Id, record);
 			maxElementId = Math.Max(maxElementId, record.Id);
-		}
-
-		public void RemoveElementRecord(int recordId)
-		{
-			if (!elementRecords.ContainsKey(recordId))
-				throw new KeyNotFoundException($"Element record with id {recordId} was not found");
-			elementRecords.Remove(recordId);
 		}
 
 		public void AddCrossSectionRecord(CrossSectionRecord record)
