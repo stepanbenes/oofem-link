@@ -70,7 +70,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public string EngineeringModelName { get; }
 		public int NumberOfTimeSteps { get; }
 		public IReadOnlyList<ExportModuleRecord> ExportModules { get; }
-		public override string ToString() => $"{EngineeringModelName} {Keyword.nsteps} {NumberOfTimeSteps} {Keyword.nmodules} {ExportModules.Count}";
+		public override string ToString() => $"{EngineeringModelName} {Keyword.nsteps} {NumberOfTimeSteps} {Keyword.nmodules} {ExportModules.Count} profileopt 1";
 	}
 
 	abstract class ExportModuleRecord : InputRecord
