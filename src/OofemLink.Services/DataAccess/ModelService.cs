@@ -60,12 +60,12 @@ namespace OofemLink.Services.DataAccess
 
 		public async Task<AttributeDto> GetAttributeAsync(int modelId, int attributeId)
 		{
-			return await Context.Attributes.Where(a => a.ModelId == modelId && a.Id == attributeId).ProjectTo<AttributeDto>().SingleOrDefaultAsync();
+			return await Context.Attributes.AsNoTracking().Where(a => a.ModelId == modelId && a.Id == attributeId).ProjectTo<AttributeDto>().SingleOrDefaultAsync();
 		}
 
 		public async Task<TimeFunctionDto> GetTimeFunctionAsync(int modelId, int timeFunctionId)
 		{
-			var timeFunction = await Context.TimeFunctions
+			var timeFunction = await Context.TimeFunctions.AsNoTracking()
 												.Include(tf => tf.Values)
 												.ThenInclude(tv => tv.TimeStep)
 												.SingleOrDefaultAsync(tf => tf.ModelId == modelId && tf.Id == timeFunctionId);
@@ -234,7 +234,7 @@ namespace OofemLink.Services.DataAccess
 
 		public async Task<IReadOnlyList<PartialAttributeApplication>> GetAllPartialAttributeOnCurveApplicationsAsync(int modelId, int meshId, AttributeType attributeType)
 		{
-			var query = from attribute in Context.Attributes
+			var query = from attribute in Context.Attributes.AsNoTracking()
 						where attribute.ModelId == modelId
 						where attribute.Type == attributeType
 						from curveAttribute in attribute.CurveAttributes
@@ -251,7 +251,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<int> createVertexNodeAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from vertexAttribute in Context.Set<VertexAttribute>()
+			return from vertexAttribute in Context.Set<VertexAttribute>().AsNoTracking()
 				   where vertexAttribute.ModelId == modelId
 				   where vertexAttribute.AttributeId == attributeId
 				   where vertexAttribute.Attribute.Target == attributeTarget
@@ -262,7 +262,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<int> createCurveNodeAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from curveAttribute in Context.Set<CurveAttribute>()
+			return from curveAttribute in Context.Set<CurveAttribute>().AsNoTracking()
 				   where curveAttribute.ModelId == modelId
 				   where curveAttribute.AttributeId == attributeId
 				   where curveAttribute.Attribute.Target == attributeTarget
@@ -273,7 +273,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<ElementEdge> createCurveEdgeAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from curveAttribute in Context.Set<CurveAttribute>()
+			return from curveAttribute in Context.Set<CurveAttribute>().AsNoTracking()
 				   where curveAttribute.ModelId == modelId
 				   where curveAttribute.AttributeId == attributeId
 				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
@@ -285,7 +285,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<ElementSurface> createSurfaceSurfaceAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>().AsNoTracking()
 				   where surfaceAttribute.ModelId == modelId
 				   where surfaceAttribute.AttributeId == attributeId
 				   where surfaceAttribute.Attribute.Target == attributeTarget
@@ -296,7 +296,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<int> createCurveElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from curveAttribute in Context.Set<CurveAttribute>()
+			return from curveAttribute in Context.Set<CurveAttribute>().AsNoTracking()
 				   where curveAttribute.ModelId == modelId
 				   where curveAttribute.AttributeId == attributeId
 				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
@@ -309,7 +309,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<int> createSurfaceElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>().AsNoTracking()
 				   where surfaceAttribute.ModelId == modelId
 				   where surfaceAttribute.AttributeId == attributeId
 				   where surfaceAttribute.Attribute.Target == attributeTarget
@@ -321,7 +321,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<int> createVolumeElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from volumeAttribute in Context.Set<VolumeAttribute>()
+			return from volumeAttribute in Context.Set<VolumeAttribute>().AsNoTracking()
 				   where volumeAttribute.ModelId == modelId
 				   where volumeAttribute.AttributeId == attributeId
 				   where volumeAttribute.Attribute.Target == attributeTarget
@@ -344,7 +344,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, int>> createVertexNodeAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from vertexAttribute in Context.Set<VertexAttribute>()
+			return from vertexAttribute in Context.Set<VertexAttribute>().AsNoTracking()
 				   where vertexAttribute.ModelId == modelId
 				   where vertexAttribute.Attribute.Target == attributeTarget
 				   from vertexNode in vertexAttribute.Vertex.VertexNodes
@@ -354,7 +354,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, int>> createCurveNodeAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from curveAttribute in Context.Set<CurveAttribute>()
+			return from curveAttribute in Context.Set<CurveAttribute>().AsNoTracking()
 				   where curveAttribute.ModelId == modelId
 				   where curveAttribute.Attribute.Target == attributeTarget
 				   from curveNode in curveAttribute.Curve.CurveNodes
@@ -364,7 +364,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, ElementEdge>> createCurveEdgeAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from curveAttribute in Context.Set<CurveAttribute>()
+			return from curveAttribute in Context.Set<CurveAttribute>().AsNoTracking()
 				   where curveAttribute.ModelId == modelId
 				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
 				   where curveAttribute.Attribute.Target == attributeTarget
@@ -375,7 +375,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, ElementSurface>> createSurfaceSurfaceAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>().AsNoTracking()
 				   where surfaceAttribute.ModelId == modelId
 				   where surfaceAttribute.Attribute.Target == attributeTarget
 				   from surfaceElement in surfaceAttribute.Surface.SurfaceElements
@@ -385,7 +385,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, int>> createCurveElementAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from curveAttribute in Context.Set<CurveAttribute>()
+			return from curveAttribute in Context.Set<CurveAttribute>().AsNoTracking()
 				   where curveAttribute.ModelId == modelId
 				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
 				   where curveAttribute.Attribute.Target == attributeTarget
@@ -397,7 +397,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, int>> createSurfaceElementAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>().AsNoTracking()
 				   where surfaceAttribute.ModelId == modelId
 				   where surfaceAttribute.Attribute.Target == attributeTarget
 				   from surfaceElement in surfaceAttribute.Surface.SurfaceElements
@@ -408,7 +408,7 @@ namespace OofemLink.Services.DataAccess
 
 		private IQueryable<IGrouping<int, int>> createVolumeElementAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			return from volumeAttribute in Context.Set<VolumeAttribute>()
+			return from volumeAttribute in Context.Set<VolumeAttribute>().AsNoTracking()
 				   where volumeAttribute.ModelId == modelId
 				   where volumeAttribute.Attribute.Target == attributeTarget
 				   from volumeElement in volumeAttribute.Volume.VolumeElements
