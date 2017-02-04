@@ -11,7 +11,6 @@
         "Swashbuckle.SwaggerGen": "6.0.0-beta902",
         "Swashbuckle.SwaggerUi": "6.0.0-beta902",
         "Microsoft.AspNetCore.Diagnostics": "1.1.0",
-        "Microsoft.AspNetCore.Mvc": "1.1.0",
         "Microsoft.AspNetCore.Routing": "1.1.0",
         "Microsoft.AspNetCore.Server.IISIntegration": "1.1.0",
         "Microsoft.AspNetCore.Server.Kestrel": "1.1.0",
@@ -22,7 +21,8 @@
         "Microsoft.Extensions.Logging": "1.1.0",
         "Microsoft.Extensions.Logging.Console": "1.1.0",
         "Microsoft.Extensions.Logging.Debug": "1.1.0",
-        "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.0"
+        "Microsoft.Extensions.Options.ConfigurationExtensions": "1.1.0",
+        "Microsoft.AspNetCore.Mvc": "1.1.1"
     },
 
     "tools": {
