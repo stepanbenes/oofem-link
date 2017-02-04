@@ -67,7 +67,6 @@ namespace OofemLink.Services.Export.OOFEM
 			var independentSpringAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Spring && !a.HasParentAttributes));
 
 			List<int> elementsWithDummyCS = new List<int>();
-			List<int> elementsToRemove = new List<int>();
 
 			// =========================================================================================
 
@@ -169,10 +168,7 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddDofManagerRecord(slaveNodeRecord);
 
 				var beamElementRecord = input.ElementRecords[set.Elements.Single()];
-				elementsToRemove.Add(beamElementRecord.Id);
-				var newElementRecord = beamElementRecord.WithReplacedNode(input.MaxElementId + 1, oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
-				input.AddElementRecord(newElementRecord);
-				copyAllAttributesFromElementToElement(input, beamElementRecord.Id, newElementRecord.Id);
+				beamElementRecord.ReplaceNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
 
 				// hinge springs
 				foreach (int childAttributeId in hinge.ChildAttributeIds)
@@ -323,28 +319,16 @@ namespace OofemLink.Services.Export.OOFEM
 						if (endIsLoose)
 							relativePositions.Add((partiallyAppliedLoad.RelativeEnd.Value - partiallyAppliedLoad.RelativeStart.Value) / (1.0 - partiallyAppliedLoad.RelativeStart.Value));
 						var newElementIds = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions);
-						appendElementToSetRecord(boundaryConditionRecord.Set, newElementIds[1]);
+						appendElementToSetRecord(boundaryConditionRecord.Set, newElementIds[0]);
 					}
 					else if (endIsLoose)
 					{
 						var newElementIds = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions: new[] { partiallyAppliedLoad.RelativeEnd.Value });
-						appendElementToSetRecord(boundaryConditionRecord.Set, newElementIds[0]);
+						appendElementToSetRecord(boundaryConditionRecord.Set, partiallyAppliedLoad.ElementId);
 					}
 					else
 						throw new InvalidDataException($"Neither start nor end is not specified for partially applied load.");
-
-					elementsToRemove.Add(partiallyAppliedLoad.ElementId);
 				}
-			}
-
-			// remove unnecessary elements
-			foreach (var setRecord in input.SetRecords)
-			{
-				removeElementsFromSetRecord(setRecord, elementsToRemove);
-			}
-			foreach (var elementToRemove in elementsToRemove)
-			{
-				input.RemoveElementRecord(elementToRemove);
 			}
 
 			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
@@ -517,35 +501,31 @@ namespace OofemLink.Services.Export.OOFEM
 			Vector3d endPoint = new Vector3d(endNode.X, endNode.Y, endNode.Z);
 			Vector3d direction = endPoint - beginPoint;
 
-			int node1Id = beginNode.Id;
-			int node2Id;
-
-			List<int> newElementIds = new List<int>();
+			var splitNodeIds = new List<int>();
 
 			foreach (double relativePosition in relativePositions)
 			{
 				if (relativePosition <= 0 || relativePosition >= 1)
 					throw new ArgumentOutOfRangeException(nameof(relativePosition), $"Argument is expected to be in range (0, 1), but has value {relativePosition}");
-
 				Vector3d splitPoint = beginPoint + direction * relativePosition;
-
 				NodeRecord splitNodeRecord = new NodeRecord(input.MaxDofManagerId + 1, splitPoint.X, splitPoint.Y, splitPoint.Z);
 				input.AddDofManagerRecord(splitNodeRecord);
+				splitNodeIds.Add(splitNodeRecord.Id);
+			}
 
-				node2Id = splitNodeRecord.Id;
+			splitNodeIds.Add(endNode.Id); // append last node
 
-				ElementRecord newElementRecord = elementRecord.WithNodes(input.MaxElementId + 1, node1Id, node2Id);
+			elementRecord.ReplaceNode(endNode.Id, splitNodeIds[0]);
+
+			var newElementIds = new List<int>();
+
+			for (int i = 1; i < splitNodeIds.Count; i++)
+			{
+				ElementRecord newElementRecord = elementRecord.WithNodes(input.MaxElementId + 1, splitNodeIds[i - 1], splitNodeIds[i]);
 				input.AddElementRecord(newElementRecord);
 				copyAllAttributesFromElementToElement(input, elementToSplitId, newElementRecord.Id);
 				newElementIds.Add(newElementRecord.Id);
-
-				node1Id = node2Id;
 			}
-
-			ElementRecord lastElementRecord = elementRecord.WithNodes(input.MaxElementId + 1, node1Id, endNode.Id);
-			input.AddElementRecord(lastElementRecord);
-			copyAllAttributesFromElementToElement(input, elementToSplitId, lastElementRecord.Id);
-			newElementIds.Add(lastElementRecord.Id);
 
 			return newElementIds;
 		}
@@ -596,16 +576,6 @@ namespace OofemLink.Services.Export.OOFEM
 		{
 			var updatedElementList = setRecord.Set.Elements.AppendItem(elementIdToAppend).OrderBy(id => id).Distinct().ToList();
 			setRecord.Set = setRecord.Set.WithElements(updatedElementList); // update set record
-		}
-
-		private void removeElementsFromSetRecord(SetRecord setRecord, IEnumerable<int> elementIdsToRemove)
-		{
-			// TODO: optimize this, use System.Collections.Immutable.ImmutableSortedSet<>
-
-			var updatedElementList = setRecord.Set.Elements.Except(elementIdsToRemove).ToList();
-			var updatedEdgeList = setRecord.Set.ElementEdges.Where(edge => !elementIdsToRemove.Contains(edge.ElementId)).ToList();
-			var updatedSurfaceList = setRecord.Set.ElementSurfaces.Where(surface => !elementIdsToRemove.Contains(surface.ElementId)).ToList();
-			setRecord.Set = setRecord.Set.WithElements(updatedElementList).WithElementEdges(updatedEdgeList).WithElementSurfaces(updatedSurfaceList); // update set record
 		}
 
 		#endregion

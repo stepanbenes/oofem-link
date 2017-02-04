@@ -175,7 +175,7 @@ namespace OofemLink.Services.Export.OOFEM
 			Parameters = parameters;
 		}
 		public CellType Type { get; }
-		public IReadOnlyList<int> NodeIds { get; }
+		public IReadOnlyList<int> NodeIds { get; private set; }
 		public string Parameters { get; internal set; }
 
 		public override string ToString()
@@ -186,16 +186,11 @@ namespace OofemLink.Services.Export.OOFEM
 			return text + " " + Parameters;
 		}
 
-		public ElementRecord WithReplacedNode(int elementId, int oldNodeId, int newNodeId)
-		{
-			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
-			return new ElementRecord(Name, elementId, Type, updatedNodeIds, Parameters);
-		}
+		public void ReplaceNode(int oldNodeId, int newNodeId)
+			=> NodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
 
 		public ElementRecord WithNodes(int elementId, params int[] newNodeIds)
-		{
-			return new ElementRecord(Name, elementId, Type, newNodeIds, Parameters);
-		}
+			=> new ElementRecord(Name, elementId, Type, newNodeIds, Parameters);
 	}
 
 	class CrossSectionRecord : NamedRecord, IIndexableRecord
@@ -211,7 +206,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public string Parameters { get; }
 		public MaterialRecord Material { get; }
 		public SetRecord Set { get; internal set; }
-		
+
 		public override string ToString() => $"{Name} {((IIndexableRecord)this).InputIndex} {Parameters} {Keyword.material} {((IIndexableRecord)Material).InputIndex} {Keyword.set} {((IIndexableRecord)Set).InputIndex}";
 	}
 
