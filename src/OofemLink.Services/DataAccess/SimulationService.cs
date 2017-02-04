@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using OofemLink.Data.DataTransferObjects;
 using OofemLink.Services.Export;
 using OofemLink.Data;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using Microsoft.Extensions.Logging;
+using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Services.DataAccess
 {
@@ -47,6 +48,20 @@ namespace OofemLink.Services.DataAccess
 		{
 			var entityToDelete = new Simulation { Id = primaryKey };
 			Context.Simulations.Remove(entityToDelete);
+			await Context.SaveChangesAsync();
+		}
+
+		public async Task ChangeSimulationState(int simulationId, SimulationState newState)
+		{
+			// this does not work if entity is alredy tracked. (System.InvalidOperationException)
+			
+			//var entity = new Simulation { Id = simulationId, State = newState };
+			//Context.Simulations.Attach(entity);
+			//Context.Entry(entity).Property(s => s.State).IsModified = true;
+			//await Context.SaveChangesAsync();
+
+			var simulation = await Context.Simulations.FindAsync(simulationId);
+			simulation.State = newState;
 			await Context.SaveChangesAsync();
 		}
 	}

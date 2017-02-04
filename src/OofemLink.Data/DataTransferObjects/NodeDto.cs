@@ -2,14 +2,14 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using OofemLink.Common.Enumerations;
 
 namespace OofemLink.Data.DataTransferObjects
 {
-	public class CurveDto
-	{
+    public class NodeDto
+    {
 		public int Id { get; set; }
-		public CurveType Type { get; set; }
-		public IReadOnlyList<int> VertexIds { get; set; }
-    }
+		public double X { get; set; }
+		public double Y { get; set; }
+		public double Z { get; set; }
+	}
 }

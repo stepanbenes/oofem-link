@@ -17,10 +17,11 @@ namespace OofemLink.Services.Export.OOFEM
 		OutputFileRecord outputFileRecord;
 		DescriptionRecord descriptionRecord;
 		EngineeringModelRecord engineeringModelRecord;
-		readonly List<ExportModuleRecord> exportModuleRecords;
 		DomainRecord domainRecord;
 		OutputManagerRecord outputManagerRecord;
 
+		// TODO: use SortedDictionary<,> class
+		
 		readonly Dictionary<int, BoundaryConditionRecord> boundaryConditionRecords;
 		readonly Dictionary<int, TimeFunctionRecord> timeFunctionRecords;
 
@@ -29,30 +30,26 @@ namespace OofemLink.Services.Export.OOFEM
 
 		readonly Dictionary<int, CrossSectionRecord> crossSectionRecords;
 		readonly Dictionary<int, MaterialRecord> materialRecords;
-		readonly Dictionary<int, SetRecord> setRecords;
 
-		int maxDofManagerId, maxElementId, maxCrossSectionId, maxMaterialId, maxBoundaryConditionId, maxTimeFunctionId, maxSetId;
+
+		// TODO: remove set record list, sets will be generated from attributes
+		readonly List<SetRecord> setRecords;
+
+		int maxDofManagerId, maxElementId; // TODO: can be removed if SortedDictionaries are used
 
 		public InputBuilder()
 		{
-			exportModuleRecords = new List<ExportModuleRecord>();
-
 			dofManagerRecords = new Dictionary<int, DofManagerRecord>();
 			elementRecords = new Dictionary<int, ElementRecord>();
 			crossSectionRecords = new Dictionary<int, CrossSectionRecord>();
 			materialRecords = new Dictionary<int, MaterialRecord>();
 			boundaryConditionRecords = new Dictionary<int, BoundaryConditionRecord>();
 			timeFunctionRecords = new Dictionary<int, TimeFunctionRecord>();
-			setRecords = new Dictionary<int, SetRecord>();
+			setRecords = new List<SetRecord>();
 		}
 
 		public int MaxDofManagerId => maxDofManagerId;
 		public int MaxElementId => maxElementId;
-		public int MaxCrossSectionId => maxCrossSectionId;
-		public int MaxMaterialId => maxMaterialId;
-		public int MaxBoundaryConditionId => maxBoundaryConditionId;
-		public int MaxTimeFunctionId => maxTimeFunctionId;
-		public int MaxSetId => maxSetId;
 
 		#endregion
 
@@ -60,6 +57,10 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public void WriteToFile(string fileFullPath)
 		{
+			// TODO: lock builder during writing
+
+			assignIndexToAllIndexableRecords();
+
 			using (var stream = new FileStream(fileFullPath, FileMode.Create, FileAccess.Write, FileShare.None))
 			using (var streamWriter = new StreamWriter(stream))
 			{
@@ -71,12 +72,10 @@ namespace OofemLink.Services.Export.OOFEM
 					streamWriter.WriteLine(descriptionRecord.ToString());
 				if (engineeringModelRecord != null)
 				{
-					streamWriter.Write(engineeringModelRecord.ToString());
-					streamWriter.WriteLine($" {Keyword.nmodules} {exportModuleRecords.Count}"); // append number of export modules
+					streamWriter.WriteLine(engineeringModelRecord.ToString());
+					foreach (var record in engineeringModelRecord.ExportModules)
+						streamWriter.WriteLine(record.ToString());
 				}
-
-				foreach (var record in exportModuleRecords)
-					streamWriter.WriteLine(record.ToString());
 
 				if (domainRecord != null)
 					streamWriter.WriteLine(domainRecord.ToString());
@@ -87,32 +86,32 @@ namespace OofemLink.Services.Export.OOFEM
 				streamWriter.WriteLine(buildRecordCountsString());
 
 				streamWriter.WriteLine($"# DOF-MANAGERS");
-				foreach (var record in dofManagerRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in dofManagerRecords.Values)
+					streamWriter.WriteLine(record);
 
 				streamWriter.WriteLine($"# ELEMENTS");
-				foreach (var record in elementRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in elementRecords.Values)
+					streamWriter.WriteLine(record);
 
 				streamWriter.WriteLine($"# CROSS-SECTIONS");
-				foreach (var record in crossSectionRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in crossSectionRecords.Values)
+					streamWriter.WriteLine(record);
 
 				streamWriter.WriteLine($"# MATERIALS");
-				foreach (var record in materialRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in materialRecords.Values)
+					streamWriter.WriteLine(record);
 
 				streamWriter.WriteLine($"# BOUNDARY CONDITIONS");
-				foreach (var record in boundaryConditionRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in boundaryConditionRecords.Values)
+					streamWriter.WriteLine(record);
 
 				streamWriter.WriteLine($"# TIME FUNCTIONS");
-				foreach (var record in timeFunctionRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in timeFunctionRecords.Values)
+					streamWriter.WriteLine(record);
 
 				streamWriter.WriteLine($"# SETS");
-				foreach (var record in setRecords.Values.OrderBy(r => r.Id))
-					streamWriter.WriteLine(record.ToString());
+				foreach (var record in setRecords)
+					streamWriter.WriteLine(record);
 			}
 		}
 
@@ -137,11 +136,6 @@ namespace OofemLink.Services.Export.OOFEM
 			engineeringModelRecord = record;
 		}
 
-		public void AddExportModuleRecord(ExportModuleRecord record)
-		{
-			exportModuleRecords.Add(record);
-		}
-
 		public void AddDomainRecord(DomainRecord record)
 		{
 			if (domainRecord != null)
@@ -162,103 +156,49 @@ namespace OofemLink.Services.Export.OOFEM
 			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
 		}
 
-		public void UpdateDofManagerRecord(DofManagerRecord record)
-		{
-			if (!dofManagerRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"DofManager record with id {record.Id} was not found");
-			dofManagerRecords[record.Id] = record;
-			maxDofManagerId = Math.Max(maxDofManagerId, record.Id);
-		}
-
 		public void AddElementRecord(ElementRecord record)
 		{
 			elementRecords.Add(record.Id, record);
 			maxElementId = Math.Max(maxElementId, record.Id);
 		}
 
-		public void UpdateElementRecord(ElementRecord record)
+		public void RemoveElementRecord(int recordId)
 		{
-			if (!elementRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Element record with id {record.Id} was not found");
-			elementRecords[record.Id] = record;
-			maxElementId = Math.Max(maxElementId, record.Id);
+			if (!elementRecords.ContainsKey(recordId))
+				throw new KeyNotFoundException($"Element record with id {recordId} was not found");
+			elementRecords.Remove(recordId);
 		}
 
 		public void AddCrossSectionRecord(CrossSectionRecord record)
 		{
 			crossSectionRecords.Add(record.Id, record);
-			maxCrossSectionId = Math.Max(maxCrossSectionId, record.Id);
-		}
-
-		public void UpdateCrossSectionRecord(CrossSectionRecord record)
-		{
-			if (!crossSectionRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Cross-section record with id {record.Id} was not found");
-			crossSectionRecords[record.Id] = record;
-			maxCrossSectionId = Math.Max(maxCrossSectionId, record.Id);
 		}
 
 		public void AddMaterialRecord(MaterialRecord record)
 		{
 			materialRecords.Add(record.Id, record);
-			maxMaterialId = Math.Max(maxMaterialId, record.Id);
-		}
-
-		public void UpdateMaterialRecord(MaterialRecord record)
-		{
-			if (!materialRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Material record with id {record.Id} was not found");
-			materialRecords[record.Id] = record;
-			maxMaterialId = Math.Max(maxMaterialId, record.Id);
 		}
 
 		public void AddBoundaryConditionRecord(BoundaryConditionRecord record)
 		{
 			boundaryConditionRecords.Add(record.Id, record);
-			maxBoundaryConditionId = Math.Max(maxBoundaryConditionId, record.Id);
-		}
-
-		public void UpdateBoundaryConditionRecord(BoundaryConditionRecord record)
-		{
-			if (!boundaryConditionRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Boundary condition record with id {record.Id} was not found");
-			boundaryConditionRecords[record.Id] = record;
-			maxBoundaryConditionId = Math.Max(maxBoundaryConditionId, record.Id);
 		}
 
 		public void AddTimeFunctionRecord(TimeFunctionRecord record)
 		{
 			timeFunctionRecords.Add(record.Id, record);
-			maxTimeFunctionId = Math.Max(maxTimeFunctionId, record.Id);
-		}
-
-		public void UpdateTimeFunctionRecord(TimeFunctionRecord record)
-		{
-			if (!timeFunctionRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Time function record with id {record.Id} was not found");
-			timeFunctionRecords[record.Id] = record;
-			maxTimeFunctionId = Math.Max(maxTimeFunctionId, record.Id);
 		}
 
 		public void AddSetRecord(SetRecord record)
 		{
-			setRecords.Add(record.Id, record);
-			maxSetId = Math.Max(maxSetId, record.Id);
-		}
-
-		public void UpdateSetRecord(SetRecord record)
-		{
-			if (!setRecords.ContainsKey(record.Id))
-				throw new KeyNotFoundException($"Set record with id {record.Id} was not found");
-			setRecords[record.Id] = record;
-			maxSetId = Math.Max(maxSetId, record.Id);
+			setRecords.Add(record);
 		}
 
 		public IReadOnlyDictionary<int, DofManagerRecord> DofManagerRecords => dofManagerRecords;
 		public IReadOnlyDictionary<int, ElementRecord> ElementRecords => elementRecords;
 		public IReadOnlyDictionary<int, CrossSectionRecord> CrossSectionRecords => crossSectionRecords;
 		public IReadOnlyDictionary<int, MaterialRecord> MaterialRecords => materialRecords;
-		public IReadOnlyDictionary<int, SetRecord> SetRecords => setRecords;
+		public IReadOnlyList<SetRecord> SetRecords => setRecords;
 
 		public IReadOnlyDictionary<int, BoundaryConditionRecord> BoundaryConditionRecords => boundaryConditionRecords;
 		public IReadOnlyDictionary<int, TimeFunctionRecord> TimeFunctionRecords => timeFunctionRecords;
@@ -287,6 +227,25 @@ namespace OofemLink.Services.Export.OOFEM
 			int setCount = setRecords.Count;
 
 			return $"{Keyword.ndofman} {dofManagerCount} {Keyword.nelem} {elementCount} {Keyword.ncrosssect} {crossSectionCount} {Keyword.nmat} {materialCount} {Keyword.nbc} {boundaryConditionCount} {Keyword.nic} {initialConditionCount} {Keyword.nltf} {timeFunctionCount} {Keyword.nset} {setCount}";
+		}
+
+		private void assignIndexToAllIndexableRecords()
+		{
+			int index = 1;
+			foreach (IIndexableRecord record in crossSectionRecords.Values)
+				record.InputIndex = index++;
+			index = 1;
+			foreach (IIndexableRecord record in materialRecords.Values)
+				record.InputIndex = index++;
+			index = 1;
+			foreach (IIndexableRecord record in boundaryConditionRecords.Values)
+				record.InputIndex = index++;
+			index = 1;
+			foreach (IIndexableRecord record in timeFunctionRecords.Values)
+				record.InputIndex = index++;
+			index = 1;
+			foreach (IIndexableRecord record in setRecords)
+				record.InputIndex = index++;
 		}
 
 		#endregion

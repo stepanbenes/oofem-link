@@ -6,12 +6,38 @@ using System.Text;
 using System.Threading.Tasks;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.OofemNames;
+using OofemLink.Data.MeshEntities;
 using static System.FormattableString;
 
 namespace OofemLink.Services.Export.OOFEM
 {
 	abstract class InputRecord
 	{ }
+
+	interface IIndexableRecord
+	{
+		int InputIndex { get; set; }
+	}
+
+	abstract class IdentityRecord : InputRecord
+	{
+		public IdentityRecord(int id)
+		{
+			Id = id;
+		}
+		public int Id { get; }
+		public abstract string Name { get; }
+	}
+
+	abstract class NamedRecord : IdentityRecord
+	{
+		public NamedRecord(string name, int id)
+			: base(id)
+		{
+			Name = name;
+		}
+		public override string Name { get; }
+	}
 
 	class OutputFileRecord : InputRecord
 	{
@@ -35,14 +61,16 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class EngineeringModelRecord : InputRecord
 	{
-		public EngineeringModelRecord(string engineeringModelName, int numberOfTimeSteps)
+		public EngineeringModelRecord(string engineeringModelName, int numberOfTimeSteps, IReadOnlyList<ExportModuleRecord> exportModules)
 		{
 			EngineeringModelName = engineeringModelName;
 			NumberOfTimeSteps = numberOfTimeSteps;
+			ExportModules = exportModules;
 		}
 		public string EngineeringModelName { get; }
 		public int NumberOfTimeSteps { get; }
-		public override string ToString() => $"{EngineeringModelName} {Keyword.nsteps} {NumberOfTimeSteps}";
+		public IReadOnlyList<ExportModuleRecord> ExportModules { get; }
+		public override string ToString() => $"{EngineeringModelName} {Keyword.nsteps} {NumberOfTimeSteps} {Keyword.nmodules} {ExportModules.Count} profileopt 1";
 	}
 
 	abstract class ExportModuleRecord : InputRecord
@@ -50,7 +78,7 @@ namespace OofemLink.Services.Export.OOFEM
 
 	class VtkXmlExportModuleRecord : ExportModuleRecord
 	{
-		public VtkXmlExportModuleRecord(IReadOnlyList<int> primVars, IReadOnlyList<int> vars, IReadOnlyList<int> cellVars, IReadOnlyList<int> regionSets)
+		public VtkXmlExportModuleRecord(IReadOnlyList<int> primVars, IReadOnlyList<int> vars, IReadOnlyList<int> cellVars, IReadOnlyList<SetRecord> regionSets)
 		{
 			PrimVars = primVars;
 			Vars = vars;
@@ -61,7 +89,7 @@ namespace OofemLink.Services.Export.OOFEM
 		public IReadOnlyList<int> PrimVars { get; }
 		public IReadOnlyList<int> Vars { get; }
 		public IReadOnlyList<int> CellVars { get; }
-		public IReadOnlyList<int> RegionSets { get; }
+		public IReadOnlyList<SetRecord> RegionSets { get; }
 
 		public override string ToString()
 		{
@@ -79,7 +107,7 @@ namespace OofemLink.Services.Export.OOFEM
 			if (RegionSets.Count > 0)
 			{
 				text.Append($" regionsets {RegionSets.Count}");
-				text.Append(" " + string.Join(" ", RegionSets));
+				text.Append(" " + string.Join(" ", RegionSets.Select(s => ((IIndexableRecord)s).InputIndex.ToString())));
 			}
 			return text.ToString();
 		}
@@ -100,16 +128,15 @@ namespace OofemLink.Services.Export.OOFEM
 		public override string ToString() => "OutputManager tstep_all dofman_all element_all"; // TODO: avoid hard-coded string
 	}
 
-	abstract class DofManagerRecord : InputRecord
+	abstract class DofManagerRecord : IdentityRecord
 	{
 		public DofManagerRecord(int id, double x, double y, double z)
+			: base(id)
 		{
-			Id = id;
 			X = x;
 			Y = y;
 			Z = z;
 		}
-		public int Id { get; }
 		public double X { get; }
 		public double Y { get; }
 		public double Z { get; }
@@ -120,7 +147,8 @@ namespace OofemLink.Services.Export.OOFEM
 		public NodeRecord(int id, double x, double y, double z)
 			: base(id, x, y, z)
 		{ }
-		public override string ToString() => Invariant($"{DofManagerNames.node} {Id} {Keyword.coords} 3 {X} {Y} {Z}");
+		public override string Name => DofManagerNames.node;
+		public override string ToString() => Invariant($"{Name} {Id} {Keyword.coords} 3 {X} {Y} {Z}");
 	}
 
 	class RigidArmNodeRecord : DofManagerRecord
@@ -131,21 +159,10 @@ namespace OofemLink.Services.Export.OOFEM
 			MasterId = masterId;
 			Parameters = parameters;
 		}
+		public override string Name => DofManagerNames.RigidArmNode;
 		public int MasterId { get; }
 		public string Parameters { get; }
-		public override string ToString() => Invariant($"{DofManagerNames.RigidArmNode} {Id} {Keyword.coords} 3 {X} {Y} {Z} {Keyword.master} {MasterId} {Parameters}");
-	}
-
-	abstract class NamedRecord : InputRecord
-	{
-		public NamedRecord(string name, int id)
-		{
-			Name = name;
-			Id = id;
-		}
-		public string Name { get; }
-		public int Id { get; }
-		public override string ToString() => $"{Name} {Id}";
+		public override string ToString() => Invariant($"{Name} {Id} {Keyword.coords} 3 {X} {Y} {Z} {Keyword.master} {MasterId} {Parameters}");
 	}
 
 	class ElementRecord : NamedRecord
@@ -158,8 +175,9 @@ namespace OofemLink.Services.Export.OOFEM
 			Parameters = parameters;
 		}
 		public CellType Type { get; }
-		public IReadOnlyList<int> NodeIds { get; }
-		public string Parameters { get; }
+		public IReadOnlyList<int> NodeIds { get; private set; }
+		public string Parameters { get; internal set; }
+
 		public override string ToString()
 		{
 			string text = $"{Name} {Id} {Keyword.nodes} {NodeIds.Count} {string.Join(" ", NodeIds)}";
@@ -168,66 +186,63 @@ namespace OofemLink.Services.Export.OOFEM
 			return text + " " + Parameters;
 		}
 
-		public ElementRecord WithReplacedNode(int oldNodeId, int newNodeId)
-		{
-			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
-			return new ElementRecord(Name, Id, Type, updatedNodeIds, Parameters);
-		}
+		public void ReplaceNode(int oldNodeId, int newNodeId)
+			=> NodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
 
-		public ElementRecord WithAppendedParameters(string parametersToAppend)
-		{
-			string newParameters = (Parameters + " " + parametersToAppend).Trim();
-			return new ElementRecord(Name, Id, Type, NodeIds, newParameters);
-		}
+		public ElementRecord WithNodes(int elementId, params int[] newNodeIds)
+			=> new ElementRecord(Name, elementId, Type, newNodeIds, Parameters);
 	}
 
-	class CrossSectionRecord : NamedRecord
+	class CrossSectionRecord : NamedRecord, IIndexableRecord
 	{
-		public CrossSectionRecord(string name, int id, string parameters, int materialId, int setId)
+		public CrossSectionRecord(string name, int id, string parameters, MaterialRecord material, SetRecord set)
 			: base(name, id)
 		{
 			Parameters = parameters;
-			MaterialId = materialId;
-			SetId = setId;
+			Material = material;
+			Set = set;
 		}
+		int IIndexableRecord.InputIndex { get; set; }
 		public string Parameters { get; }
-		public int MaterialId { get; }
-		public int SetId { get; }
-		public override string ToString() => $"{Name} {Id} {Parameters} {Keyword.material} {MaterialId} {Keyword.set} {SetId}";
+		public MaterialRecord Material { get; }
+		public SetRecord Set { get; internal set; }
 
-		public CrossSectionRecord WithSet(int newSetId) => new CrossSectionRecord(Name, Id, Parameters, MaterialId, newSetId);
+		public override string ToString() => $"{Name} {((IIndexableRecord)this).InputIndex} {Parameters} {Keyword.material} {((IIndexableRecord)Material).InputIndex} {Keyword.set} {((IIndexableRecord)Set).InputIndex}";
 	}
 
-	class MaterialRecord : NamedRecord
+	class MaterialRecord : NamedRecord, IIndexableRecord
 	{
 		public MaterialRecord(string name, int id, string parameters)
 			: base(name, id)
 		{
 			Parameters = parameters;
 		}
+		int IIndexableRecord.InputIndex { get; set; }
 		public string Parameters { get; }
-		public override string ToString() => $"{Name} {Id} {Parameters}";
+		public override string ToString() => $"{Name} {((IIndexableRecord)this).InputIndex} {Parameters}";
 	}
 
-	class BoundaryConditionRecord : NamedRecord
+	class BoundaryConditionRecord : NamedRecord, IIndexableRecord
 	{
-		public BoundaryConditionRecord(string name, int id, string parameters, int timeFunctionId, int setId)
+		public BoundaryConditionRecord(string name, int id, string parameters, TimeFunctionRecord timeFunction, SetRecord set)
 			: base(name, id)
 		{
 			Parameters = parameters;
-			TimeFunctionId = timeFunctionId;
-			SetId = setId;
+			TimeFunction = timeFunction;
+			Set = set;
 		}
+		int IIndexableRecord.InputIndex { get; set; }
 		public string Parameters { get; }
-		public int TimeFunctionId { get; }
-		public int SetId { get; }
-		public override string ToString() => $"{Name} {Id} {Parameters} {Keyword.loadTimeFunction} {TimeFunctionId} {Keyword.set} {SetId}";
+		public TimeFunctionRecord TimeFunction { get; }
+		public SetRecord Set { get; }
+		public override string ToString() => $"{Name} {((IIndexableRecord)this).InputIndex} {Parameters} {Keyword.loadTimeFunction} {((IIndexableRecord)TimeFunction).InputIndex} {Keyword.set} {((IIndexableRecord)Set).InputIndex}";
 	}
 
-	class TimeFunctionRecord : NamedRecord
+	class TimeFunctionRecord : NamedRecord, IIndexableRecord
 	{
 		readonly double? time, value;
 		readonly IReadOnlyList<KeyValuePair<double, double>> timeValuePairs;
+
 		public TimeFunctionRecord(string name, int id, IReadOnlyList<KeyValuePair<double, double>> timeValuePairs)
 			: base(name, id)
 		{
@@ -247,10 +262,12 @@ namespace OofemLink.Services.Export.OOFEM
 			this.value = value;
 		}
 
+		int IIndexableRecord.InputIndex { get; set; }
+
 		public override string ToString()
 		{
 			var text = new StringBuilder();
-			text.Append($"{Name} {Id}");
+			text.Append($"{Name} {((IIndexableRecord)this).InputIndex}");
 			if (time.HasValue)
 				text.Append(Invariant($" t {time.Value}"));
 			if (value.HasValue)
@@ -265,18 +282,18 @@ namespace OofemLink.Services.Export.OOFEM
 		}
 	}
 
-	class SetRecord : InputRecord
+	class SetRecord : InputRecord, IIndexableRecord
 	{
-		public SetRecord(Set set)
+		public SetRecord(MeshEntitySet set)
 		{
 			Set = set;
 		}
-		public int Id => Set.Id;
-		public Set Set { get; }
+		int IIndexableRecord.InputIndex { get; set; }
+		public MeshEntitySet Set { get; internal set; }
 		public override string ToString()
 		{
 			var text = new StringBuilder();
-			text.Append($"{Keyword.set} {Id}");
+			text.Append($"{Keyword.set} {((IIndexableRecord)this).InputIndex}");
 			if (Set.Nodes.Count > 0)
 			{
 				text.Append($" {Keyword.nodes} {Set.Nodes.Count} {string.Join(" ", Set.Nodes)}");
@@ -287,11 +304,11 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 			if (Set.ElementEdges.Count > 0)
 			{
-				text.Append($" {Keyword.elementedges} {Set.ElementEdges.Count * 2} {string.Join(" ", Set.ElementEdges.Select(pair => $"{pair.Key} {pair.Value}"))}");
+				text.Append($" {Keyword.elementedges} {Set.ElementEdges.Count * 2} {string.Join(" ", Set.ElementEdges.Select(edge => $"{edge.ElementId} {edge.EdgeRank}"))}");
 			}
 			if (Set.ElementSurfaces.Count > 0)
 			{
-				text.Append($" {Keyword.elementboundaries} {Set.ElementSurfaces.Count * 2} {string.Join(" ", Set.ElementSurfaces.Select(pair => $"{pair.Key} {pair.Value}"))}");
+				text.Append($" {Keyword.elementboundaries} {Set.ElementSurfaces.Count * 2} {string.Join(" ", Set.ElementSurfaces.Select(surface => $"{surface.ElementId} {surface.SurfaceRank}"))}");
 			}
 			return text.ToString();
 		}

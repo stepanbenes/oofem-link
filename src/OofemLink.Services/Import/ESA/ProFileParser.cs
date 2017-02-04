@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using OofemLink.Common.Extensions;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 
 namespace OofemLink.Services.Import.ESA
 {

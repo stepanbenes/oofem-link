@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using OofemLink.Common.OofemNames;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.MathPhys;

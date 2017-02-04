@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace OofemLink.Data.Entities
+namespace OofemLink.Data.DbEntities
 {
     public class Model
     {

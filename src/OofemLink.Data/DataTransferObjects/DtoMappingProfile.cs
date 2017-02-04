@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 
 namespace OofemLink.Data.DataTransferObjects
 {
@@ -17,7 +17,15 @@ namespace OofemLink.Data.DataTransferObjects
 				.ForMember(s => s.ProjectName, options => options.MapFrom(s => s.Project.Name));
 			CreateMap<Vertex, VertexDto>();
 			CreateMap<Curve, CurveDto>()
-				.ForMember(c => c.VertexIds, options => options.MapFrom(c => c.CurveVertices.OrderBy(v => v.Rank).Select(v => v.VertexId)));
+				.ForMember(c => c.VertexIds, options => options.MapFrom(c => c.CurveVertices.OrderBy(v => v.Rank).Select(v => v.VertexId).ToList()));
+			CreateMap<Mesh, MeshDto>();
+			CreateMap<Node, NodeDto>();
+			CreateMap<Element, ElementDto>()
+				.ForMember(e => e.NodeIds, options => options.MapFrom(e => e.ElementNodes.OrderBy(en => en.Rank).Select(en => en.NodeId).ToList()));
+			CreateMap<TimeStep, TimeStepDto>();
+			CreateMap<ModelAttribute, AttributeDto>()
+				.ForMember(a => a.ChildAttributes, options => options.MapFrom(a => a.ChildAttributes.Select(ca => Mapper.Map<ModelAttribute, AttributeDto>(ca.ChildAttribute)).ToList()))
+				.ForMember(a => a.HasParentAttributes, options => options.MapFrom(a => a.ParentAttributes.Count() != 0));
 			// DTO -> ENTITY
 			CreateMap<ProjectDto, Project>();
 			CreateMap<EditSimulationDto, Simulation>();

@@ -9,7 +9,7 @@ using OofemLink.Data.DataTransferObjects;
 using OofemLink.Services.Import;
 using OofemLink.Common.Encoding;
 using OofemLink.Data;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using Microsoft.Extensions.Logging;
 
 namespace OofemLink.Services.DataAccess

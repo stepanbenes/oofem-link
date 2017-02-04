@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 using OofemLink.Common.MathPhys;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.OofemNames;
-using OofemLink.Data.Entities;
+using OofemLink.Data.DbEntities;
 using static System.FormattableString;
 
 namespace OofemLink.Services.Import.ESA
@@ -328,7 +328,7 @@ namespace OofemLink.Services.Import.ESA
 					{
 						Type = AttributeType.Hinge,
 						Name = DofManagerNames.RigidArmNode,
-						Target = AttributeTarget.Undefined,
+						Target = AttributeTarget.NodeAndVolume,
 						Parameters = $"DofIDMask {dofArraysLength} {string.Join(" ", dofIDMaskArray)} doftype {dofArraysLength} {string.Join(" ", dofTypeArray)} mastermask {dofArraysLength} {string.Join(" ", masterMaskArray)}{lcsParameter}"
 					};
 
@@ -382,7 +382,7 @@ namespace OofemLink.Services.Import.ESA
 						{
 							Type = AttributeType.Spring,
 							Name = ElementNames.Spring,
-							Target = AttributeTarget.Undefined,
+							Target = AttributeTarget.NodeAndVolume,
 							Parameters = Invariant($"mode {mode} orientation 3 {orientation.X} {orientation.Y} {orientation.Z} k {k}")
 						};
 

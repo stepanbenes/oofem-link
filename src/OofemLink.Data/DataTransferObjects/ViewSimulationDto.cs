@@ -17,5 +17,7 @@ namespace OofemLink.Data.DataTransferObjects
 		public bool ZAxisUp { get; set; }
 
 		public int? ModelId { get; set; }
+
+		public IReadOnlyList<TimeStepDto> TimeSteps { get; set; }
 	}
 }

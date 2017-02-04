@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
-namespace OofemLink.Cli
+namespace OofemLink.Common.Diagnostics
 {
-	struct ConsoleBrush : IDisposable
+	public struct ConsoleBrush : IDisposable
 	{
 		readonly ConsoleColor colorToRestore;
 

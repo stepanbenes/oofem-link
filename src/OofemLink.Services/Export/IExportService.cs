@@ -7,6 +7,6 @@ namespace OofemLink.Services.Export
 {
 	public interface IExportService
 	{
-		void ExportSimulation(int simulationId);
+		Task ExportSimulationAsync(int simulationId);
 	}
 }
