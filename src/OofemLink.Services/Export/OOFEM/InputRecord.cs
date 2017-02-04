@@ -191,6 +191,11 @@ namespace OofemLink.Services.Export.OOFEM
 			int[] updatedNodeIds = NodeIds.Select(id => id == oldNodeId ? newNodeId : id).ToArray();
 			return new ElementRecord(Name, elementId, Type, updatedNodeIds, Parameters);
 		}
+
+		public ElementRecord WithNodes(int elementId, params int[] newNodeIds)
+		{
+			return new ElementRecord(Name, elementId, Type, newNodeIds, Parameters);
+		}
 	}
 
 	class CrossSectionRecord : NamedRecord, IIndexableRecord

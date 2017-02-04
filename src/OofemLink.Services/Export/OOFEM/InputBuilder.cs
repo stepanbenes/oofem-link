@@ -167,8 +167,6 @@ namespace OofemLink.Services.Export.OOFEM
 			if (!elementRecords.ContainsKey(recordId))
 				throw new KeyNotFoundException($"Element record with id {recordId} was not found");
 			elementRecords.Remove(recordId);
-
-			// TODO: remove element from all sets
 		}
 
 		public void AddCrossSectionRecord(CrossSectionRecord record)

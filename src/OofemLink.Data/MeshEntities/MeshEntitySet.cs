@@ -28,6 +28,8 @@ namespace OofemLink.Data.MeshEntities
 		public MeshEntitySet WithElementEdges(IReadOnlyList<ElementEdge> elementEdges) => new MeshEntitySet(Nodes, Elements, elementEdges, ElementSurfaces);
 		public MeshEntitySet WithElementSurfaces(IReadOnlyList<ElementSurface> elementSurfaces) => new MeshEntitySet(Nodes, Elements, ElementEdges, elementSurfaces);
 
+		// TODO: use immutable collections and optimize With method calls
+
 		public IReadOnlyList<int> Nodes { get; }
 		public IReadOnlyList<int> Elements { get; }
 		public IReadOnlyList<ElementEdge> ElementEdges { get; }

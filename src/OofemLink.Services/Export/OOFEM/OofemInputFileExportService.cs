@@ -4,12 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
 using OofemLink.Common.OofemNames;
 using OofemLink.Common.Enumerations;
 using OofemLink.Common.Extensions;
-using OofemLink.Data;
-using OofemLink.Data.DbEntities;
 using OofemLink.Common.MathPhys;
 using OofemLink.Services.DataAccess;
 using OofemLink.Data.DataTransferObjects;
@@ -42,8 +39,6 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public async Task ExportSimulationAsync(int simulationId)
 		{
-			// TODO: refactor this method to DataAccess.ModelService class, avoid DataContext dependency
-
 			// load simulation from db
 			var simulation = await simulationService.GetOneAsync(simulationId);
 
@@ -72,6 +67,7 @@ namespace OofemLink.Services.Export.OOFEM
 			var independentSpringAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Spring && !a.HasParentAttributes));
 
 			List<int> elementsWithDummyCS = new List<int>();
+			List<int> elementsToRemove = new List<int>();
 
 			// =========================================================================================
 
@@ -174,7 +170,7 @@ namespace OofemLink.Services.Export.OOFEM
 				input.AddDofManagerRecord(slaveNodeRecord);
 
 				var beamElementRecord = input.ElementRecords[set.Elements.Single()];
-				input.RemoveElementRecord(beamElementRecord.Id);
+				elementsToRemove.Add(beamElementRecord.Id);
 				var newElementRecord = beamElementRecord.WithReplacedNode(input.MaxElementId + 1, oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
 				input.AddElementRecord(newElementRecord);
 				copyAllAttributesFromElementToElement(input, beamElementRecord.Id, newElementRecord.Id);
@@ -319,35 +315,37 @@ namespace OofemLink.Services.Export.OOFEM
 				var partiallyAppliedLoads = await modelService.GetAllPartialAttributeOnCurveApplicationsAsync(modelId, mesh.Id, AttributeType.BoundaryCondition);
 				foreach (var partiallyAppliedLoad in partiallyAppliedLoads)
 				{
-					int boundaryConditionId = partiallyAppliedLoad.AttributeId;
-					int firstNewElementId, secondNewElementId;
-					if (partiallyAppliedLoad.RelativeStart.HasValue && partiallyAppliedLoad.RelativeStart.Value > 0)
+					var boundaryConditionRecord = input.BoundaryConditionRecords[partiallyAppliedLoad.AttributeId];
+					bool startIsLoose = partiallyAppliedLoad.RelativeStart.HasValue && partiallyAppliedLoad.RelativeStart.Value > 0;
+					bool endIsLoose = partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1;
+					if (startIsLoose)
 					{
-						splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeStart.Value, out firstNewElementId, out secondNewElementId);
-						input.RemoveElementRecord(partiallyAppliedLoad.ElementId);
-						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, firstNewElementId, exceptAttributeId: partiallyAppliedLoad.AttributeId);
-						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondNewElementId);
-
-						if (partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1)
-						{
-							int thirdNewElementId, fourthNewElementId;
-							double relativePosition = (partiallyAppliedLoad.RelativeEnd.Value - partiallyAppliedLoad.RelativeStart.Value) / (1.0 - partiallyAppliedLoad.RelativeStart.Value);
-							splitBeamElement(input, secondNewElementId, relativePosition, out thirdNewElementId, out fourthNewElementId);
-							input.RemoveElementRecord(secondNewElementId); // TODO: avoid create and immeadiate delete of element record
-							copyAllAttributesFromElementToElement(input, secondNewElementId, thirdNewElementId);
-							copyAllAttributesFromElementToElement(input, secondNewElementId, fourthNewElementId, exceptAttributeId: partiallyAppliedLoad.AttributeId);
-						}
+						var relativePositions = new List<double> { partiallyAppliedLoad.RelativeStart.Value };
+						if (endIsLoose)
+							relativePositions.Add((partiallyAppliedLoad.RelativeEnd.Value - partiallyAppliedLoad.RelativeStart.Value) / (1.0 - partiallyAppliedLoad.RelativeStart.Value));
+						var newElementIds = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions);
+						appendElementToSetRecord(boundaryConditionRecord.Set, newElementIds[1]);
 					}
-					else if (partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1)
+					else if (endIsLoose)
 					{
-						splitBeamElement(input, partiallyAppliedLoad.ElementId, partiallyAppliedLoad.RelativeEnd.Value, out firstNewElementId, out secondNewElementId);
-						input.RemoveElementRecord(partiallyAppliedLoad.ElementId);
-						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, firstNewElementId);
-						copyAllAttributesFromElementToElement(input, partiallyAppliedLoad.ElementId, secondNewElementId, exceptAttributeId: partiallyAppliedLoad.AttributeId);
+						var newElementIds = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions: new[] { partiallyAppliedLoad.RelativeEnd.Value });
+						appendElementToSetRecord(boundaryConditionRecord.Set, newElementIds[0]);
 					}
 					else
-						throw new InvalidOperationException();
+						throw new InvalidDataException($"Neither start nor end is not specified for partially applied load.");
+
+					elementsToRemove.Add(partiallyAppliedLoad.ElementId);
 				}
+			}
+
+			// remove unnecessary elements
+			foreach (var setRecord in input.SetRecords)
+			{
+				removeElementsFromSetRecord(setRecord, elementsToRemove);
+			}
+			foreach (var elementToRemove in elementsToRemove)
+			{
+				input.RemoveElementRecord(elementToRemove);
 			}
 
 			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
@@ -506,47 +504,63 @@ namespace OofemLink.Services.Export.OOFEM
 			throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
 		}
 
-		private void splitBeamElement(InputBuilder input, int elementToSplitId, double relativePosition, out int firstNewElementId, out int secondNewElementId)
+		private List<int> splitBeamElement(InputBuilder input, int elementToSplitId, IEnumerable<double> relativePositions)
 		{
-			if (relativePosition <= 0 || relativePosition >= 1)
-				throw new ArgumentOutOfRangeException(nameof(relativePosition), $"Argument is expected to be in range (0, 1), but has value {relativePosition}");
-
 			ElementRecord elementRecord = input.ElementRecords[elementToSplitId];
 
-			if (elementRecord.Name != ElementNames.beam3d)
-				throw new InvalidOperationException($"Element is expected to be of type {ElementNames.beam3d}");
+			if (elementRecord.Type != CellType.LineLinear)
+				throw new InvalidOperationException($"Element is expected to be of type {CellType.LineLinear}");
 
-			DofManagerRecord node1 = input.DofManagerRecords[elementRecord.NodeIds[0]];
-			DofManagerRecord node2 = input.DofManagerRecords[elementRecord.NodeIds[1]];
+			DofManagerRecord beginNode = input.DofManagerRecords[elementRecord.NodeIds[0]];
+			DofManagerRecord endNode = input.DofManagerRecords[elementRecord.NodeIds[1]];
 
-			Vector3d point1 = new Vector3d(node1.X, node1.Y, node1.Z);
-			Vector3d point2 = new Vector3d(node2.X, node2.Y, node2.Z);
-			Vector3d direction = point2 - point1;
-			Vector3d splitPoint = point1 + direction * relativePosition;
+			Vector3d beginPoint = new Vector3d(beginNode.X, beginNode.Y, beginNode.Z);
+			Vector3d endPoint = new Vector3d(endNode.X, endNode.Y, endNode.Z);
+			Vector3d direction = endPoint - beginPoint;
 
-			NodeRecord splitNodeRecord = new NodeRecord(input.MaxDofManagerId + 1, splitPoint.X, splitPoint.Y, splitPoint.Z);
-			input.AddDofManagerRecord(splitNodeRecord);
+			int node1Id = beginNode.Id;
+			int node2Id;
 
-			ElementRecord firstNewElementRecord = elementRecord.WithReplacedNode(input.MaxElementId + 1, node2.Id, splitNodeRecord.Id);
-			input.AddElementRecord(firstNewElementRecord);
-			ElementRecord secondNewElementRecord = elementRecord.WithReplacedNode(input.MaxElementId + 1, node1.Id, splitNodeRecord.Id);
-			input.AddElementRecord(secondNewElementRecord);
+			List<int> newElementIds = new List<int>();
 
-			firstNewElementId = firstNewElementRecord.Id;
-			secondNewElementId = secondNewElementRecord.Id;
+			foreach (double relativePosition in relativePositions)
+			{
+				if (relativePosition <= 0 || relativePosition >= 1)
+					throw new ArgumentOutOfRangeException(nameof(relativePosition), $"Argument is expected to be in range (0, 1), but has value {relativePosition}");
+
+				Vector3d splitPoint = beginPoint + direction * relativePosition;
+
+				NodeRecord splitNodeRecord = new NodeRecord(input.MaxDofManagerId + 1, splitPoint.X, splitPoint.Y, splitPoint.Z);
+				input.AddDofManagerRecord(splitNodeRecord);
+
+				node2Id = splitNodeRecord.Id;
+
+				ElementRecord newElementRecord = elementRecord.WithNodes(input.MaxElementId + 1, node1Id, node2Id);
+				input.AddElementRecord(newElementRecord);
+				copyAllAttributesFromElementToElement(input, elementToSplitId, newElementRecord.Id);
+				newElementIds.Add(newElementRecord.Id);
+
+				node1Id = node2Id;
+			}
+
+			ElementRecord lastElementRecord = elementRecord.WithNodes(input.MaxElementId + 1, node1Id, endNode.Id);
+			input.AddElementRecord(lastElementRecord);
+			copyAllAttributesFromElementToElement(input, elementToSplitId, lastElementRecord.Id);
+			newElementIds.Add(lastElementRecord.Id);
+
+			return newElementIds;
 		}
 
-		private void copyAllAttributesFromElementToElement(InputBuilder input, int sourceElementId, int targetElementId, int? exceptAttributeId = null)
+		private void copyAllAttributesFromElementToElement(InputBuilder input, int sourceElementId, int targetElementId)
 		{
-			var csSetRecords = input.CrossSectionRecords.Values.Where(cs => cs.Id != exceptAttributeId).Select(cs => cs.Set);
-			var bcSetRecords = input.BoundaryConditionRecords.Values.Where(bc => bc.Id != exceptAttributeId).Select(bc => bc.Set);
+			var csSetRecords = input.CrossSectionRecords.Values.Select(cs => cs.Set);
+			var bcSetRecords = input.BoundaryConditionRecords.Values.Select(bc => bc.Set);
 
 			foreach (var setRecord in csSetRecords.Concat(bcSetRecords))
 			{
 				if (setRecord.Set.Elements.Contains(sourceElementId))
 				{
-					int[] newElementSet = setRecord.Set.Elements.AppendItem(targetElementId).OrderBy(id => id).Distinct().ToArray();
-					setRecord.Set = setRecord.Set.WithElements(newElementSet); // update set record
+					appendElementToSetRecord(setRecord, targetElementId);
 				}
 
 				if (setRecord.Set.ElementEdges.Any(edge => edge.ElementId == sourceElementId))
@@ -557,7 +571,7 @@ namespace OofemLink.Services.Export.OOFEM
 						newEdgeList.Add(edge);
 						if (edge.ElementId == sourceElementId)
 						{
-							newEdgeList.Add(new ElementEdge(targetElementId, edge.EdgeRank)); // TODO: why the rank should be the same?
+							newEdgeList.Add(new ElementEdge(targetElementId, edge.EdgeRank)); // WARNING: copying edge rank works only for beams
 						}
 					}
 					setRecord.Set = setRecord.Set.WithElementEdges(newEdgeList.ToArray());
@@ -571,12 +585,28 @@ namespace OofemLink.Services.Export.OOFEM
 						newSurfaceList.Add(surface);
 						if (surface.ElementId == sourceElementId)
 						{
-							newSurfaceList.Add(new ElementSurface(targetElementId, surface.SurfaceRank)); // TODO: why the rank should be the same?
+							newSurfaceList.Add(new ElementSurface(targetElementId, surface.SurfaceRank)); // WARNING: copying surface rank works only for beams
 						}
 					}
 					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceList.ToArray());
 				}
 			}
+		}
+
+		private void appendElementToSetRecord(SetRecord setRecord, int elementIdToAppend)
+		{
+			var updatedElementList = setRecord.Set.Elements.AppendItem(elementIdToAppend).OrderBy(id => id).Distinct().ToList();
+			setRecord.Set = setRecord.Set.WithElements(updatedElementList); // update set record
+		}
+
+		private void removeElementsFromSetRecord(SetRecord setRecord, IEnumerable<int> elementIdsToRemove)
+		{
+			// TODO: optimize this, use System.Collections.Immutable.ImmutableSortedSet<>
+
+			var updatedElementList = setRecord.Set.Elements.Except(elementIdsToRemove).ToList();
+			var updatedEdgeList = setRecord.Set.ElementEdges.Where(edge => !elementIdsToRemove.Contains(edge.ElementId)).ToList();
+			var updatedSurfaceList = setRecord.Set.ElementSurfaces.Where(surface => !elementIdsToRemove.Contains(surface.ElementId)).ToList();
+			setRecord.Set = setRecord.Set.WithElements(updatedElementList).WithElementEdges(updatedEdgeList).WithElementSurfaces(updatedSurfaceList); // update set record
 		}
 
 		#endregion
