@@ -385,6 +385,7 @@ namespace OofemLink.Services.Export.OOFEM
 				foreach (var partiallyAppliedLoad in partiallyAppliedLoads)
 				{
 					var boundaryConditionRecord = input.BoundaryConditionRecords[partiallyAppliedLoad.AttributeId];
+					var setRecord = boundaryConditionRecord.Set;
 					bool startIsLoose = partiallyAppliedLoad.RelativeStart.HasValue && partiallyAppliedLoad.RelativeStart.Value > 0;
 					bool endIsLoose = partiallyAppliedLoad.RelativeEnd.HasValue && partiallyAppliedLoad.RelativeEnd.Value < 1;
 					if (startIsLoose)
@@ -393,12 +394,14 @@ namespace OofemLink.Services.Export.OOFEM
 						if (endIsLoose)
 							relativePositions.Add((partiallyAppliedLoad.RelativeEnd.Value - partiallyAppliedLoad.RelativeStart.Value) / (1.0 - partiallyAppliedLoad.RelativeStart.Value));
 						var newElementIds = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions);
-						appendElementToSetRecord(boundaryConditionRecord.Set, newElementIds[0]);
+						// append edge to set record
+						setRecord.Set = setRecord.Set.WithElementEdges(setRecord.Set.ElementEdges.Add(new ElementEdge(newElementIds[0], edgeRank: 1)));
 					}
 					else if (endIsLoose)
 					{
-						var newElementIds = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions: new[] { partiallyAppliedLoad.RelativeEnd.Value });
-						appendElementToSetRecord(boundaryConditionRecord.Set, partiallyAppliedLoad.ElementId);
+						var ignored = splitBeamElement(input, partiallyAppliedLoad.ElementId, relativePositions: new[] { partiallyAppliedLoad.RelativeEnd.Value });
+						// append edge to set record
+						setRecord.Set = setRecord.Set.WithElementEdges(setRecord.Set.ElementEdges.Add(new ElementEdge(partiallyAppliedLoad.ElementId, edgeRank: 1)));
 					}
 					else
 						throw new InvalidDataException($"Neither start nor end is not specified for partially applied load.");
@@ -619,7 +622,7 @@ namespace OofemLink.Services.Export.OOFEM
 			{
 				if (setRecord.Set.Elements.Contains(sourceElementId))
 				{
-					appendElementToSetRecord(setRecord, targetElementId);
+					setRecord.Set = setRecord.Set.WithElements(setRecord.Set.Elements.Add(targetElementId));
 				}
 
 				if (setRecord.Set.ElementEdges.Any(edge => edge.ElementId == sourceElementId))
@@ -650,12 +653,6 @@ namespace OofemLink.Services.Export.OOFEM
 					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceList);
 				}
 			}
-		}
-
-		private void appendElementToSetRecord(SetRecord setRecord, int elementIdToAppend)
-		{
-			var updatedElements = setRecord.Set.Elements.Add(elementIdToAppend);
-			setRecord.Set = setRecord.Set.WithElements(updatedElements); // update set record
 		}
 
 		#endregion
