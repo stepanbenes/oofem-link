@@ -226,9 +226,8 @@ namespace OofemLink.Services.Export.OOFEM
 					beamElementRecord.ReplaceNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
 
 					// hinge springs
-					foreach (int childAttributeId in hinge.ChildAttributeIds)
+					foreach (var childAttribute in hinge.ChildAttributes)
 					{
-						var childAttribute = await modelService.GetAttributeAsync(modelId, childAttributeId);
 						if (childAttribute.Type == AttributeType.Spring)
 						{
 							var springElementRecord = new ElementRecord(childAttribute.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: childAttribute.Parameters);
@@ -254,10 +253,10 @@ namespace OofemLink.Services.Export.OOFEM
 				for (int i = 0; i < crossSectionAttributes.Count; i++)
 				{
 					var crossSectionAttribute = crossSectionAttributes[i];
-					int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
+					var materialAttribute = crossSectionAttribute.ChildAttributes.Single(a => a.Type == AttributeType.Material); // TODO: handle cases with non-single referenced materials
 					var setRecord = new SetRecord(attributeSetMap[crossSectionAttribute.Id]);
 					input.AddSetRecord(setRecord);
-					input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
+					input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialAttribute.Id], set: setRecord));
 				}
 			}
 

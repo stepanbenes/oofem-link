@@ -18,7 +18,7 @@ namespace OofemLink.Data.DataTransferObjects
 
 		public int TimeFunctionId { get; set; }
 
-		public IReadOnlyList<int> ChildAttributeIds { get; set; }
+		public IReadOnlyList<AttributeDto> ChildAttributes { get; set; }
 		public bool HasParentAttributes { get; set; }
 	}
 }

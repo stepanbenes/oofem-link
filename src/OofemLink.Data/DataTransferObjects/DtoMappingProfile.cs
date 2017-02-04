@@ -24,7 +24,7 @@ namespace OofemLink.Data.DataTransferObjects
 				.ForMember(e => e.NodeIds, options => options.MapFrom(e => e.ElementNodes.OrderBy(en => en.Rank).Select(en => en.NodeId).ToList()));
 			CreateMap<TimeStep, TimeStepDto>();
 			CreateMap<ModelAttribute, AttributeDto>()
-				.ForMember(a => a.ChildAttributeIds, options => options.MapFrom(a => a.ChildAttributes.Select(ca => ca.ChildAttributeId).ToList()))
+				.ForMember(a => a.ChildAttributes, options => options.MapFrom(a => a.ChildAttributes.Select(ca => Mapper.Map<ModelAttribute, AttributeDto>(ca.ChildAttribute)).ToList()))
 				.ForMember(a => a.HasParentAttributes, options => options.MapFrom(a => a.ParentAttributes.Count() != 0));
 			// DTO -> ENTITY
 			CreateMap<ProjectDto, Project>();
