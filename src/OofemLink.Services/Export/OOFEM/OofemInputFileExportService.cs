@@ -131,7 +131,6 @@ namespace OofemLink.Services.Export.OOFEM
 				Debug.Assert(set.Nodes.Count == 0);
 				Debug.Assert(set.ElementEdges.Count == 0);
 				Debug.Assert(set.ElementSurfaces.Count == 0);
-				Debug.Assert(set.Elements.Count > 0);
 				string lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
 				foreach (int elementId in set.Elements)
 				{

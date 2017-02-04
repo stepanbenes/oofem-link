@@ -9,8 +9,8 @@ namespace OofemLink.Common.Enumerations
     {
 		Undefined = 0,
 		Node = 1,
-		Edge,
-		Surface,
-		Volume
+		Edge = 2,
+		Surface = 3,
+		Volume = 4
     }
 }

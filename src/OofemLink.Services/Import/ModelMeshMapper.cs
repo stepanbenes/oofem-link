@@ -28,7 +28,7 @@ namespace OofemLink.Services.Import
 				throw new InvalidOperationException($"Curve with id {curveId} is not attached to macro with id {macroId}.");
 			for (int elementId = startElementId; elementId <= endElementId; elementId++)
 			{
-				var edge = new CurveElement { Model = model, Mesh = mesh, CurveId = macroCurveMapping.CurveId, ElementId = elementId, Rank = 1 /*refers to single edge of 1D element*/ };
+				var edge = new CurveElement { Model = model, Mesh = mesh, CurveId = macroCurveMapping.CurveId, ElementId = elementId, Rank = 0 /*refers to single edge of 1D element*/ };
 				mesh.CurveElements.Add(edge);
 			}
 		}
@@ -42,7 +42,7 @@ namespace OofemLink.Services.Import
 				throw new InvalidOperationException($"Macro with id {macro.Id} does not contain link to surface.");
 			for (int elementId = startElementId; elementId <= endElementId; elementId++)
 			{
-				var face = new SurfaceElement { Model = model, Mesh = mesh, SurfaceId = macroSurfaceMapping.SurfaceId, ElementId = elementId, Rank = 1 /*refers to single surface of 2D element*/ };
+				var face = new SurfaceElement { Model = model, Mesh = mesh, SurfaceId = macroSurfaceMapping.SurfaceId, ElementId = elementId, Rank = 0 /*refers to single surface of 2D element*/ };
 				mesh.SurfaceElements.Add(face);
 			}
 		}

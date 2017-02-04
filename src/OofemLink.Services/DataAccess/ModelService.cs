@@ -200,7 +200,7 @@ namespace OofemLink.Services.DataAccess
 								  where curveAttribute.Attribute.Target == attributeTarget
 								  from curveElement in curveAttribute.Curve.CurveElements
 								  where curveElement.MeshId == meshId
-								  //where curveElement.Rank == 0
+								  where curveElement.Rank == 0
 								  select curveElement.ElementId;
 			var elements2dQuery = from surfaceAttribute in Context.Set<SurfaceAttribute>()
 								  where surfaceAttribute.ModelId == modelId
@@ -208,7 +208,7 @@ namespace OofemLink.Services.DataAccess
 								  where surfaceAttribute.Attribute.Target == attributeTarget
 								  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
 								  where surfaceElement.MeshId == meshId
-								  //where surfaceElement.Rank == 0
+								  where surfaceElement.Rank == 0
 								  select surfaceElement.ElementId;
 			var elements3dQuery = from volumeAttribute in Context.Set<VolumeAttribute>()
 								  where volumeAttribute.ModelId == modelId
@@ -216,7 +216,6 @@ namespace OofemLink.Services.DataAccess
 								  where volumeAttribute.Attribute.Target == attributeTarget
 								  from volumeElement in volumeAttribute.Volume.VolumeElements
 								  where volumeElement.MeshId == meshId
-								  //where volumeElement.Rank == 0
 								  select volumeElement.ElementId;
 			return elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery).OrderBy(id => id).Distinct();
 		}
