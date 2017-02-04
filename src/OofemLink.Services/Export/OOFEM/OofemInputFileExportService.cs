@@ -70,6 +70,7 @@ namespace OofemLink.Services.Export.OOFEM
 			}
 
 			IReadOnlyList<AttributeDto> crossSectionAttributes, materialAttributes, boundaryConditionAttributes, hingeAttributes, lcsAttributes, independentSpringAttributes;
+			IReadOnlyDictionary<int, MeshEntitySet> attributeSetMap;
 
 			using (new TimeReport("CS QUERY"))
 			{
@@ -94,6 +95,10 @@ namespace OofemLink.Services.Export.OOFEM
 			using (new TimeReport("SPRING QUERY"))
 			{
 				independentSpringAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Spring && !a.HasParentAttributes));
+			}
+			using (new TimeReport("ATTRIBUTE SET MAP"))
+			{
+				attributeSetMap = await modelService.GetAttributeSetMapAsync(modelId, mesh.Id);
 			}
 
 			List<int> elementsWithDummyCS = new List<int>();
@@ -166,15 +171,19 @@ namespace OofemLink.Services.Export.OOFEM
 				// LOCAL COORDINATE SYSTEMS
 				foreach (var lcsAttribute in lcsAttributes)
 				{
-					MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, lcsAttribute.Id, mesh.Id);
-					Debug.Assert(set.Nodes.Count == 0);
-					Debug.Assert(set.ElementEdges.Count == 0);
-					Debug.Assert(set.ElementSurfaces.Count == 0);
-					string lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
-					foreach (int elementId in set.Elements)
+					MeshEntitySet set;
+					if (attributeSetMap.TryGetValue(lcsAttribute.Id, out set))
 					{
-						var elementRecord = input.ElementRecords[elementId];
-						elementRecord.Parameters = lcsParameter;
+						Debug.Assert(set.Nodes.Count == 0);
+						Debug.Assert(set.ElementEdges.Count == 0);
+						Debug.Assert(set.ElementSurfaces.Count == 0);
+						Debug.Assert(set.Elements.Count > 0);
+						string lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+						foreach (int elementId in set.Elements)
+						{
+							var elementRecord = input.ElementRecords[elementId];
+							elementRecord.Parameters = lcsParameter;
+						}
 					}
 				}
 			}
@@ -184,7 +193,7 @@ namespace OofemLink.Services.Export.OOFEM
 				// SPRINGS
 				foreach (var spring in independentSpringAttributes)
 				{
-					MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, spring.Id, mesh.Id);
+					MeshEntitySet set = attributeSetMap[spring.Id];
 					foreach (var nodeId in set.Nodes)
 					{
 						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
@@ -208,7 +217,7 @@ namespace OofemLink.Services.Export.OOFEM
 				// HINGES
 				foreach (var hinge in hingeAttributes)
 				{
-					var set = await modelService.GetAttributeSetAsync(modelId, hinge.Id, mesh.Id);
+					var set = attributeSetMap[hinge.Id];
 					var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
 					var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
 					input.AddDofManagerRecord(slaveNodeRecord);
@@ -246,7 +255,7 @@ namespace OofemLink.Services.Export.OOFEM
 				{
 					var crossSectionAttribute = crossSectionAttributes[i];
 					int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
-					var setRecord = new SetRecord(await modelService.GetAttributeSetAsync(modelId, crossSectionAttribute.Id, mesh.Id));
+					var setRecord = new SetRecord(attributeSetMap[crossSectionAttribute.Id]);
 					input.AddSetRecord(setRecord);
 					input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
 				}
@@ -267,7 +276,10 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddTimeFunctionRecord(timeFunctionRecord);
 						timeFunctionIdToRecordMap.Add(bcAttribute.TimeFunctionId, timeFunctionRecord);
 					}
-					var setRecord = new SetRecord(await modelService.GetAttributeSetAsync(modelId, bcAttribute.Id, mesh.Id));
+					MeshEntitySet set;
+					if (!attributeSetMap.TryGetValue(bcAttribute.Id, out set))
+						set = MeshEntitySet.Empty;
+					var setRecord = new SetRecord(set);
 					input.AddSetRecord(setRecord);
 					input.AddBoundaryConditionRecord(new BoundaryConditionRecord(bcAttribute.Name, id: bcAttribute.Id, parameters: bcAttribute.Parameters, timeFunction: timeFunctionRecord, set: setRecord));
 				}
@@ -278,7 +290,7 @@ namespace OofemLink.Services.Export.OOFEM
 				// append dummy cross-section and material if needed
 				if (elementsWithDummyCS.Count > 0)
 				{
-					var set = new MeshEntitySet().WithElements(elementsWithDummyCS);
+					var set = MeshEntitySet.Empty.WithElements(elementsWithDummyCS);
 					var setRecord = new SetRecord(set);
 					var dummyMaterialRecord = createDummyMaterialRecord();
 					var dummyCrossSectionRecord = createDummyCrossSectionRecord(dummyMaterialRecord, setRecord);
@@ -331,7 +343,7 @@ namespace OofemLink.Services.Export.OOFEM
 					/* 
 						yay! ✿ (◠‿◠) ♥
 					*/
-					var setRecord = new SetRecord(new MeshEntitySet().WithNodes(nodesThatNeedToBeFixed));
+					var setRecord = new SetRecord(MeshEntitySet.Empty.WithNodes(nodesThatNeedToBeFixed));
 					var timeFunctionRecord = new TimeFunctionRecord(TimeFunctionNames.ConstantFunction, id: 0, value: 1);
 					string parameters = $"dofs 1 {dofId} values 1 0";
 					var boundaryConditionRecord = new BoundaryConditionRecord(BoundaryConditionNames.BoundaryCondition, 0, parameters, timeFunctionRecord, setRecord);
@@ -360,7 +372,7 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddElementRecord(soilElementRecord);
 						soilElementIds.Add(soilElementRecord.Id);
 					}
-					var newSetRecord = new SetRecord(new MeshEntitySet().WithElements(soilElementIds));
+					var newSetRecord = new SetRecord(MeshEntitySet.Empty.WithElements(soilElementIds));
 					input.AddSetRecord(newSetRecord);
 					crossSectionRecord.Set = newSetRecord; // replace old set with new set with newly created soil elements
 				}
@@ -427,7 +439,7 @@ namespace OofemLink.Services.Export.OOFEM
 					regionSets: Array.Empty<SetRecord>());
 			}
 
-			var regionSet = new MeshEntitySet().WithElements(mitc4shellElementIds);
+			var regionSet = MeshEntitySet.Empty.WithElements(mitc4shellElementIds);
 			var regionSetRecord = new SetRecord(regionSet);
 
 			input.AddSetRecord(regionSetRecord);

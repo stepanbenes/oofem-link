@@ -53,9 +53,15 @@ namespace OofemLink.Services.DataAccess
 
 		public async Task ChangeSimulationState(int simulationId, SimulationState newState)
 		{
-			var entity = new Simulation { Id = simulationId, State = newState };
-			Context.Simulations.Attach(entity);
-			Context.Entry(entity).Property(s => s.State).IsModified = true;
+			// this does not work if entity is alredy tracked. (System.InvalidOperationException)
+			
+			//var entity = new Simulation { Id = simulationId, State = newState };
+			//Context.Simulations.Attach(entity);
+			//Context.Entry(entity).Property(s => s.State).IsModified = true;
+			//await Context.SaveChangesAsync();
+
+			var simulation = await Context.Simulations.FindAsync(simulationId);
+			simulation.State = newState;
 			await Context.SaveChangesAsync();
 		}
 	}

@@ -23,6 +23,7 @@ namespace OofemLink.Services.DataAccess
 		Task<TimeFunctionDto> GetTimeFunctionAsync(int modelId, int timeFunctionId);
 
 		Task<MeshEntitySet> GetAttributeSetAsync(int modelId, int attributeId, int meshId);
+		Task<IReadOnlyDictionary<int, MeshEntitySet>> GetAttributeSetMapAsync(int modelId, int meshId);
 		Task<IReadOnlyList<PartialAttributeApplication>> GetAllPartialAttributeOnCurveApplicationsAsync(int modelId, int meshId, AttributeType attributeType);
 	}
 }

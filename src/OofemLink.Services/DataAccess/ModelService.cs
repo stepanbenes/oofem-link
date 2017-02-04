@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using OofemLink.Common.OofemNames;
 using OofemLink.Data.MeshEntities;
 using OofemLink.Common.Enumerations;
+using System.Collections.Immutable;
 
 namespace OofemLink.Services.DataAccess
 {
@@ -89,8 +90,8 @@ namespace OofemLink.Services.DataAccess
 					return new PiecewiseLinFunctionDto
 					{
 						Id = timeFunction.Id,
-						TimeNumbers = timeValues.Select(tv => tv.Key).ToList(),
-						Values = timeValues.Select(tv => tv.Value).ToList()
+						TimeNumbers = timeValues.Keys.ToList(),
+						Values = timeValues.Values.ToList()
 					};
 				default:
 					throw new NotSupportedException($"Load time function of type '{timeFunction.Name}' is not supported");
@@ -105,74 +106,129 @@ namespace OofemLink.Services.DataAccess
 			{
 				case AttributeTarget.Node:
 					{
-						var vertexQuery = from vertexAttribute in Context.Set<VertexAttribute>()
-										  where vertexAttribute.ModelId == modelId
-										  where vertexAttribute.AttributeId == attributeId
-										  where vertexAttribute.Attribute.Target == AttributeTarget.Node
-										  from vertexNode in vertexAttribute.Vertex.VertexNodes
-										  where vertexNode.MeshId == meshId
-										  select vertexNode.NodeId;
-						var curveQuery = from curveAttribute in Context.Set<CurveAttribute>() // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
-										 where curveAttribute.ModelId == modelId
-										 where curveAttribute.AttributeId == attributeId
-										 where curveAttribute.Attribute.Target == AttributeTarget.Node
-										 from curveNode in curveAttribute.Curve.CurveNodes
-										 where curveNode.MeshId == meshId
-										 select curveNode.NodeId;
+						var vertexQuery = createVertexNodeAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Node);
+						var curveQuery = createCurveNodeAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Node); // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
 						var query = vertexQuery.Concat(curveQuery);
 						var nodes = await query.ToListAsync();
-						return new MeshEntitySet().WithNodes(nodes);
+						return MeshEntitySet.Empty.WithNodes(nodes);
 					}
 				case AttributeTarget.Edge:
 					{
-						var query = from curveAttribute in Context.Set<CurveAttribute>()
-									where curveAttribute.ModelId == modelId
-									where curveAttribute.AttributeId == attributeId
-									where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
-									where curveAttribute.Attribute.Target == AttributeTarget.Edge
-									from curveElement in curveAttribute.Curve.CurveElements
-									where curveElement.MeshId == meshId
-									orderby curveElement.ElementId, curveElement.Rank
-									select new ElementEdge(curveElement.ElementId, curveElement.Rank);
+						var query = createCurveEdgeAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Edge);
 						var edges = await query.ToListAsync();
-						return new MeshEntitySet().WithElementEdges(edges);
+						return MeshEntitySet.Empty.WithElementEdges(edges);
 					}
 				case AttributeTarget.Surface:
 					{
-						var query = from surfaceAttribute in Context.Set<SurfaceAttribute>()
-									where surfaceAttribute.ModelId == modelId
-									where surfaceAttribute.AttributeId == attributeId
-									where surfaceAttribute.Attribute.Target == AttributeTarget.Surface
-									from surfaceElement in surfaceAttribute.Surface.SurfaceElements
-									where surfaceElement.MeshId == meshId
-									orderby surfaceElement.ElementId, surfaceElement.Rank
-									select new ElementSurface(surfaceElement.ElementId, surfaceElement.Rank);
+						var query = createSurfaceSurfaceAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Surface);
 						var surfaces = await query.ToListAsync();
-						return new MeshEntitySet().WithElementSurfaces(surfaces);
+						return MeshEntitySet.Empty.WithElementSurfaces(surfaces);
 					}
 				case AttributeTarget.Volume:
 					{
 						var elementsQuery = createElementAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Volume);
 						var elements = await elementsQuery.ToListAsync();
-						return new MeshEntitySet().WithElements(elements);
+						return MeshEntitySet.Empty.WithElements(elements);
 					}
 				case AttributeTarget.Undefined:
 					{
-						var nodesQuery = from vertexAttribute in Context.Set<VertexAttribute>()
-										 where vertexAttribute.ModelId == modelId
-										 where vertexAttribute.AttributeId == attributeId
-										 where vertexAttribute.Attribute.Target == AttributeTarget.Undefined
-										 from vertexNode in vertexAttribute.Vertex.VertexNodes
-										 where vertexNode.MeshId == meshId
-										 orderby vertexNode.NodeId
-										 select vertexNode.NodeId;
+						var nodesQuery = createVertexNodeAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Undefined);
 						var elementsQuery = createElementAttributeQuery(modelId, attributeId, meshId, AttributeTarget.Undefined);
 						var nodes = await nodesQuery.ToListAsync();
 						var elements = await elementsQuery.ToListAsync();
-						return new MeshEntitySet().WithNodes(nodes).WithElements(elements);
+						return MeshEntitySet.Empty.WithNodes(nodes).WithElements(elements);
 					}
 				default:
 					throw new NotSupportedException($"Attribute target {attribute.Target} is not supported");
+			}
+		}
+
+		public async Task<IReadOnlyDictionary<int, MeshEntitySet>> GetAttributeSetMapAsync(int modelId, int meshId)
+		{
+			var map = new Dictionary<int, MeshEntitySet>();
+
+			// AttributeTarget.Node:
+			{
+				var nodeGroups1 = await createVertexNodeAttributeGroupQuery(modelId, meshId, AttributeTarget.Node).ToListAsync();
+				var nodeGroups2 = await createCurveNodeAttributeGroupQuery(modelId, meshId, AttributeTarget.Node).ToListAsync(); // some attributes assigned to curves are meant to be applied to nodes (BoundaryCondition)
+				addNodeGroupsToSetMap(map, nodeGroups1);
+				addNodeGroupsToSetMap(map, nodeGroups2);
+			}
+			// AttributeTarget.Edge:
+			{
+				var edgeGroups = await createCurveEdgeAttributeGroupQuery(modelId, meshId, AttributeTarget.Edge).ToListAsync();
+				addEdgeGroupsToSetMap(map, edgeGroups);
+			}
+			// AttributeTarget.Surface:
+			{
+				var surfaceGroups = await createSurfaceSurfaceAttributeGroupQuery(modelId, meshId, AttributeTarget.Surface).ToListAsync();
+				addSurfaceGroupsToSetMap(map, surfaceGroups);
+			}
+			// AttributeTarget.Volume:
+			{
+				var elementGroups1 = await createCurveElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Volume).ToListAsync();
+				var elementGroups2 = await createSurfaceElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Volume).ToListAsync();
+				var elementGroups3 = await createVolumeElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Volume).ToListAsync();
+				addElementGroupsToSetMap(map, elementGroups1);
+				addElementGroupsToSetMap(map, elementGroups2);
+				addElementGroupsToSetMap(map, elementGroups3);
+			}
+			// AttributeTarget.Undefined:
+			{
+				var nodeGroups = await createVertexNodeAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
+				var elementGroups1 = await createCurveElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
+				var elementGroups2 = await createSurfaceElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
+				var elementGroups3 = await createVolumeElementAttributeGroupQuery(modelId, meshId, AttributeTarget.Undefined).ToListAsync();
+				addNodeGroupsToSetMap(map, nodeGroups);
+				addElementGroupsToSetMap(map, elementGroups1);
+				addElementGroupsToSetMap(map, elementGroups2);
+				addElementGroupsToSetMap(map, elementGroups3);
+			}
+
+			return map;
+		}
+
+		private static void addNodeGroupsToSetMap(Dictionary<int, MeshEntitySet> setMap, List<IGrouping<int, int>> nodeGroups)
+		{
+			foreach (var nodeGroup in nodeGroups)
+			{
+				MeshEntitySet set;
+				if (!setMap.TryGetValue(nodeGroup.Key, out set))
+					set = MeshEntitySet.Empty;
+				setMap[nodeGroup.Key] = set.WithNodes(set.Nodes.Union(nodeGroup));
+			}
+		}
+
+		private static void addElementGroupsToSetMap(Dictionary<int, MeshEntitySet> setMap, List<IGrouping<int, int>> elementGroups)
+		{
+			foreach (var elementGroup in elementGroups)
+			{
+				MeshEntitySet set;
+				if (!setMap.TryGetValue(elementGroup.Key, out set))
+					set = MeshEntitySet.Empty;
+				setMap[elementGroup.Key] = set.WithElements(set.Elements.Union(elementGroup));
+			}
+		}
+
+		private static void addEdgeGroupsToSetMap(Dictionary<int, MeshEntitySet> setMap, List<IGrouping<int, ElementEdge>> edgeGroups)
+		{
+			foreach (var edgeGroup in edgeGroups)
+			{
+				MeshEntitySet set;
+				if (!setMap.TryGetValue(edgeGroup.Key, out set))
+					set = MeshEntitySet.Empty;
+				setMap[edgeGroup.Key] = set.WithElementEdges(set.ElementEdges.Union(edgeGroup));
+			}
+		}
+
+		private static void addSurfaceGroupsToSetMap(Dictionary<int, MeshEntitySet> setMap, List<IGrouping<int, ElementSurface>> surfaceGroups)
+		{
+			foreach (var surfaceGroup in surfaceGroups)
+			{
+				MeshEntitySet set;
+				if (!setMap.TryGetValue(surfaceGroup.Key, out set))
+					set = MeshEntitySet.Empty;
+				setMap[surfaceGroup.Key] = set.WithElementSurfaces(set.ElementSurfaces.Union(surfaceGroup));
 			}
 		}
 
@@ -191,41 +247,187 @@ namespace OofemLink.Services.DataAccess
 
 		#region Private methods
 
+		#region Single attribute queries
+
+		private IQueryable<int> createVertexNodeAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from vertexAttribute in Context.Set<VertexAttribute>()
+				   where vertexAttribute.ModelId == modelId
+				   where vertexAttribute.AttributeId == attributeId
+				   where vertexAttribute.Attribute.Target == attributeTarget
+				   from vertexNode in vertexAttribute.Vertex.VertexNodes
+				   where vertexNode.MeshId == meshId
+				   select vertexNode.NodeId;
+		}
+
+		private IQueryable<int> createCurveNodeAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from curveAttribute in Context.Set<CurveAttribute>()
+				   where curveAttribute.ModelId == modelId
+				   where curveAttribute.AttributeId == attributeId
+				   where curveAttribute.Attribute.Target == attributeTarget
+				   from curveNode in curveAttribute.Curve.CurveNodes
+				   where curveNode.MeshId == meshId
+				   select curveNode.NodeId;
+		}
+
+		private IQueryable<ElementEdge> createCurveEdgeAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from curveAttribute in Context.Set<CurveAttribute>()
+				   where curveAttribute.ModelId == modelId
+				   where curveAttribute.AttributeId == attributeId
+				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
+				   where curveAttribute.Attribute.Target == attributeTarget
+				   from curveElement in curveAttribute.Curve.CurveElements
+				   where curveElement.MeshId == meshId
+				   select new ElementEdge(curveElement.ElementId, curveElement.Rank);
+		}
+
+		private IQueryable<ElementSurface> createSurfaceSurfaceAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+				   where surfaceAttribute.ModelId == modelId
+				   where surfaceAttribute.AttributeId == attributeId
+				   where surfaceAttribute.Attribute.Target == attributeTarget
+				   from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+				   where surfaceElement.MeshId == meshId
+				   select new ElementSurface(surfaceElement.ElementId, surfaceElement.Rank);
+		}
+
+		private IQueryable<int> createCurveElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from curveAttribute in Context.Set<CurveAttribute>()
+				   where curveAttribute.ModelId == modelId
+				   where curveAttribute.AttributeId == attributeId
+				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
+				   where curveAttribute.Attribute.Target == attributeTarget
+				   from curveElement in curveAttribute.Curve.CurveElements
+				   where curveElement.MeshId == meshId
+				   where curveElement.Rank == 0
+				   select curveElement.ElementId;
+		}
+
+		private IQueryable<int> createSurfaceElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+				   where surfaceAttribute.ModelId == modelId
+				   where surfaceAttribute.AttributeId == attributeId
+				   where surfaceAttribute.Attribute.Target == attributeTarget
+				   from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+				   where surfaceElement.MeshId == meshId
+				   where surfaceElement.Rank == 0
+				   select surfaceElement.ElementId;
+		}
+
+		private IQueryable<int> createVolumeElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from volumeAttribute in Context.Set<VolumeAttribute>()
+				   where volumeAttribute.ModelId == modelId
+				   where volumeAttribute.AttributeId == attributeId
+				   where volumeAttribute.Attribute.Target == attributeTarget
+				   from volumeElement in volumeAttribute.Volume.VolumeElements
+				   where volumeElement.MeshId == meshId
+				   select volumeElement.ElementId;
+		}
+
 		private IQueryable<int> createElementAttributeQuery(int modelId, int attributeId, int meshId, AttributeTarget attributeTarget)
 		{
-			var elements1dQuery = from curveAttribute in Context.Set<CurveAttribute>()
-								  where curveAttribute.ModelId == modelId
-								  where curveAttribute.AttributeId == attributeId
-								  where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
-								  where curveAttribute.Attribute.Target == attributeTarget
-								  from curveElement in curveAttribute.Curve.CurveElements
-								  where curveElement.MeshId == meshId
-								  where curveElement.Rank == 0
-								  select curveElement.ElementId;
-			var elements2dQuery = from surfaceAttribute in Context.Set<SurfaceAttribute>()
-								  where surfaceAttribute.ModelId == modelId
-								  where surfaceAttribute.AttributeId == attributeId
-								  where surfaceAttribute.Attribute.Target == attributeTarget
-								  from surfaceElement in surfaceAttribute.Surface.SurfaceElements
-								  where surfaceElement.MeshId == meshId
-								  where surfaceElement.Rank == 0
-								  select surfaceElement.ElementId;
-			var elements3dQuery = from volumeAttribute in Context.Set<VolumeAttribute>()
-								  where volumeAttribute.ModelId == modelId
-								  where volumeAttribute.AttributeId == attributeId
-								  where volumeAttribute.Attribute.Target == attributeTarget
-								  from volumeElement in volumeAttribute.Volume.VolumeElements
-								  where volumeElement.MeshId == meshId
-								  select volumeElement.ElementId;
+			var elements1dQuery = createCurveElementAttributeQuery(modelId, attributeId, meshId, attributeTarget);
+			var elements2dQuery = createSurfaceElementAttributeQuery(modelId, attributeId, meshId, attributeTarget);
+			var elements3dQuery = createVolumeElementAttributeQuery(modelId, attributeId, meshId, attributeTarget);
 			return elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
 		}
 
-		private List<KeyValuePair<int, double>> getTimeStepFunctionValuePairs(TimeFunction timeFunction)
+		#endregion
+
+		#region Attribute map queries
+
+		private IQueryable<IGrouping<int, int>> createVertexNodeAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
 		{
-			var resultQuery = from tfValue in timeFunction.Values
-							  orderby tfValue.TimeStep.Number // The particular time values in t array should be sorted according to time scale
-							  select new KeyValuePair<int, double>(tfValue.TimeStep.Number, tfValue.Value);
-			return resultQuery.ToList();
+			return from vertexAttribute in Context.Set<VertexAttribute>()
+				   where vertexAttribute.ModelId == modelId
+				   where vertexAttribute.Attribute.Target == attributeTarget
+				   from vertexNode in vertexAttribute.Vertex.VertexNodes
+				   where vertexNode.MeshId == meshId
+				   group vertexNode.NodeId by vertexAttribute.AttributeId;
+		}
+
+		private IQueryable<IGrouping<int, int>> createCurveNodeAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from curveAttribute in Context.Set<CurveAttribute>()
+				   where curveAttribute.ModelId == modelId
+				   where curveAttribute.Attribute.Target == attributeTarget
+				   from curveNode in curveAttribute.Curve.CurveNodes
+				   where curveNode.MeshId == meshId
+				   group curveNode.NodeId by curveAttribute.AttributeId;
+		}
+
+		private IQueryable<IGrouping<int, ElementEdge>> createCurveEdgeAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from curveAttribute in Context.Set<CurveAttribute>()
+				   where curveAttribute.ModelId == modelId
+				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
+				   where curveAttribute.Attribute.Target == attributeTarget
+				   from curveElement in curveAttribute.Curve.CurveElements
+				   where curveElement.MeshId == meshId
+				   group new ElementEdge(curveElement.ElementId, curveElement.Rank) by curveAttribute.AttributeId;
+		}
+
+		private IQueryable<IGrouping<int, ElementSurface>> createSurfaceSurfaceAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+				   where surfaceAttribute.ModelId == modelId
+				   where surfaceAttribute.Attribute.Target == attributeTarget
+				   from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+				   where surfaceElement.MeshId == meshId
+				   group new ElementSurface(surfaceElement.ElementId, surfaceElement.Rank) by surfaceAttribute.AttributeId;
+		}
+
+		private IQueryable<IGrouping<int, int>> createCurveElementAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from curveAttribute in Context.Set<CurveAttribute>()
+				   where curveAttribute.ModelId == modelId
+				   where (curveAttribute.RelativeStart == null || curveAttribute.RelativeStart == 0) && (curveAttribute.RelativeEnd == null || curveAttribute.RelativeEnd == 1) // do not allow partially applied attributes here
+				   where curveAttribute.Attribute.Target == attributeTarget
+				   from curveElement in curveAttribute.Curve.CurveElements
+				   where curveElement.MeshId == meshId
+				   where curveElement.Rank == 0
+				   group curveElement.ElementId by curveAttribute.AttributeId;
+		}
+
+		private IQueryable<IGrouping<int, int>> createSurfaceElementAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from surfaceAttribute in Context.Set<SurfaceAttribute>()
+				   where surfaceAttribute.ModelId == modelId
+				   where surfaceAttribute.Attribute.Target == attributeTarget
+				   from surfaceElement in surfaceAttribute.Surface.SurfaceElements
+				   where surfaceElement.MeshId == meshId
+				   where surfaceElement.Rank == 0
+				   group surfaceElement.ElementId by surfaceAttribute.AttributeId;
+		}
+
+		private IQueryable<IGrouping<int, int>> createVolumeElementAttributeGroupQuery(int modelId, int meshId, AttributeTarget attributeTarget)
+		{
+			return from volumeAttribute in Context.Set<VolumeAttribute>()
+				   where volumeAttribute.ModelId == modelId
+				   where volumeAttribute.Attribute.Target == attributeTarget
+				   from volumeElement in volumeAttribute.Volume.VolumeElements
+				   where volumeElement.MeshId == meshId
+				   group volumeElement.ElementId by volumeAttribute.AttributeId;
+		}
+
+		#endregion
+
+		private ImmutableSortedDictionary<int, double> getTimeStepFunctionValuePairs(TimeFunction timeFunction)
+		{
+			// The particular time values in t array should be sorted according to time scale
+			// Therefore use sorted dictionary
+			var result = ImmutableSortedDictionary<int, double>.Empty;
+			foreach (var tfValue in timeFunction.Values)
+			{
+				result = result.Add(tfValue.TimeStep.Number, tfValue.Value);
+			}
+			return result;
 		}
 
 		#endregion
