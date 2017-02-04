@@ -119,7 +119,7 @@ namespace OofemLink.Services.DataAccess
 										 from curveNode in curveAttribute.Curve.CurveNodes
 										 where curveNode.MeshId == meshId
 										 select curveNode.NodeId;
-						var query = vertexQuery.Concat(curveQuery).OrderBy(id => id).Distinct();
+						var query = vertexQuery.Concat(curveQuery);
 						var nodes = await query.ToListAsync();
 						return new MeshEntitySet().WithNodes(nodes);
 					}
@@ -217,7 +217,7 @@ namespace OofemLink.Services.DataAccess
 								  from volumeElement in volumeAttribute.Volume.VolumeElements
 								  where volumeElement.MeshId == meshId
 								  select volumeElement.ElementId;
-			return elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery).OrderBy(id => id).Distinct();
+			return elements1dQuery.Concat(elements2dQuery).Concat(elements3dQuery);
 		}
 
 		private List<KeyValuePair<int, double>> getTimeStepFunctionValuePairs(TimeFunction timeFunction)

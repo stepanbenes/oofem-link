@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
 using OofemLink.Services.Execution;
 using OofemLink.Common.Enumerations;
+using OofemLink.Common.Diagnostics;
 
 namespace OofemLink.Cli
 {

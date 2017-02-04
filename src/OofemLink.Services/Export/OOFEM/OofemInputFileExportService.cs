@@ -11,6 +11,7 @@ using OofemLink.Common.MathPhys;
 using OofemLink.Services.DataAccess;
 using OofemLink.Data.DataTransferObjects;
 using OofemLink.Data.MeshEntities;
+using OofemLink.Common.Diagnostics;
 
 namespace OofemLink.Services.Export.OOFEM
 {
@@ -39,32 +40,61 @@ namespace OofemLink.Services.Export.OOFEM
 
 		public async Task ExportSimulationAsync(int simulationId)
 		{
-			// load simulation from db
-			var simulation = await simulationService.GetOneAsync(simulationId);
+			ViewSimulationDto simulation;
 
-			if (simulation == null)
-				throw new KeyNotFoundException($"Simulation with id {simulationId} was not found.");
-			if (simulation.ModelId == null)
-				throw new InvalidDataException($"Simulation {simulationId} does not contain any model.");
+			using (new TimeReport("SIMULATION"))
+			{
+				// load simulation from db
+				simulation = await simulationService.GetOneAsync(simulationId);
+
+				if (simulation == null)
+					throw new KeyNotFoundException($"Simulation with id {simulationId} was not found.");
+				if (simulation.ModelId == null)
+					throw new InvalidDataException($"Simulation {simulationId} does not contain any model.");
+			}
 
 			int modelId = simulation.ModelId.Value;
+			MeshDto mesh;
 
-			// load all meshes related to this simulation
-			var modelMeshes = await modelService.GetAllMeshesAsync(modelId);
+			using (new TimeReport("MESHES"))
+			{
+				// load all meshes related to this simulation
+				var modelMeshes = await modelService.GetAllMeshesAsync(modelId);
 
-			if (modelMeshes.Count == 0)
-				throw new InvalidDataException($"No mesh found for model {modelId}.");
-			if (modelMeshes.Count > 1)
-				throw new NotSupportedException($"Multiple meshes for single model are not yet supported (model {modelId}).");
+				if (modelMeshes.Count == 0)
+					throw new InvalidDataException($"No mesh found for model {modelId}.");
+				if (modelMeshes.Count > 1)
+					throw new NotSupportedException($"Multiple meshes for single model are not yet supported (model {modelId}).");
 
-			var mesh = modelMeshes.Single();
+				mesh = modelMeshes.Single();
+			}
 
-			var crossSectionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.CrossSection));
-			var materialAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Material));
-			var boundaryConditionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.BoundaryCondition));
-			var hingeAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Hinge));
-			var lcsAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.LocalCoordinateSystem));
-			var independentSpringAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Spring && !a.HasParentAttributes));
+			IReadOnlyList<AttributeDto> crossSectionAttributes, materialAttributes, boundaryConditionAttributes, hingeAttributes, lcsAttributes, independentSpringAttributes;
+
+			using (new TimeReport("CS QUERY"))
+			{
+				crossSectionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.CrossSection));
+			}
+			using (new TimeReport("MAT QUERY"))
+			{
+				materialAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Material));
+			}
+			using (new TimeReport("BC QUERY"))
+			{
+				boundaryConditionAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.BoundaryCondition));
+			}
+			using (new TimeReport("HINGE QUERY"))
+			{
+				hingeAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Hinge));
+			}
+			using (new TimeReport("LCS QUERY"))
+			{
+				lcsAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.LocalCoordinateSystem));
+			}
+			using (new TimeReport("SPRING QUERY"))
+			{
+				independentSpringAttributes = await modelService.GetAllAttributesAsync(modelId, query => query.Where(a => a.Type == AttributeType.Spring && !a.HasParentAttributes));
+			}
 
 			List<int> elementsWithDummyCS = new List<int>();
 
@@ -73,134 +103,158 @@ namespace OofemLink.Services.Export.OOFEM
 			var input = new InputBuilder();
 
 			// HEADER >>>
-
-			// OUTPUT FILE NAME
-			input.AddOutputFileRecord(new OutputFileRecord(outputFileFullPath));
-			// DESCRIPTION
-			input.AddDescriptionRecord(new DescriptionRecord($"Project: {simulation.ProjectName}, Task: {simulation.TaskName}"));
-
-			// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
-			input.AddDomainRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
-
-			// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
-			input.AddOutputManagerRecord(new OutputManagerRecord());
-
-			// NODES
-			foreach (var node in mesh.Nodes)
+			using (new TimeReport("HEADER"))
 			{
-				input.AddDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
+				// OUTPUT FILE NAME
+				input.AddOutputFileRecord(new OutputFileRecord(outputFileFullPath));
+				// DESCRIPTION
+				input.AddDescriptionRecord(new DescriptionRecord($"Project: {simulation.ProjectName}, Task: {simulation.TaskName}"));
+
+				// domain specify degrees of freedom, but it is not used anymore and will be removed in near future, it remains here just for backward compatibility
+				input.AddDomainRecord(new DomainRecord("3dshell")); // TODO: avoid hard-coded string
+
+				// default outputmanager giving outfile, in this case beam3d.out, only specific elements or time steps can be exported, here we export all of them
+				input.AddOutputManagerRecord(new OutputManagerRecord());
+			}
+
+			using (new TimeReport("NODES"))
+			{
+				// NODES
+				foreach (var node in mesh.Nodes)
+				{
+					input.AddDofManagerRecord(new NodeRecord(node.Id, node.X, node.Y, node.Z));
+				}
 			}
 
 			string defaultZAxisParameter = getDefaultZAxisParameterBeam3d(simulation.DimensionFlags);
 
-			// ELEMENTS
-			foreach (var element in mesh.Elements)
+			using (new TimeReport("ELEMENTS"))
 			{
-				ElementRecord elementRecord;
-				switch (element.Type)
+				// ELEMENTS
+				foreach (var element in mesh.Elements)
 				{
-					case CellType.LineLinear:
-						{
-							Debug.Assert(element.NodeIds.Count == 2);
-							elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, element.NodeIds, defaultZAxisParameter);
-						}
-						break;
-					case CellType.TriangleLinear:
-						{
-							Debug.Assert(element.NodeIds.Count == 3);
-							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds: new[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[2] }); // last node is doubled
-						}
-						break;
-					case CellType.QuadLinear:
-						{
-							Debug.Assert(element.NodeIds.Count == 4);
-							elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, element.NodeIds);
-						}
-						break;
-					default:
-						throw new NotSupportedException($"Element type {element.Type} is not supported.");
-				}
-				input.AddElementRecord(elementRecord);
-			}
-
-			// LOCAL COORDINATE SYSTEMS
-			foreach (var lcsAttribute in lcsAttributes)
-			{
-				MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, lcsAttribute.Id, mesh.Id);
-				Debug.Assert(set.Nodes.Count == 0);
-				Debug.Assert(set.ElementEdges.Count == 0);
-				Debug.Assert(set.ElementSurfaces.Count == 0);
-				string lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
-				foreach (int elementId in set.Elements)
-				{
-					var elementRecord = input.ElementRecords[elementId];
-					elementRecord.Parameters = lcsParameter;
-				}
-			}
-
-			// SPRINGS
-			foreach (var spring in independentSpringAttributes)
-			{
-				MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, spring.Id, mesh.Id);
-				foreach (var nodeId in set.Nodes)
-				{
-					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
-					input.AddElementRecord(springElementRecord);
-					elementsWithDummyCS.Add(springElementRecord.Id);
-				}
-				foreach (var edge in set.ElementEdges)
-				{
-					ElementRecord parentElementRecord = input.ElementRecords[edge.ElementId];
-					int node1Id, node2Id;
-					getNodesOfEdge(parentElementRecord, edge.EdgeRank, out node1Id, out node2Id);
-					var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
-					input.AddElementRecord(springElementRecord);
-					elementsWithDummyCS.Add(springElementRecord.Id);
-				}
-			}
-
-			// HINGES
-			foreach (var hinge in hingeAttributes)
-			{
-				var set = await modelService.GetAttributeSetAsync(modelId, hinge.Id, mesh.Id);
-				var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
-				var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
-				input.AddDofManagerRecord(slaveNodeRecord);
-
-				var beamElementRecord = input.ElementRecords[set.Elements.Single()];
-				beamElementRecord.ReplaceNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
-
-				// hinge springs
-				foreach (int childAttributeId in hinge.ChildAttributeIds)
-				{
-					var childAttribute = await modelService.GetAttributeAsync(modelId, childAttributeId);
-					if (childAttribute.Type == AttributeType.Spring)
+					ElementRecord elementRecord;
+					switch (element.Type)
 					{
-						var springElementRecord = new ElementRecord(childAttribute.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: childAttribute.Parameters);
+						case CellType.LineLinear:
+							{
+								Debug.Assert(element.NodeIds.Count == 2);
+								elementRecord = new ElementRecord(ElementNames.beam3d, element.Id, element.Type, element.NodeIds, defaultZAxisParameter);
+							}
+							break;
+						case CellType.TriangleLinear:
+							{
+								Debug.Assert(element.NodeIds.Count == 3);
+								elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, nodeIds: new[] { element.NodeIds[0], element.NodeIds[1], element.NodeIds[2], element.NodeIds[2] }); // last node is doubled
+							}
+							break;
+						case CellType.QuadLinear:
+							{
+								Debug.Assert(element.NodeIds.Count == 4);
+								elementRecord = new ElementRecord(ElementNames.mitc4shell, element.Id, element.Type, element.NodeIds);
+							}
+							break;
+						default:
+							throw new NotSupportedException($"Element type {element.Type} is not supported.");
+					}
+					input.AddElementRecord(elementRecord);
+				}
+			}
+
+			using (new TimeReport("LCS"))
+			{
+				// LOCAL COORDINATE SYSTEMS
+				foreach (var lcsAttribute in lcsAttributes)
+				{
+					MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, lcsAttribute.Id, mesh.Id);
+					Debug.Assert(set.Nodes.Count == 0);
+					Debug.Assert(set.ElementEdges.Count == 0);
+					Debug.Assert(set.ElementSurfaces.Count == 0);
+					string lcsParameter = $"{lcsAttribute.Name} {lcsAttribute.Parameters}";
+					foreach (int elementId in set.Elements)
+					{
+						var elementRecord = input.ElementRecords[elementId];
+						elementRecord.Parameters = lcsParameter;
+					}
+				}
+			}
+
+			using (new TimeReport("SPRINGS"))
+			{
+				// SPRINGS
+				foreach (var spring in independentSpringAttributes)
+				{
+					MeshEntitySet set = await modelService.GetAttributeSetAsync(modelId, spring.Id, mesh.Id);
+					foreach (var nodeId in set.Nodes)
+					{
+						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.Point, nodeIds: new[] { nodeId }, parameters: spring.Parameters);
+						input.AddElementRecord(springElementRecord);
+						elementsWithDummyCS.Add(springElementRecord.Id);
+					}
+					foreach (var edge in set.ElementEdges)
+					{
+						ElementRecord parentElementRecord = input.ElementRecords[edge.ElementId];
+						int node1Id, node2Id;
+						getNodesOfEdge(parentElementRecord, edge.EdgeRank, out node1Id, out node2Id);
+						var springElementRecord = new ElementRecord(spring.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { node1Id, node2Id }, parameters: spring.Parameters);
 						input.AddElementRecord(springElementRecord);
 						elementsWithDummyCS.Add(springElementRecord.Id);
 					}
 				}
 			}
 
-			// MATERIALS
-			foreach (var materialAttribute in materialAttributes)
+			using (new TimeReport("HINGES"))
 			{
-				input.AddMaterialRecord(new MaterialRecord(materialAttribute.Name, id: materialAttribute.Id, parameters: materialAttribute.Parameters));
+				// HINGES
+				foreach (var hinge in hingeAttributes)
+				{
+					var set = await modelService.GetAttributeSetAsync(modelId, hinge.Id, mesh.Id);
+					var masterNodeRecord = input.DofManagerRecords[set.Nodes.Single()];
+					var slaveNodeRecord = new RigidArmNodeRecord(input.MaxDofManagerId + 1, masterNodeRecord.X, masterNodeRecord.Y, masterNodeRecord.Z, masterNodeRecord.Id, hinge.Parameters);
+					input.AddDofManagerRecord(slaveNodeRecord);
+
+					var beamElementRecord = input.ElementRecords[set.Elements.Single()];
+					beamElementRecord.ReplaceNode(oldNodeId: masterNodeRecord.Id, newNodeId: slaveNodeRecord.Id);
+
+					// hinge springs
+					foreach (int childAttributeId in hinge.ChildAttributeIds)
+					{
+						var childAttribute = await modelService.GetAttributeAsync(modelId, childAttributeId);
+						if (childAttribute.Type == AttributeType.Spring)
+						{
+							var springElementRecord = new ElementRecord(childAttribute.Name, id: input.MaxElementId + 1, type: CellType.LineLinear, nodeIds: new[] { masterNodeRecord.Id, slaveNodeRecord.Id }, parameters: childAttribute.Parameters);
+							input.AddElementRecord(springElementRecord);
+							elementsWithDummyCS.Add(springElementRecord.Id);
+						}
+					}
+				}
 			}
 
-			// CROSS-SECTIONS
-			for (int i = 0; i < crossSectionAttributes.Count; i++)
+			using (new TimeReport("MATERIALS"))
 			{
-				var crossSectionAttribute = crossSectionAttributes[i];
-				int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
-				var setRecord = new SetRecord(await modelService.GetAttributeSetAsync(modelId, crossSectionAttribute.Id, mesh.Id));
-				input.AddSetRecord(setRecord);
-				input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
+				// MATERIALS
+				foreach (var materialAttribute in materialAttributes)
+				{
+					input.AddMaterialRecord(new MaterialRecord(materialAttribute.Name, id: materialAttribute.Id, parameters: materialAttribute.Parameters));
+				}
 			}
 
-			// BOUNDARY CONDITIONS
+			using (new TimeReport("CROSS-SECTIONS"))
 			{
+				// CROSS-SECTIONS
+				for (int i = 0; i < crossSectionAttributes.Count; i++)
+				{
+					var crossSectionAttribute = crossSectionAttributes[i];
+					int materialId = crossSectionAttribute.ChildAttributeIds.Single(); // TODO: handle cases with non-single referenced materials
+					var setRecord = new SetRecord(await modelService.GetAttributeSetAsync(modelId, crossSectionAttribute.Id, mesh.Id));
+					input.AddSetRecord(setRecord);
+					input.AddCrossSectionRecord(new CrossSectionRecord(crossSectionAttribute.Name, id: i + 1, parameters: crossSectionAttribute.Parameters, material: input.MaterialRecords[materialId], set: setRecord));
+				}
+			}
+
+			using (new TimeReport("BC"))
+			{
+				// BOUNDARY CONDITIONS
 				var timeFunctionIdToRecordMap = new Dictionary<int, TimeFunctionRecord>();
 				foreach (var bcAttribute in boundaryConditionAttributes) // write Boundary Conditions (including Loads)
 				{
@@ -219,32 +273,37 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
-			// append dummy cross-section and material if needed
-			if (elementsWithDummyCS.Count > 0)
+			using (new TimeReport("DUMMY"))
 			{
-				var set = new MeshEntitySet().WithElements(elementsWithDummyCS.ToArray());
-				var setRecord = new SetRecord(set);
-				var dummyMaterialRecord = createDummyMaterialRecord();
-				var dummyCrossSectionRecord = createDummyCrossSectionRecord(dummyMaterialRecord, setRecord);
+				// append dummy cross-section and material if needed
+				if (elementsWithDummyCS.Count > 0)
+				{
+					var set = new MeshEntitySet().WithElements(elementsWithDummyCS);
+					var setRecord = new SetRecord(set);
+					var dummyMaterialRecord = createDummyMaterialRecord();
+					var dummyCrossSectionRecord = createDummyCrossSectionRecord(dummyMaterialRecord, setRecord);
 
-				input.AddCrossSectionRecord(dummyCrossSectionRecord);
-				input.AddMaterialRecord(dummyMaterialRecord);
-				input.AddSetRecord(setRecord);
+					input.AddCrossSectionRecord(dummyCrossSectionRecord);
+					input.AddMaterialRecord(dummyMaterialRecord);
+					input.AddSetRecord(setRecord);
 
-				// Uncomment following to append "mat X crossSect Y" to Spring elements' parameters
-				//foreach (int elementId in elementsWithDummyCS)
-				//{
-				//	var elementRecord = input.ElementRecords[elementId];
-				//	if (elementRecord.Name == ElementNames.Spring)
-				//	{
-				//		var updatedElementRecord = elementRecord.WithAppendedParameters($"mat {dummyMaterialRecord.Id} crossSect {dummyCrossSectionRecord.Id}");
-				//		input.AddOrUpdateElementRecord(updatedElementRecord);
-				//	}
-				//}
+					// Uncomment following to append "mat X crossSect Y" to Spring elements' parameters
+					//foreach (int elementId in elementsWithDummyCS)
+					//{
+					//	var elementRecord = input.ElementRecords[elementId];
+					//	if (elementRecord.Name == ElementNames.Spring)
+					//	{
+					//		var updatedElementRecord = elementRecord.WithAppendedParameters($"mat {dummyMaterialRecord.Id} crossSect {dummyCrossSectionRecord.Id}");
+					//		input.AddOrUpdateElementRecord(updatedElementRecord);
+					//	}
+					//}
+				}
 			}
 
-			// add boundary condition for mitc4shell element nodes (rotation in normal direction must be fixed)
+			using (new TimeReport("SUPPORTS FOR MITC"))
 			{
+				// add boundary condition for mitc4shell element nodes (rotation in normal direction must be fixed)
+
 				// NOTE: very Very VERY ugly code; does not work for elements having normal that does not align with GCS
 				// TODO: rethink and rewrite using e.g. lcs on nodes
 
@@ -272,7 +331,7 @@ namespace OofemLink.Services.Export.OOFEM
 					/* 
 						yay! ✿ (◠‿◠) ♥
 					*/
-					var setRecord = new SetRecord(new MeshEntitySet().WithNodes(nodesThatNeedToBeFixed.OrderBy(id => id).ToArray()));
+					var setRecord = new SetRecord(new MeshEntitySet().WithNodes(nodesThatNeedToBeFixed));
 					var timeFunctionRecord = new TimeFunctionRecord(TimeFunctionNames.ConstantFunction, id: 0, value: 1);
 					string parameters = $"dofs 1 {dofId} values 1 0";
 					var boundaryConditionRecord = new BoundaryConditionRecord(BoundaryConditionNames.BoundaryCondition, 0, parameters, timeFunctionRecord, setRecord);
@@ -283,8 +342,10 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
-			// attach quad1platesubsoil elements to elements having WinklerPasternak material assigned to them
+			using (new TimeReport("SUBSOIL"))
 			{
+				// attach quad1platesubsoil elements to elements having WinklerPasternak material assigned to them
+
 				foreach (var crossSectionRecord in from materialRecord in input.MaterialRecords.Values
 												   where materialRecord.Name == MaterialNames.WinklerPasternak
 												   join crossSection in input.CrossSectionRecords.Values on materialRecord.Id equals crossSection.Material.Id
@@ -299,14 +360,16 @@ namespace OofemLink.Services.Export.OOFEM
 						input.AddElementRecord(soilElementRecord);
 						soilElementIds.Add(soilElementRecord.Id);
 					}
-					var newSetRecord = new SetRecord(new MeshEntitySet().WithElements(soilElementIds.ToArray()));
+					var newSetRecord = new SetRecord(new MeshEntitySet().WithElements(soilElementIds));
 					input.AddSetRecord(newSetRecord);
 					crossSectionRecord.Set = newSetRecord; // replace old set with new set with newly created soil elements
 				}
 			}
 
-			// split beams under partially applied loads
+			using (new TimeReport("PARTIAL LOAD"))
 			{
+				// split beams under partially applied loads
+
 				var partiallyAppliedLoads = await modelService.GetAllPartialAttributeOnCurveApplicationsAsync(modelId, mesh.Id, AttributeType.BoundaryCondition);
 				foreach (var partiallyAppliedLoad in partiallyAppliedLoads)
 				{
@@ -331,15 +394,21 @@ namespace OofemLink.Services.Export.OOFEM
 				}
 			}
 
-			// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
-			input.AddEngineeringModelRecord(new EngineeringModelRecord(
-					engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
-					numberOfTimeSteps: simulation.TimeSteps.Count,
-					exportModules: new[] { createVtkXmlExportModuleRecord(input) }
-				));
+			using (new TimeReport("ENG MODEL"))
+			{
+				// Type of so-called engineering model, willbe the same for now, for non-linear problems we will need switch to nonlinear static. The nlstatic can have several keywords specifying solver parameters, convergence criteria and so on, nmodules = number of export modules
+				input.AddEngineeringModelRecord(new EngineeringModelRecord(
+						engineeringModelName: "LinearStatic", // TODO: take this from analysis parameters in Simulation object
+						numberOfTimeSteps: simulation.TimeSteps.Count,
+						exportModules: new[] { createVtkXmlExportModuleRecord(input) }
+					));
+			}
 
-			// create input file
-			input.WriteToFile(inputFileFullPath);
+			using (new TimeReport("GO GO, WRITE!"))
+			{
+				// create input file
+				input.WriteToFile(inputFileFullPath);
+			}
 		}
 
 		#endregion
@@ -553,7 +622,7 @@ namespace OofemLink.Services.Export.OOFEM
 							newEdgeList.Add(new ElementEdge(targetElementId, edge.EdgeRank)); // WARNING: copying edge rank works only for beams
 						}
 					}
-					setRecord.Set = setRecord.Set.WithElementEdges(newEdgeList.ToArray());
+					setRecord.Set = setRecord.Set.WithElementEdges(newEdgeList);
 				}
 
 				if (setRecord.Set.ElementSurfaces.Any(surface => surface.ElementId == sourceElementId))
@@ -567,15 +636,15 @@ namespace OofemLink.Services.Export.OOFEM
 							newSurfaceList.Add(new ElementSurface(targetElementId, surface.SurfaceRank)); // WARNING: copying surface rank works only for beams
 						}
 					}
-					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceList.ToArray());
+					setRecord.Set = setRecord.Set.WithElementSurfaces(newSurfaceList);
 				}
 			}
 		}
 
 		private void appendElementToSetRecord(SetRecord setRecord, int elementIdToAppend)
 		{
-			var updatedElementList = setRecord.Set.Elements.AppendItem(elementIdToAppend).OrderBy(id => id).Distinct().ToList();
-			setRecord.Set = setRecord.Set.WithElements(updatedElementList); // update set record
+			var updatedElements = setRecord.Set.Elements.Add(elementIdToAppend);
+			setRecord.Set = setRecord.Set.WithElements(updatedElements); // update set record
 		}
 
 		#endregion
