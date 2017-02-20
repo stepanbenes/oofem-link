@@ -13,7 +13,7 @@ namespace OofemLink.WebApi.Filters
 		public void OnActionExecuted(ActionExecutedContext context)
 		{
 			var objectResult = (context.Result as ObjectResult);
-			if (objectResult != null && objectResult.Value == null)
+			if (objectResult != null && !(context.Result is AcceptedResult) && objectResult.Value == null)
 			{
 				context.Result = new NotFoundResult();
 			}
