@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Command-line interface for OOFEM solver. File conversion engine, execution control, model and results database administration.</Description>
+    <Copyright>Copyright (c) 2016-2017 OOFEM team</Copyright>
+    <AssemblyTitle>OOFEM-link CLI</AssemblyTitle>
+    <VersionPrefix>0.3.0</VersionPrefix>
+    <Authors>OOFEM team</Authors>
+    <TargetFramework>netcoreapp1.1</TargetFramework>
+    <AssemblyName>OofemLink.Cli</AssemblyName>
+    <OutputType>Exe</OutputType>
+    <PackageId>OofemLink.Cli</PackageId>
+    <RuntimeIdentifiers>win7-x86;win7-x64;ubuntu.16.04-x64</RuntimeIdentifiers>
+    <PackageTargetFallback>$(PackageTargetFallback);dnxcore50</PackageTargetFallback>
+    <RuntimeFrameworkVersion>1.1.1</RuntimeFrameworkVersion>
+    <GenerateAssemblyConfigurationAttribute>false</GenerateAssemblyConfigurationAttribute>
+    <GenerateAssemblyCompanyAttribute>false</GenerateAssemblyCompanyAttribute>
+    <GenerateAssemblyProductAttribute>false</GenerateAssemblyProductAttribute>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OofemLink.Services\OofemLink.Services.csproj" />
+    <ProjectReference Include="..\OofemLink.Common\OofemLink.Common.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.1.1-beta" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="1.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="1.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="1.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="1.1.1" />
+  </ItemGroup>
+
+</Project>
