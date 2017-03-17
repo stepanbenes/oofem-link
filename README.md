@@ -25,8 +25,8 @@ Place configuration file with name _appsettings.json_ to folder that contains ap
     },
 	"Execution": {
         "OofemExecutableFilePath": "C:/.../oofem.exe",
-		"DefaultInputLocation": "C:/.../",
-		"DefaultOutputLocation": "C:/.../"
+        "DefaultInputLocation": "C:/.../",
+        "DefaultOutputLocation": "C:/.../"
     }
 }
 ```
