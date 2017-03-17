@@ -53,18 +53,7 @@ namespace OofemLink.WebApi
 
 			services.AddDbContext<Data.DataContext>(options =>
 			{
-				switch (Configuration["DatabaseProvider"])
-				{
-					case "SqlServer":
-						options.UseSqlServer(Configuration.GetConnectionString("oofem_db"));
-						break;
-					case "Sqlite":
-						options.UseSqlite(Configuration.GetConnectionString("oofem_db"));
-						break;
-					case "InMemory":
-						options.UseInMemoryDatabase();
-						break;
-				}
+				options.UseSqlServer(Configuration["oofem_db_connection_string"]);
 			});
 
 			services.AddScoped<IProjectService, ProjectService>();
