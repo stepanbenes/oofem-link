@@ -118,17 +118,25 @@ namespace OofemLink.Cli
 
 			services.AddDbContext<DataContext>(options =>
 			{
-				switch (configuration["DatabaseProvider"])
+				string oofem_db_connectionString = Environment.GetEnvironmentVariable("oofem_db_connection_string");
+				if (!string.IsNullOrEmpty(oofem_db_connectionString))
 				{
-					case "SqlServer":
-						options.UseSqlServer(configuration.GetConnectionString("oofem_db"));
-						break;
-					case "Sqlite":
-						options.UseSqlite(configuration.GetConnectionString("oofem_db"));
-						break;
-					case "InMemory":
-						options.UseInMemoryDatabase();
-						break;
+					options.UseSqlServer(oofem_db_connectionString); // environment variable takes precedence
+				}
+				else
+				{
+					switch (configuration["DatabaseProvider"])
+					{
+						case "SqlServer":
+							options.UseSqlServer(configuration.GetConnectionString("oofem_db"));
+							break;
+						case "Sqlite":
+							options.UseSqlite(configuration.GetConnectionString("oofem_db"));
+							break;
+						case "InMemory":
+							options.UseInMemoryDatabase();
+							break;
+					}
 				}
 			});
 
